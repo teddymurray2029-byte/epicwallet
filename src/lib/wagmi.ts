@@ -1,4 +1,4 @@
-import { http, createConfig } from 'wagmi';
+import { http, createConfig, createStorage } from 'wagmi';
 import { polygon, polygonAmoy } from 'wagmi/chains';
 import { injected, walletConnect } from 'wagmi/connectors';
 
@@ -24,6 +24,8 @@ export const config = createConfig({
     [polygon.id]: http(),
     [polygonAmoy.id]: http(),
   },
+  // Enable storage for connection persistence and auto-reconnect
+  storage: createStorage({ storage: typeof window !== 'undefined' ? window.localStorage : undefined }),
 });
 
 // Contract addresses (placeholders for deployment)
