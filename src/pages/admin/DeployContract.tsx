@@ -143,9 +143,15 @@ export default function DeployContract() {
     }
   }, [deployError, deployErrorDetails]);
 
-  const handleDeploy = () => {
+  const handleDeploy = async () => {
     if (!isConnected) {
       toast.error('Please connect your wallet first');
+      return;
+    }
+
+    // Verify we're on a supported network
+    if (!isCorrectNetwork) {
+      toast.error('Please switch to Polygon Mainnet or Amoy Testnet first');
       return;
     }
 
@@ -154,11 +160,18 @@ export default function DeployContract() {
     // Parse initial supply (convert from CARE to wei)
     const supplyWei = initialSupply ? parseEther(initialSupply) : DEFAULT_INITIAL_SUPPLY;
 
-    deployContract({
-      abi: CARE_COIN_ABI,
-      bytecode: CARE_COIN_BYTECODE,
-      args: [TREASURY_ADDRESS, supplyWei],
-    });
+    try {
+      deployContract({
+        abi: CARE_COIN_ABI,
+        bytecode: CARE_COIN_BYTECODE,
+        args: [TREASURY_ADDRESS, supplyWei],
+        chainId: chainId, // Explicitly pass the current chain
+      });
+    } catch (err: any) {
+      console.error('Deploy error:', err);
+      setError(err?.message || 'Deployment failed');
+      setStep('error');
+    }
   };
 
   const handleReset = () => {
