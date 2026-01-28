@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useChainId, useWaitForTransactionReceipt, useDeployContract } from 'wagmi';
+import { useChainId, useWaitForTransactionReceipt } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
-import { parseEther } from 'viem';
+import { parseEther, createWalletClient, custom, type Hash, encodeDeployData } from 'viem';
 import { useWallet } from '@/contexts/WalletContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,26 +37,17 @@ export default function DeployContract() {
   const { address, isConnected, isConnecting } = useWallet();
   const chainId = useChainId();
   
-  
-  const { 
-    deployContract, 
-    data: txHash, 
-    isPending: isDeploying, 
-    isError: deployError,
-    error: deployErrorDetails,
-    reset: resetDeploy 
-  } = useDeployContract();
+  const [step, setStep] = useState<DeploymentStep>('idle');
+  const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [initialSupply, setInitialSupply] = useState<string>('0');
+  const [txHash, setTxHash] = useState<Hash | undefined>(undefined);
 
   const { 
     data: receipt, 
     isLoading: isWaitingReceipt,
     isSuccess: isConfirmed 
   } = useWaitForTransactionReceipt({ hash: txHash });
-
-  const [step, setStep] = useState<DeploymentStep>('idle');
-  const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [initialSupply, setInitialSupply] = useState<string>('0');
 
   const isAmoy = chainId === polygonAmoy.id;
   const isPolygon = chainId === polygon.id;
@@ -91,13 +82,11 @@ export default function DeployContract() {
         };
 
     try {
-      // Try to switch to the chain first
       await ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: chainConfig.chainId }],
       });
     } catch (switchError: any) {
-      // Chain doesn't exist in wallet, add it
       if (switchError.code === 4902) {
         try {
           await ethereum.request({
@@ -113,20 +102,7 @@ export default function DeployContract() {
     }
   };
 
-  // Track deployment state changes
-  useEffect(() => {
-    if (isDeploying) {
-      setStep('confirming');
-    }
-  }, [isDeploying]);
-
-  useEffect(() => {
-    if (txHash && isWaitingReceipt) {
-      setStep('deploying');
-      toast.info('Transaction submitted! Waiting for confirmation...');
-    }
-  }, [txHash, isWaitingReceipt]);
-
+  // Track when receipt is confirmed
   useEffect(() => {
     if (isConfirmed && receipt?.contractAddress) {
       setDeployedAddress(receipt.contractAddress);
@@ -136,49 +112,77 @@ export default function DeployContract() {
   }, [isConfirmed, receipt]);
 
   useEffect(() => {
-    if (deployError && deployErrorDetails) {
-      setError(deployErrorDetails.message || 'Deployment failed');
-      setStep('error');
-      toast.error('Deployment failed');
+    if (txHash && isWaitingReceipt) {
+      setStep('deploying');
     }
-  }, [deployError, deployErrorDetails]);
+  }, [txHash, isWaitingReceipt]);
 
   const handleDeploy = async () => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       toast.error('Please connect your wallet first');
       return;
     }
 
-    // Verify we're on a supported network
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) {
+      toast.error('No wallet detected');
+      return;
+    }
+
     if (!isCorrectNetwork) {
       toast.error('Please switch to Polygon Mainnet or Amoy Testnet first');
       return;
     }
 
     setError(null);
-
-    // Parse initial supply (convert from CARE to wei)
-    const supplyWei = initialSupply ? parseEther(initialSupply) : DEFAULT_INITIAL_SUPPLY;
+    setStep('confirming');
 
     try {
-      deployContract({
+      // Parse initial supply (convert from CARE to wei)
+      const supplyWei = initialSupply ? parseEther(initialSupply) : DEFAULT_INITIAL_SUPPLY;
+
+      // Create wallet client directly from window.ethereum - bypasses wagmi chain validation
+      const walletClient = createWalletClient({
+        account: address as `0x${string}`,
+        chain: chainId === polygonAmoy.id ? polygonAmoy : polygon,
+        transport: custom(ethereum),
+      });
+
+      toast.info('Please confirm the transaction in your wallet...');
+
+      // Encode deployment data
+      const deployData = encodeDeployData({
         abi: CARE_COIN_ABI,
         bytecode: CARE_COIN_BYTECODE,
         args: [TREASURY_ADDRESS, supplyWei],
-        chainId: chainId, // Explicitly pass the current chain
       });
+
+      // Deploy using raw request to avoid viem type issues
+      const hash = await ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: address,
+          data: deployData,
+        }],
+      }) as Hash;
+
+      setTxHash(hash);
+      toast.info('Transaction submitted! Waiting for confirmation...');
+      
     } catch (err: any) {
       console.error('Deploy error:', err);
-      setError(err?.message || 'Deployment failed');
+      const errorMessage = err?.shortMessage || err?.message || 'Deployment failed';
+      setError(errorMessage);
       setStep('error');
+      toast.error('Deployment failed: ' + errorMessage);
     }
   };
 
   const handleReset = () => {
-    resetDeploy();
     setStep('idle');
     setError(null);
     setDeployedAddress(null);
+    setTxHash(undefined);
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -319,7 +323,6 @@ export default function DeployContract() {
                 onClick={handleDeploy} 
                 className="w-full" 
                 size="lg"
-                disabled={isDeploying}
               >
                 <Rocket className="h-4 w-4 mr-2" />
                 Deploy CareCoin
