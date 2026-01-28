@@ -29,11 +29,12 @@ type DeploymentStep = 'idle' | 'confirming' | 'deploying' | 'success' | 'error';
 export default function DeployContract() {
   const { address, isConnected, isConnecting } = useWallet();
   const chainId = useChainId();
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient, isLoading: walletClientLoading } = useWalletClient();
   const { switchChain } = useSwitchChain();
   const publicClient = usePublicClient();
 
   const isWalletReady = isConnected && !!walletClient && !!publicClient;
+  const isInitializing = isConnected && (walletClientLoading || !walletClient || !publicClient);
 
   const [step, setStep] = useState<DeploymentStep>('idle');
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
@@ -256,7 +257,7 @@ export default function DeployContract() {
                 disabled={!isWalletReady}
               >
                 <Rocket className="h-4 w-4 mr-2" />
-                {!isWalletReady ? 'Waiting for wallet...' : 'Deploy CareCoin'}
+                {isInitializing ? 'Initializing...' : !isConnected ? 'Connect Wallet' : 'Deploy CareCoin'}
               </Button>
             </CardContent>
           </Card>
