@@ -10,6 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Rocket, 
   CheckCircle2, 
@@ -60,31 +67,36 @@ export default function DeployContract() {
     ? 'https://amoy.polygonscan.com' 
     : 'https://polygonscan.com';
 
-  const handleSwitchToAmoy = async () => {
+  const handleSwitchNetwork = async (targetChainId: number) => {
     try {
-      await switchChain({ chainId: polygonAmoy.id });
+      await switchChain({ chainId: targetChainId });
     } catch (err: any) {
       // If chain not configured in wallet, try to add it first
       if (err?.message?.includes('Chain not configured') || err?.code === 4902) {
         try {
-          // Request wallet to add the Amoy network
+          const chainConfig = targetChainId === polygonAmoy.id 
+            ? {
+                chainId: `0x${polygonAmoy.id.toString(16)}`,
+                chainName: 'Polygon Amoy Testnet',
+                nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
+                rpcUrls: ['https://rpc-amoy.polygon.technology'],
+                blockExplorerUrls: ['https://amoy.polygonscan.com'],
+              }
+            : {
+                chainId: `0x${polygon.id.toString(16)}`,
+                chainName: 'Polygon Mainnet',
+                nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
+                rpcUrls: ['https://polygon-rpc.com'],
+                blockExplorerUrls: ['https://polygonscan.com'],
+              };
+          
           await (window as any).ethereum?.request({
             method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: `0x${polygonAmoy.id.toString(16)}`,
-              chainName: 'Polygon Amoy Testnet',
-              nativeCurrency: {
-                name: 'POL',
-                symbol: 'POL',
-                decimals: 18,
-              },
-              rpcUrls: ['https://rpc-amoy.polygon.technology'],
-              blockExplorerUrls: ['https://amoy.polygonscan.com'],
-            }],
+            params: [chainConfig],
           });
-          toast.success('Polygon Amoy network added! Please try again.');
+          toast.success('Network added! Please try again.');
         } catch (addError) {
-          toast.error('Failed to add network. Please add Polygon Amoy manually in your wallet.');
+          toast.error('Failed to add network. Please add it manually in your wallet.');
         }
       } else {
         toast.error('Failed to switch network. Please switch manually in your wallet.');
@@ -190,17 +202,30 @@ export default function DeployContract() {
                     {address?.slice(0, 6)}...{address?.slice(-4)}
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Network:</span>
-                  <Badge variant={isCorrectNetwork ? "default" : "destructive"}>
-                    {networkName}
-                  </Badge>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Network:</Label>
+                  <Select 
+                    value={chainId?.toString()} 
+                    onValueChange={(value) => handleSwitchNetwork(parseInt(value))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select network" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={polygon.id.toString()}>
+                        Polygon Mainnet
+                      </SelectItem>
+                      <SelectItem value={polygonAmoy.id.toString()}>
+                        Polygon Amoy (Testnet)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!isCorrectNetwork && (
+                    <p className="text-xs text-destructive">
+                      Please switch to a supported network
+                    </p>
+                  )}
                 </div>
-                {!isCorrectNetwork && (
-                  <Button onClick={handleSwitchToAmoy} variant="outline" className="w-full">
-                    Switch to Polygon Amoy
-                  </Button>
-                )}
               </div>
             )}
           </CardContent>
