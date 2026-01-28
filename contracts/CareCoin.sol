@@ -19,7 +19,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
  * - Burnable for deflationary mechanics
  * 
  * Network: Polygon PoS / Amoy Testnet
- * Treasury Wallet: 0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37
+ * Treasury Wallet: 0x45e55b8f128070cf4889d893ed59e67ef6e98b8e
  */
 contract CareCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
     
