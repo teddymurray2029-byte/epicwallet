@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useChainId, useSwitchChain, useWaitForTransactionReceipt, useDeployContract } from 'wagmi';
+import { useChainId, useWaitForTransactionReceipt, useDeployContract } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
 import { parseEther } from 'viem';
 import { useWallet } from '@/contexts/WalletContext';
@@ -36,7 +36,7 @@ type DeploymentStep = 'idle' | 'confirming' | 'deploying' | 'success' | 'error';
 export default function DeployContract() {
   const { address, isConnected, isConnecting } = useWallet();
   const chainId = useChainId();
-  const { switchChain } = useSwitchChain();
+  
   
   const { 
     deployContract, 
@@ -68,33 +68,42 @@ export default function DeployContract() {
     : 'https://polygonscan.com';
 
   const handleSwitchNetwork = async (targetChainId: number) => {
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) {
+      toast.error('No wallet detected');
+      return;
+    }
+
+    const chainConfig = targetChainId === polygonAmoy.id 
+      ? {
+          chainId: `0x${polygonAmoy.id.toString(16)}`,
+          chainName: 'Polygon Amoy Testnet',
+          nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
+          rpcUrls: ['https://rpc-amoy.polygon.technology'],
+          blockExplorerUrls: ['https://amoy.polygonscan.com'],
+        }
+      : {
+          chainId: `0x${polygon.id.toString(16)}`,
+          chainName: 'Polygon Mainnet',
+          nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
+          rpcUrls: ['https://polygon-rpc.com'],
+          blockExplorerUrls: ['https://polygonscan.com'],
+        };
+
     try {
-      await switchChain({ chainId: targetChainId });
-    } catch (err: any) {
-      // If chain not configured in wallet, try to add it first
-      if (err?.message?.includes('Chain not configured') || err?.code === 4902) {
+      // Try to switch to the chain first
+      await ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: chainConfig.chainId }],
+      });
+    } catch (switchError: any) {
+      // Chain doesn't exist in wallet, add it
+      if (switchError.code === 4902) {
         try {
-          const chainConfig = targetChainId === polygonAmoy.id 
-            ? {
-                chainId: `0x${polygonAmoy.id.toString(16)}`,
-                chainName: 'Polygon Amoy Testnet',
-                nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
-                rpcUrls: ['https://rpc-amoy.polygon.technology'],
-                blockExplorerUrls: ['https://amoy.polygonscan.com'],
-              }
-            : {
-                chainId: `0x${polygon.id.toString(16)}`,
-                chainName: 'Polygon Mainnet',
-                nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
-                rpcUrls: ['https://polygon-rpc.com'],
-                blockExplorerUrls: ['https://polygonscan.com'],
-              };
-          
-          await (window as any).ethereum?.request({
+          await ethereum.request({
             method: 'wallet_addEthereumChain',
             params: [chainConfig],
           });
-          toast.success('Network added! Please try again.');
         } catch (addError) {
           toast.error('Failed to add network. Please add it manually in your wallet.');
         }
