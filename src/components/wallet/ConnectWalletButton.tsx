@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useConnect, useAccount, useDisconnect } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,8 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Wallet, ChevronDown, LogOut, Copy, ExternalLink, Check } from 'lucide-react';
-import { useState } from 'react';
+import { Wallet, ChevronDown, LogOut, Copy, ExternalLink, Check, Smartphone } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 
 export function ConnectWalletButton() {
@@ -106,8 +105,12 @@ export function ConnectWalletButton() {
             onClick={() => connect({ connector })}
             disabled={isPending}
           >
-            <Wallet className="mr-2 h-4 w-4" />
-            {connector.name}
+            {connector.name === 'WalletConnect' ? (
+              <Smartphone className="mr-2 h-4 w-4" />
+            ) : (
+              <Wallet className="mr-2 h-4 w-4" />
+            )}
+            {connector.name === 'Injected' ? 'Browser Wallet' : connector.name}
             {isPending && ' (connecting...)'}
           </DropdownMenuItem>
         ))}
