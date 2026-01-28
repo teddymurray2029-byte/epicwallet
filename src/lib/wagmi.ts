@@ -26,6 +26,8 @@ export const config = createConfig({
   },
   // Enable storage for connection persistence and auto-reconnect
   storage: createStorage({ storage: typeof window !== 'undefined' ? window.localStorage : undefined }),
+  // Sync with the connected chain from wallet - this ensures wagmi tracks the wallet's actual chain
+  syncConnectedChain: true,
 });
 
 // Contract addresses (placeholders for deployment)
