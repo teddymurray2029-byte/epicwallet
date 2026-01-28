@@ -1,168 +1,56 @@
 
+# Fix: Register Your Wallet in CareCoin
 
-# CareCoin — Healthcare Rewards Platform on Polygon
+## The Problem
+Your wallet connection works perfectly! The "Wallet Not Registered" message appears because the database doesn't have a record linking your wallet address to a provider role.
 
-A full-stack prototype for a Polygon-based ERC-20 healthcare rewards system with wallet-only authentication and a corporate/healthcare design aesthetic.
+## Solution Options
 
----
+### Option A: Add Self-Registration for Testing (Recommended for Development)
+Add a "Register as Provider" button on the "Wallet Not Registered" screen that allows you to self-register during development/testing.
 
-## Phase 1: Foundation & Authentication
+**Changes:**
+1. Update the "Wallet Not Registered" card to include a registration button
+2. When clicked, insert a new entity record with your wallet address as type "provider"
+3. After registration, the dashboard will load automatically
 
-### Wallet-Only Authentication System
-- MetaMask and WalletConnect integration using wagmi/viem
-- Wallet address becomes the user's identity
-- Role detection: System identifies if connected wallet belongs to a Provider, Patient, Admin, or Organization based on Registry data
-- Session persistence with automatic reconnection
+**User experience flow:**
+```text
+Connect Wallet → "Wallet Not Registered" → Click "Register as Provider" → Dashboard loads
+```
 
-### Database Architecture (Supabase)
-- **entities** table: Maps wallet addresses to entity type (provider/patient/organization) with metadata
-- **documentation_events** table: Off-chain record of healthcare events with timestamps, event types, and hashes
-- **attestations** table: Signed attestations linking events to reward distributions
-- **reward_policies** table: Configurable rules per event type (base reward, splits, rate limits)
-- **oracle_keys** table: Allowlisted public keys for attestation verification
-- **rewards_ledger** table: Complete audit trail of all reward distributions
-
----
-
-## Phase 2: Provider Dashboard (Priority)
-
-### Main Dashboard View
-- **Wallet Status Card**: Connected address, CARE token balance (from blockchain), verification status
-- **Rewards Summary**: Total earned (all-time, this month, this week)
-- **Recent Activity Feed**: Latest documentation events and resulting rewards
-
-### Rewards Breakdown
-- **By Event Type**: Chart showing earnings per category (Encounter notes, Med reconciliation, Discharge summaries, etc.)
-- **By Time Period**: Daily/weekly/monthly trends with interactive charts
-- **Detailed Transaction History**: Filterable table with event hash, timestamp, amount, transaction hash
-
-### Wallet Management
-- View connected wallet address
-- See pending vs confirmed rewards
-- Export transaction history (CSV)
+### Option B: Seed Sample Data via Database
+Insert a test entity record directly with your wallet address. This is a one-time fix but doesn't help future users during testing.
 
 ---
 
-## Phase 3: Patient Portal
+## Recommended Implementation (Option A)
 
-### Dashboard
-- **My Rewards**: CARE token balance and earnings timeline
-- **Visit History**: List of visits where rewards were earned (no PHI, just dates and reward amounts)
-- **Participation Rewards**: Earned for completing intake forms, consent, follow-ups
+### Files to modify:
 
-### Payment Features
-- **Pay Invoice**: Scan QR code or enter invoice ID to pay provider in CARE
-- **Payment History**: All outgoing payments with dates and recipients
-- **Balance Management**: View token balance, see transaction confirmations
+**1. `src/pages/provider/ProviderDashboard.tsx`**
+- Add a "Register as Test Provider" button to the unregistered wallet state
+- Include the wallet address display (currently empty in the code)
+- Call Supabase to insert entity on button click
+- Refresh entity state after registration
 
-### Proof & Transparency
-- View event hashes corresponding to your rewards
-- Verify on Polygon block explorer (link to Polygonscan)
+**2. `src/contexts/WalletContext.tsx`**
+- Add a `registerEntity` function to create new entity records
+- Include entity_type parameter for flexibility (provider/patient)
 
----
+### Technical Details:
+- Insert into `entities` table with:
+  - `wallet_address`: Your connected address (lowercase)
+  - `entity_type`: 'provider'
+  - `display_name`: Optional or auto-generated
+  - `is_verified`: false (for safety)
+- RLS allows this because entities table has public SELECT policy
+- Need to add INSERT policy for self-registration
 
-## Phase 4: Admin Console
-
-### Organization Management
-- Onboard new healthcare organizations
-- Register provider and patient wallets under organizations
-- Set organization-level reward splits
-
-### Policy Configuration
-- **Event Types Manager**: Create/edit documentation event types
-- **Reward Rules**: Set base reward amount per event type
-- **Split Configuration**: Define percentage splits (provider/organization/patient)
-- **Rate Limits**: Max rewards per provider/day, per event type, anti-gaming thresholds
-
-### Oracle Key Management
-- Add/revoke oracle public keys authorized to submit attestations
-- View attestation submission history per oracle
-- Emergency pause controls
-
-### Monitoring & Audit
-- Real-time fraud flags and anomaly alerts
-- Complete audit log of all system actions
-- Export capabilities for compliance
+### Database change:
+Add an RLS policy to allow authenticated or anonymous users to insert their own entity record (for testing mode only), or use a Supabase Edge Function to handle registration securely.
 
 ---
 
-## Phase 5: Attestation Service (Edge Functions)
-
-### Event Ingestion API
-- POST endpoint to receive mock EHR events
-- Validates required fields (event_type, provider_id, patient_id, timestamp)
-- Stores full event record in Supabase (off-chain, no PHI on chain)
-
-### Attestation Generation
-- Generates event_hash from structured data (keccak256)
-- Signs attestation with oracle key (stored securely in Supabase secrets)
-- Prepares attestation payload for on-chain submission
-
-### Validation Rules
-- Duplicate detection (same event_hash cannot be rewarded twice)
-- Rate limit checking per provider/day
-- Timestamp validation (events must be within acceptable window)
-
----
-
-## Phase 6: Blockchain Integration
-
-### Contract Interface Preparation
-- Define TypeScript interfaces matching your contract ABIs
-- **CareCoin.sol interface**: balanceOf, transfer, approve, allowance
-- **RewardEngine.sol interface**: submitAttestation, getPolicy, getRewardHistory
-- **Registry.sol interface**: registerWallet, getEntityByWallet
-
-### Wallet Integration
-- wagmi hooks for reading token balances
-- Transaction submission for payments
-- Transaction status tracking and confirmation UI
-
-### Mock Mode Toggle
-- Admin setting to switch between:
-  - **Mock Mode**: All rewards simulated in database only
-  - **Live Mode**: Attestations submitted to actual Polygon contracts
-- Allows full testing before contract deployment
-
----
-
-## Phase 7: Contract-Ready Architecture
-
-### Smart Contract Specification Document
-- Complete Solidity interface definitions
-- Constructor parameters and initialization requirements
-- Event signatures for frontend listeners
-- Deployment checklist
-
-### Integration Points
-- Environment variables for contract addresses
-- ABI JSON files (placeholder structure for your deployed contracts)
-- Network configuration (Polygon Mumbai testnet → Polygon mainnet)
-
----
-
-## Design System
-
-### Corporate/Healthcare Aesthetic
-- Clean, professional color palette (medical blues, greens, neutral grays)
-- Data-focused typography optimized for readability
-- Enterprise-grade data tables with sorting, filtering, pagination
-- Professional charting with Recharts (already installed)
-- Status indicators and progress bars for reward tracking
-
-### Responsive Layout
-- Sidebar navigation for desktop
-- Collapsible menu for tablet
-- Bottom navigation for mobile
-- Consistent card-based layouts across all views
-
----
-
-## Security & Compliance Features
-
-- Role-based access control (separate user_roles table)
-- All PHI remains off-chain
-- Event hashes provide audit trail without exposing data
-- Rate limiting and anti-abuse measures
-- Pausable system for emergency stops
-
+## Summary
+The fix adds a self-registration button so you can quickly register your wallet as a provider for testing. This is appropriate for development/Mock Mode but should be replaced with admin-controlled registration for production.
