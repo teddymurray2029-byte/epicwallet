@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { useChainId, useWalletClient, useSwitchChain, usePublicClient } from 'wagmi';
+import { useState, useEffect } from 'react';
+import { useChainId, useSwitchChain, useWaitForTransactionReceipt, useDeployContract } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
-import { parseEther, encodeDeployData, getContractAddress } from 'viem';
+import { parseEther } from 'viem';
 import { useWallet } from '@/contexts/WalletContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,16 +29,25 @@ type DeploymentStep = 'idle' | 'confirming' | 'deploying' | 'success' | 'error';
 export default function DeployContract() {
   const { address, isConnected, isConnecting } = useWallet();
   const chainId = useChainId();
-  const { data: walletClient, isLoading: walletClientLoading } = useWalletClient();
   const { switchChain } = useSwitchChain();
-  const publicClient = usePublicClient();
+  
+  const { 
+    deployContract, 
+    data: txHash, 
+    isPending: isDeploying, 
+    isError: deployError,
+    error: deployErrorDetails,
+    reset: resetDeploy 
+  } = useDeployContract();
 
-  const isWalletReady = isConnected && !!walletClient && !!publicClient;
-  const isInitializing = isConnected && (walletClientLoading || !walletClient || !publicClient);
+  const { 
+    data: receipt, 
+    isLoading: isWaitingReceipt,
+    isSuccess: isConfirmed 
+  } = useWaitForTransactionReceipt({ hash: txHash });
 
   const [step, setStep] = useState<DeploymentStep>('idle');
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
-  const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [initialSupply, setInitialSupply] = useState<string>('0');
 
@@ -59,74 +68,59 @@ export default function DeployContract() {
     }
   };
 
-  const handleDeploy = async () => {
-    if (!address || !publicClient) {
+  // Track deployment state changes
+  useEffect(() => {
+    if (isDeploying) {
+      setStep('confirming');
+    }
+  }, [isDeploying]);
+
+  useEffect(() => {
+    if (txHash && isWaitingReceipt) {
+      setStep('deploying');
+      toast.info('Transaction submitted! Waiting for confirmation...');
+    }
+  }, [txHash, isWaitingReceipt]);
+
+  useEffect(() => {
+    if (isConfirmed && receipt?.contractAddress) {
+      setDeployedAddress(receipt.contractAddress);
+      setStep('success');
+      toast.success('CareCoin deployed successfully!');
+    }
+  }, [isConfirmed, receipt]);
+
+  useEffect(() => {
+    if (deployError && deployErrorDetails) {
+      setError(deployErrorDetails.message || 'Deployment failed');
+      setStep('error');
+      toast.error('Deployment failed');
+    }
+  }, [deployError, deployErrorDetails]);
+
+  const handleDeploy = () => {
+    if (!isConnected) {
       toast.error('Please connect your wallet first');
       return;
     }
 
-    if (!walletClient) {
-      toast.error('Wallet client not ready. Please wait a moment and try again.');
-      return;
-    }
-
-    setStep('confirming');
     setError(null);
 
-    try {
-      // Parse initial supply (convert from CARE to wei)
-      const supplyWei = initialSupply ? parseEther(initialSupply) : DEFAULT_INITIAL_SUPPLY;
+    // Parse initial supply (convert from CARE to wei)
+    const supplyWei = initialSupply ? parseEther(initialSupply) : DEFAULT_INITIAL_SUPPLY;
 
-      // Encode constructor arguments with bytecode
-      const deployData = encodeDeployData({
-        abi: CARE_COIN_ABI,
-        bytecode: CARE_COIN_BYTECODE,
-        args: [TREASURY_ADDRESS, supplyWei],
-      });
+    deployContract({
+      abi: CARE_COIN_ABI,
+      bytecode: CARE_COIN_BYTECODE,
+      args: [TREASURY_ADDRESS, supplyWei],
+    });
+  };
 
-      // Get nonce for contract address calculation
-      const typedAddress = address as `0x${string}`;
-      const nonce = await publicClient.getTransactionCount({ address: typedAddress });
-
-      // Deploy the contract using sendTransaction
-      setStep('deploying');
-      
-      const hash = await walletClient.sendTransaction({
-        data: deployData,
-        account: typedAddress,
-        to: undefined as unknown as `0x${string}`, // Contract deployment (no 'to' address)
-      } as any);
-
-      setTxHash(hash);
-      toast.info('Transaction submitted! Waiting for confirmation...');
-
-      // Calculate the expected contract address
-      const expectedAddress = getContractAddress({
-        from: typedAddress,
-        nonce: BigInt(nonce),
-      });
-
-      // Wait for transaction receipt
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
-      if (receipt.contractAddress) {
-        setDeployedAddress(receipt.contractAddress);
-        setStep('success');
-        toast.success('CareCoin deployed successfully!');
-      } else if (expectedAddress) {
-        // Fallback to calculated address
-        setDeployedAddress(expectedAddress);
-        setStep('success');
-        toast.success('CareCoin deployed successfully!');
-      } else {
-        throw new Error('Contract address not found in receipt');
-      }
-    } catch (err: any) {
-      console.error('Deployment error:', err);
-      setError(err.message || 'Deployment failed');
-      setStep('error');
-      toast.error('Deployment failed');
-    }
+  const handleReset = () => {
+    resetDeploy();
+    setStep('idle');
+    setError(null);
+    setDeployedAddress(null);
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -254,10 +248,10 @@ export default function DeployContract() {
                 onClick={handleDeploy} 
                 className="w-full" 
                 size="lg"
-                disabled={!isWalletReady}
+                disabled={isDeploying}
               >
                 <Rocket className="h-4 w-4 mr-2" />
-                {isInitializing ? 'Initializing...' : !isConnected ? 'Connect Wallet' : 'Deploy CareCoin'}
+                Deploy CareCoin
               </Button>
             </CardContent>
           </Card>
@@ -364,7 +358,7 @@ export default function DeployContract() {
                 variant="outline" 
                 size="sm" 
                 className="mt-3"
-                onClick={() => setStep('idle')}
+                onClick={handleReset}
               >
                 Try Again
               </Button>
