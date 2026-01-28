@@ -120,6 +120,50 @@ export type Database = {
           },
         ]
       }
+      ehr_integrations: {
+        Row: {
+          client_id: string
+          created_at: string
+          entity_id: string
+          fhir_base_url: string | null
+          id: string
+          integration_type: string
+          is_active: boolean | null
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          entity_id: string
+          fhir_base_url?: string | null
+          id?: string
+          integration_type?: string
+          is_active?: boolean | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          entity_id?: string
+          fhir_base_url?: string | null
+          id?: string
+          integration_type?: string
+          is_active?: boolean | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehr_integrations_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entities: {
         Row: {
           created_at: string

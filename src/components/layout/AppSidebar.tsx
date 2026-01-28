@@ -28,6 +28,7 @@ import {
   QrCode,
   History,
   Coins,
+  Link2,
 } from 'lucide-react';
 
 // Provider navigation items
@@ -36,6 +37,7 @@ const providerNavItems = [
   { title: 'Rewards', url: '/provider/rewards', icon: Coins },
   { title: 'Activity', url: '/provider/activity', icon: Activity },
   { title: 'Transactions', url: '/provider/transactions', icon: Receipt },
+  { title: 'Epic Connection', url: '/provider/epic', icon: Link2 },
 ];
 
 // Patient navigation items

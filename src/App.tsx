@@ -11,6 +11,7 @@ import { WalletProvider } from '@/contexts/WalletContext';
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ProviderDashboard from "./pages/provider/ProviderDashboard";
+import EpicIntegration from "./pages/provider/EpicIntegration";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
               <Route path="/provider/rewards" element={<ProviderDashboard />} />
               <Route path="/provider/activity" element={<ProviderDashboard />} />
               <Route path="/provider/transactions" element={<ProviderDashboard />} />
+              <Route path="/provider/epic" element={<EpicIntegration />} />
               
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
