@@ -1,11 +1,24 @@
 import { http, createConfig } from 'wagmi';
 import { polygon, polygonAmoy } from 'wagmi/chains';
-import { injected } from 'wagmi/connectors';
+import { injected, walletConnect } from 'wagmi/connectors';
+
+// WalletConnect Project ID - Get yours at https://cloud.walletconnect.com
+const WALLETCONNECT_PROJECT_ID = '3a8170812b534d0ff9d794f19a901d64';
 
 export const config = createConfig({
   chains: [polygon, polygonAmoy],
   connectors: [
     injected(),
+    walletConnect({
+      projectId: WALLETCONNECT_PROJECT_ID,
+      metadata: {
+        name: 'CareCoin',
+        description: 'Healthcare Rewards Platform',
+        url: typeof window !== 'undefined' ? window.location.origin : 'https://carecoin.app',
+        icons: ['https://avatars.githubusercontent.com/u/37784886'],
+      },
+      showQrModal: true,
+    }),
   ],
   transports: {
     [polygon.id]: http(),
