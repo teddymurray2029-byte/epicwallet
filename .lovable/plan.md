@@ -1,86 +1,77 @@
 
-# Fix: Deploy Button "Waiting for wallet" Issue
 
-## Problem Analysis
+# Fix Wagmi "Chain not configured" Error for Contract Deployment
 
-The deploy page shows the wallet as connected (address visible, network showing "Polygon Mainnet") but the button remains stuck on "Waiting for wallet...". This occurs because:
+## Problem Summary
+The `useDeployContract` hook from wagmi v3 validates the current chain against its internal configuration. When switching networks via `window.ethereum`, wagmi's state may lag behind, causing the "Chain not configured" error during deployment even when the wallet is correctly on Polygon Amoy.
 
-1. **`useWalletClient()` returns `undefined` during loading**: Even when the wallet is connected, the `walletClient` data may be `undefined` while the hook is fetching/initializing
-2. **Missing loading state check**: The current code only checks `!!walletClient` but doesn't check if the hook is still in a loading/pending state
-3. **`usePublicClient()` may also return `undefined`**: Similar timing issue can occur with the public client
+## Solution Overview
+Bypass wagmi's `useDeployContract` hook entirely and use `viem` directly with a wallet client obtained from the connected wallet. This gives us full control over the deployment without wagmi's chain validation.
 
-## Solution
+---
 
-### Approach 1: Use loading states from wagmi hooks (Recommended - Quick Fix)
+## Implementation Steps
 
-Use the `isLoading` or `isPending` states from `useWalletClient()` to distinguish between "still loading" and "actually unavailable":
+### 1. Update Deployment Logic to Use Viem Directly
+Replace the wagmi `useDeployContract` hook with a direct viem deployment using `walletClient.deployContract()`.
 
+**File:** `src/pages/admin/DeployContract.tsx`
+
+**Changes:**
+- Import `createWalletClient`, `custom`, and `getContractAddress` from viem
+- Remove `useDeployContract` hook
+- Create a wallet client directly from `window.ethereum` when deploying
+- Use `walletClient.deployContract()` which doesn't have wagmi's chain restrictions
+- Manually compute contract address from transaction receipt
+
+### 2. Add Chain Objects for Viem
+Ensure proper chain configurations are available for viem's wallet client.
+
+**Key Code Pattern:**
 ```typescript
-const { data: walletClient, isLoading: walletClientLoading } = useWalletClient();
+// Create wallet client directly from window.ethereum
+const walletClient = createWalletClient({
+  account: address,
+  chain: chainId === polygonAmoy.id ? polygonAmoy : polygon,
+  transport: custom(window.ethereum),
+});
 
-// If connected but still fetching wallet client, show appropriate state
-const isWalletReady = isConnected && !!walletClient && !!publicClient && !walletClientLoading;
-```
-
-### Approach 2: Use wagmi's native `useDeployContract` hook (Better long-term)
-
-Wagmi v2 provides a dedicated `useDeployContract` hook that handles wallet client internally and provides a cleaner API:
-
-```typescript
-import { useDeployContract } from 'wagmi';
-
-const { deployContract, isPending, isSuccess, data: hash } = useDeployContract();
-
-// Then use:
-deployContract({
+// Deploy using viem directly
+const hash = await walletClient.deployContract({
   abi: CARE_COIN_ABI,
   bytecode: CARE_COIN_BYTECODE,
   args: [TREASURY_ADDRESS, supplyWei],
 });
 ```
 
-This eliminates the need to manually manage `walletClient` and `publicClient`.
-
----
-
-## Implementation Plan
-
-### Step 1: Fix the `isWalletReady` calculation
-- Extract `isLoading` (or `isPending`) from `useWalletClient()` hook
-- Update `isWalletReady` to account for loading state
-- Show "Initializing..." when connected but wallet client is still loading
-
-### Step 2: Improve button text feedback
-- Show different states:
-  - **Not connected**: "Connect Wallet"
-  - **Connected but loading**: "Initializing..."
-  - **Ready**: "Deploy CareCoin"
-
-### Step 3: (Optional Enhancement) Migrate to `useDeployContract`
-- Replace manual `sendTransaction` approach with wagmi's `useDeployContract` hook
-- This provides better error handling and state management out of the box
+### 3. Track Transaction Receipt
+Use wagmi's `useWaitForTransactionReceipt` (which still works) or viem's `waitForTransactionReceipt` to get the deployed contract address.
 
 ---
 
 ## Technical Details
 
-### File to modify:
-- `src/pages/admin/DeployContract.tsx`
+### Why This Works
+- `viem` is the underlying library wagmi uses
+- Connecting directly to `window.ethereum` bypasses wagmi's chain registry validation
+- The wallet already has the correct chain configured (from our network switcher)
+- Transaction signing happens through MetaMask which knows the correct chain
 
-### Key changes:
+### Files to Modify
+1. `src/pages/admin/DeployContract.tsx` - Replace deployment logic
 
-```typescript
-// Before
-const { data: walletClient } = useWalletClient();
-const isWalletReady = isConnected && !!walletClient && !!publicClient;
+### Risk Assessment
+- **Low risk**: Viem is wagmi's underlying library, so we're using tested, stable code
+- This is a common pattern when wagmi hooks don't fit the use case
 
-// After
-const { data: walletClient, isLoading: walletClientLoading } = useWalletClient();
-const isWalletReady = isConnected && !!walletClient && !!publicClient;
-const isInitializing = isConnected && walletClientLoading;
+---
 
-// Button logic
-{isInitializing ? 'Initializing...' : !isWalletReady ? 'Connect Wallet' : 'Deploy CareCoin'}
-```
+## Testing Instructions
+After implementation:
+1. Navigate to `/admin/deploy`
+2. Connect MetaMask wallet
+3. Use the network dropdown to select "Polygon Amoy (Testnet)"
+4. Ensure you have testnet POL (get from [Polygon Faucet](https://faucet.polygon.technology/))
+5. Click "Deploy CareCoin"
+6. Confirm the transaction in MetaMask
 
-This approach properly handles the race condition where the UI shows "connected" but the wallet client hook hasn't resolved yet.
