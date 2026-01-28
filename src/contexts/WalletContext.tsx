@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect, useReconnect } from 'wagmi';
 import { supabase } from '@/integrations/supabase/client';
 import { useOnChainBalance } from '@/hooks/useOnChainBalance';
 
@@ -55,8 +55,9 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const { address, isConnected, isConnecting } = useAccount();
+  const { address, isConnected, isConnecting, isReconnecting } = useAccount();
   const { disconnect } = useDisconnect();
+  const { isPending: isReconnectPending } = useReconnect();
   
   const [entity, setEntity] = useState<Entity | null>(null);
   const [entityLoading, setEntityLoading] = useState(false);
@@ -154,7 +155,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const value: WalletContextType = {
     address,
     isConnected,
-    isConnecting,
+    isConnecting: isConnecting || isReconnecting || isReconnectPending,
     entity,
     entityLoading,
     isProvider: entity?.entity_type === 'provider',
