@@ -6,16 +6,12 @@ import {
 } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
-import { useWallet } from '@/contexts/WalletContext';
-import { Badge } from '@/components/ui/badge';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { mockMode } = useWallet();
-
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -33,11 +29,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
 
               <div className="flex items-center gap-3">
-                {mockMode && (
-                  <Badge variant="outline" className="bg-care-warning/10 text-care-warning border-care-warning/30">
-                    Mock Mode
-                  </Badge>
-                )}
                 <ConnectWalletButton />
               </div>
             </div>

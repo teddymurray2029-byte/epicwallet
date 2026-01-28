@@ -32,9 +32,9 @@ interface WalletContextType {
   isOrganization: boolean;
   isAdmin: boolean;
   
-  // Mock mode (for testing without contracts)
-  mockMode: boolean;
-  mockBalance: number;
+  // Token balance from database
+  careBalance: number;
+  balanceLoading: boolean;
   
   // Actions
   disconnect: () => void;
@@ -50,8 +50,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   
   const [entity, setEntity] = useState<Entity | null>(null);
   const [entityLoading, setEntityLoading] = useState(false);
-  const [mockMode, setMockMode] = useState(true);
-  const [mockBalance, setMockBalance] = useState(0);
+  const [careBalance, setCareBalance] = useState(0);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   // Fetch entity data when wallet connects
   const fetchEntity = async () => {
@@ -75,8 +75,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setEntity(data as Entity | null);
       }
 
-      // Calculate mock balance from rewards ledger
+      // Calculate CARE balance from rewards ledger
       if (data) {
+        setBalanceLoading(true);
         const { data: rewards } = await supabase
           .from('rewards_ledger')
           .select('amount')
@@ -85,8 +86,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         
         if (rewards) {
           const total = rewards.reduce((sum, r) => sum + Number(r.amount), 0);
-          setMockBalance(total);
+          setCareBalance(total);
         }
+        setBalanceLoading(false);
       }
     } catch (err) {
       console.error('Error in fetchEntity:', err);
@@ -96,30 +98,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Check mock mode setting
-  const checkMockMode = async () => {
-    try {
-      const { data } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'mock_mode')
-        .single();
-      
-      if (data) {
-        setMockMode((data.value as { enabled: boolean }).enabled);
-      }
-    } catch (err) {
-      console.error('Error checking mock mode:', err);
-    }
-  };
 
   useEffect(() => {
     fetchEntity();
   }, [address]);
-
-  useEffect(() => {
-    checkMockMode();
-  }, []);
 
   const refreshEntity = async () => {
     await fetchEntity();
@@ -161,8 +143,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     isPatient: entity?.entity_type === 'patient',
     isOrganization: entity?.entity_type === 'organization',
     isAdmin: entity?.entity_type === 'admin',
-    mockMode,
-    mockBalance,
+    careBalance,
+    balanceLoading,
     disconnect,
     refreshEntity,
     registerEntity,
