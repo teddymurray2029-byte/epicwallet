@@ -39,6 +39,7 @@ interface WalletContextType {
   // Actions
   disconnect: () => void;
   refreshEntity: () => Promise<void>;
+  registerEntity: (entityType: EntityType, displayName?: string) => Promise<boolean>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -124,6 +125,32 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     await fetchEntity();
   };
 
+  const registerEntity = async (entityType: EntityType, displayName?: string): Promise<boolean> => {
+    if (!address) return false;
+
+    try {
+      const { error } = await supabase
+        .from('entities')
+        .insert({
+          wallet_address: address.toLowerCase(),
+          entity_type: entityType,
+          display_name: displayName || null,
+          is_verified: false,
+        });
+
+      if (error) {
+        console.error('Error registering entity:', error);
+        return false;
+      }
+
+      await fetchEntity();
+      return true;
+    } catch (err) {
+      console.error('Error in registerEntity:', err);
+      return false;
+    }
+  };
+
   const value: WalletContextType = {
     address,
     isConnected,
@@ -138,6 +165,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     mockBalance,
     disconnect,
     refreshEntity,
+    registerEntity,
   };
 
   return (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { WalletStatusCard } from '@/components/provider/WalletStatusCard';
 import { RewardsSummaryCard } from '@/components/provider/RewardsSummaryCard';
@@ -7,10 +7,33 @@ import { RewardsChart } from '@/components/provider/RewardsChart';
 import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
 import { Card, CardContent } from '@/components/ui/card';
-import { Wallet, Shield, Coins } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Wallet, Shield, Coins, UserPlus } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 export default function ProviderDashboard() {
-  const { isConnected, entity, entityLoading } = useWallet();
+  const { isConnected, address, entity, entityLoading, registerEntity } = useWallet();
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  const handleRegister = async () => {
+    setIsRegistering(true);
+    const success = await registerEntity('provider');
+    if (success) {
+      toast({
+        title: 'Registration Successful',
+        description: 'You are now registered as a provider.',
+      });
+    } else {
+      toast({
+        title: 'Registration Failed',
+        description: 'Could not register your wallet. Please try again.',
+        variant: 'destructive',
+      });
+    }
+    setIsRegistering(false);
+  };
+
+  const truncateAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
   // Show connect prompt if not connected
   if (!isConnected) {
@@ -56,14 +79,24 @@ export default function ProviderDashboard() {
                 <h2 className="text-2xl font-bold">Wallet Not Registered</h2>
                 <p className="text-muted-foreground">
                   Your wallet is connected but not yet registered in the CareCoin network.
-                  Contact your healthcare organization administrator to register your wallet as a provider.
                 </p>
               </div>
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-xs text-muted-foreground font-mono break-all">
-                  {/* Show truncated address */}
+                  {address}
                 </p>
               </div>
+              <Button
+                onClick={handleRegister}
+                disabled={isRegistering}
+                className="w-full"
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                {isRegistering ? 'Registering...' : 'Register as Provider'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                This registers your wallet for testing. Production registration requires admin approval.
+              </p>
             </CardContent>
           </Card>
         </div>
