@@ -438,7 +438,7 @@ export const CARE_COIN_ABI = [
 ] as const;
 
 // Treasury address for CareCoin network
-export const TREASURY_ADDRESS = '0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37' as `0x${string}`;
+export const TREASURY_ADDRESS = '0x45e55b8f128070cf4889d893ed59e67ef6e98b8e' as `0x${string}`;
 
 // Default initial supply (0 - mint as rewards are earned)
 export const DEFAULT_INITIAL_SUPPLY = 0n;
