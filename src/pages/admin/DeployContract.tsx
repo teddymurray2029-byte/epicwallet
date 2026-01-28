@@ -33,6 +33,8 @@ export default function DeployContract() {
   const { switchChain } = useSwitchChain();
   const publicClient = usePublicClient();
 
+  const isWalletReady = isConnected && !!walletClient && !!publicClient;
+
   const [step, setStep] = useState<DeploymentStep>('idle');
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -251,9 +253,10 @@ export default function DeployContract() {
                 onClick={handleDeploy} 
                 className="w-full" 
                 size="lg"
+                disabled={!isWalletReady}
               >
                 <Rocket className="h-4 w-4 mr-2" />
-                Deploy CareCoin
+                {!isWalletReady ? 'Waiting for wallet...' : 'Deploy CareCoin'}
               </Button>
             </CardContent>
           </Card>
