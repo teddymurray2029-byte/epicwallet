@@ -21,8 +21,8 @@ export const config = createConfig({
     }),
   ],
   transports: {
-    [polygon.id]: http(),
-    [polygonAmoy.id]: http(),
+    [polygon.id]: http('https://polygon-rpc.com'),
+    [polygonAmoy.id]: http('https://rpc-amoy.polygon.technology'),
   },
   // Enable storage for connection persistence and auto-reconnect
   storage: createStorage({ storage: typeof window !== 'undefined' ? window.localStorage : undefined }),
