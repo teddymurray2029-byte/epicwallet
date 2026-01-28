@@ -1,234 +1,86 @@
 
-# CareCoin Launch Plan
+# Fix: Deploy Button "Waiting for wallet" Issue
 
-## Current Status
-✅ Off-chain rewards tracking via `rewards_ledger` table  
-✅ 10% network fee implemented  
-✅ UI shows "Earned Rewards" (off-chain) vs "On-Chain Balance"  
-⏳ ERC-20 contract deployment pending  
+## Problem Analysis
 
----
+The deploy page shows the wallet as connected (address visible, network showing "Polygon Mainnet") but the button remains stuck on "Waiting for wallet...". This occurs because:
 
-# Part 1: Launching CareCoin ERC-20 Token
+1. **`useWalletClient()` returns `undefined` during loading**: Even when the wallet is connected, the `walletClient` data may be `undefined` while the hook is fetching/initializing
+2. **Missing loading state check**: The current code only checks `!!walletClient` but doesn't check if the hook is still in a loading/pending state
+3. **`usePublicClient()` may also return `undefined`**: Similar timing issue can occur with the public client
 
-## Prerequisites
-1. **Wallet with POL/MATIC** for gas fees
-2. **Remix IDE** or Hardhat for deployment
-3. **Polygonscan account** for contract verification
+## Solution
 
-## Step 1: Deploy CareCoin ERC-20 Contract
+### Approach 1: Use loading states from wagmi hooks (Recommended - Quick Fix)
 
-### Option A: Use Remix IDE (Easiest)
-
-1. Go to https://remix.ethereum.org
-2. Create new file `CareCoin.sol`:
-
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-
-contract CareCoin is ERC20, Ownable {
-    // Treasury wallet that holds unminted supply
-    address public treasury;
-    
-    // Maximum supply: 1 billion CARE tokens
-    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18;
-    
-    constructor(address _treasury) ERC20("CareCoin", "CARE") Ownable(msg.sender) {
-        treasury = _treasury;
-        // Mint initial supply to treasury
-        _mint(_treasury, MAX_SUPPLY);
-    }
-    
-    // Treasury can mint rewards to recipients (up to MAX_SUPPLY)
-    function mintReward(address recipient, uint256 amount) external {
-        require(msg.sender == treasury || msg.sender == owner(), "Not authorized");
-        require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds max supply");
-        _mint(recipient, amount);
-    }
-    
-    // Update treasury address
-    function setTreasury(address _treasury) external onlyOwner {
-        treasury = _treasury;
-    }
-}
-```
-
-3. Compile with Solidity 0.8.20+
-4. Deploy to **Polygon Amoy** (testnet first):
-   - Network: Polygon Amoy Testnet
-   - RPC: https://rpc-amoy.polygon.technology
-   - Chain ID: 80002
-   - Treasury address: `0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37`
-
-5. **Save the deployed contract address!**
-
-## Step 2: Update App Configuration
-
-After deployment, update `src/lib/wagmi.ts`:
+Use the `isLoading` or `isPending` states from `useWalletClient()` to distinguish between "still loading" and "actually unavailable":
 
 ```typescript
-export const CONTRACT_ADDRESSES = {
-  [polygon.id]: {
-    careCoin: '0x...', // Mainnet address (deploy later)
-    // ...
-  },
-  [polygonAmoy.id]: {
-    careCoin: '0xYOUR_DEPLOYED_ADDRESS', // ← Update this!
-    // ...
-  },
-} as const;
+const { data: walletClient, isLoading: walletClientLoading } = useWalletClient();
+
+// If connected but still fetching wallet client, show appropriate state
+const isWalletReady = isConnected && !!walletClient && !!publicClient && !walletClientLoading;
 ```
 
-## Step 3: Verify Contract on Polygonscan
+### Approach 2: Use wagmi's native `useDeployContract` hook (Better long-term)
 
-1. Go to https://amoy.polygonscan.com/address/YOUR_CONTRACT
-2. Click "Verify and Publish"
-3. Select "Solidity (Single file)"
-4. Paste contract code and constructor args
+Wagmi v2 provides a dedicated `useDeployContract` hook that handles wallet client internally and provides a cleaner API:
 
-## Step 4: Test the Integration
+```typescript
+import { useDeployContract } from 'wagmi';
 
-1. Connect wallet to the app
-2. On-Chain Balance should now read from the deployed contract
-3. Check Polygonscan to verify token appears
+const { deployContract, isPending, isSuccess, data: hash } = useDeployContract();
 
----
-
-# Part 2: Network Fee Implementation (Already Done)
-
-## Overview
-10% of every reward goes to the network fee wallet before distribution.
-
-**Network Fee Wallet:** `0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37`
-
----
-
-## How It Will Work
-
-```text
-Before (Current):
-┌─────────────────────────────────────────┐
-│ Base Reward: 10 CARE                    │
-│ ├── Provider (60%): 6.0 CARE            │
-│ ├── Organization (25%): 2.5 CARE        │
-│ └── Patient (15%): 1.5 CARE             │
-└─────────────────────────────────────────┘
-
-After (With Network Fee):
-┌─────────────────────────────────────────┐
-│ Base Reward: 10 CARE                    │
-│ ├── Network Fee (10%): 1.0 CARE ← NEW   │
-│ └── Remaining (90%): 9.0 CARE           │
-│     ├── Provider (60%): 5.4 CARE        │
-│     ├── Organization (25%): 2.25 CARE   │
-│     └── Patient (15%): 1.35 CARE        │
-└─────────────────────────────────────────┘
+// Then use:
+deployContract({
+  abi: CARE_COIN_ABI,
+  bytecode: CARE_COIN_BYTECODE,
+  args: [TREASURY_ADDRESS, supplyWei],
+});
 ```
 
+This eliminates the need to manually manage `walletClient` and `publicClient`.
+
 ---
 
-## Implementation Steps
+## Implementation Plan
 
-### 1. Database Changes
+### Step 1: Fix the `isWalletReady` calculation
+- Extract `isLoading` (or `isPending`) from `useWalletClient()` hook
+- Update `isWalletReady` to account for loading state
+- Show "Initializing..." when connected but wallet client is still loading
 
-**Add network_fee_percentage to system_settings table:**
-- Store the fee configuration as a system setting for easy adjustment
-- Key: `network_fee`
-- Value: `{ "wallet_address": "0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37", "percentage": 10 }`
+### Step 2: Improve button text feedback
+- Show different states:
+  - **Not connected**: "Connect Wallet"
+  - **Connected but loading**: "Initializing..."
+  - **Ready**: "Deploy CareCoin"
 
-**Register the network fee wallet as an entity:**
-- Create an entity record for the fee wallet with type `admin` (or a new `network` type)
-- This allows tracking rewards in the ledger like any other recipient
-
-### 2. Edge Function Updates (epic-webhook)
-
-**Modify reward calculation logic:**
-1. Fetch the `network_fee` setting from `system_settings`
-2. Calculate network fee amount: `base_reward × (network_fee_percentage / 100)`
-3. Calculate remaining reward: `base_reward - network_fee`
-4. Apply provider/org/patient splits to the remaining amount
-5. Create a rewards_ledger entry for the network fee wallet
-
-### 3. Display Updates (Optional)
-
-**Update WalletStatusCard and RewardsSummaryCard:**
-- Show network fee deductions in transaction history (for transparency)
-- Add "Network Fee" as a line item when viewing reward breakdowns
+### Step 3: (Optional Enhancement) Migrate to `useDeployContract`
+- Replace manual `sendTransaction` approach with wagmi's `useDeployContract` hook
+- This provides better error handling and state management out of the box
 
 ---
 
 ## Technical Details
 
-### Database Migration
-```sql
--- Insert network fee configuration
-INSERT INTO system_settings (key, value)
-VALUES ('network_fee', '{"wallet_address": "0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37", "percentage": 10}');
+### File to modify:
+- `src/pages/admin/DeployContract.tsx`
 
--- Register network fee wallet as entity
-INSERT INTO entities (wallet_address, entity_type, display_name, is_verified)
-VALUES (
-  '0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37',
-  'admin',
-  'CareCoin Network Treasury',
-  true
-);
-```
+### Key changes:
 
-### Edge Function Logic Change
 ```typescript
-// Get network fee configuration
-const { data: networkFeeSetting } = await supabase
-  .from('system_settings')
-  .select('value')
-  .eq('key', 'network_fee')
-  .single();
+// Before
+const { data: walletClient } = useWalletClient();
+const isWalletReady = isConnected && !!walletClient && !!publicClient;
 
-const networkFee = networkFeeSetting?.value as { wallet_address: string; percentage: number } | null;
-const networkFeePercent = networkFee?.percentage || 0;
+// After
+const { data: walletClient, isLoading: walletClientLoading } = useWalletClient();
+const isWalletReady = isConnected && !!walletClient && !!publicClient;
+const isInitializing = isConnected && walletClientLoading;
 
-// Calculate amounts
-const networkFeeAmount = (policy.base_reward * networkFeePercent) / 100;
-const remainingReward = policy.base_reward - networkFeeAmount;
-const providerReward = (remainingReward * policy.provider_split) / 100;
-
-// Create network fee ledger entry
-if (networkFee && networkFeeAmount > 0) {
-  const { data: networkEntity } = await supabase
-    .from('entities')
-    .select('id')
-    .eq('wallet_address', networkFee.wallet_address.toLowerCase())
-    .single();
-    
-  await supabase.from('rewards_ledger').insert({
-    attestation_id: attestation.id,
-    recipient_id: networkEntity.id,
-    recipient_type: 'admin',
-    amount: networkFeeAmount,
-    status: 'confirmed',
-    confirmed_at: new Date().toISOString(),
-  });
-}
+// Button logic
+{isInitializing ? 'Initializing...' : !isWalletReady ? 'Connect Wallet' : 'Deploy CareCoin'}
 ```
 
----
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `supabase/migrations/*.sql` (new) | Add network fee setting and register wallet entity |
-| `supabase/functions/epic-webhook/index.ts` | Add network fee calculation before distributing rewards |
-
----
-
-## Summary
-- **10% of every reward** goes to `0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37`
-- Fee is deducted first, then remaining 90% is split per policy
-- Configurable via `system_settings` table (easy to adjust later)
-- Fee wallet is registered as an entity for proper tracking
-- All transactions visible in the rewards ledger for transparency
+This approach properly handles the race condition where the UI shows "connected" but the wallet client hook hasn't resolved yet.
