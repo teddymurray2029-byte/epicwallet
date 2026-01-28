@@ -12,8 +12,19 @@ import { Wallet, Shield, Coins, UserPlus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 export default function ProviderDashboard() {
-  const { isConnected, address, entity, entityLoading, registerEntity } = useWallet();
+  const { isConnected, isConnecting, address, entity, entityLoading, registerEntity } = useWallet();
   const [isRegistering, setIsRegistering] = useState(false);
+
+  // Wait for wallet reconnection before showing connect prompt
+  if (isConnecting) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <div className="animate-pulse text-muted-foreground">Connecting wallet...</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const handleRegister = async () => {
     setIsRegistering(true);
