@@ -11,7 +11,7 @@ import { Receipt, Search, ExternalLink, ArrowUpRight, ArrowDownLeft, Wallet } fr
 import { formatDistanceToNow, format } from 'date-fns';
 
 export default function ProviderTransactions() {
-  const { entity, isConnected, careBalance, balanceLoading } = useWallet();
+  const { entity, isConnected, earnedBalance, earnedBalanceLoading } = useWallet();
   const { data: transactions, isLoading, error, refetch } = useTransactionHistory();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -86,12 +86,12 @@ export default function ProviderTransactions() {
                   <Wallet className="h-5 w-5 text-care-teal" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Current Balance</p>
-                  {balanceLoading ? (
+                  <p className="text-xs text-muted-foreground">Earned Balance</p>
+                  {earnedBalanceLoading ? (
                     <Skeleton className="h-6 w-24" />
                   ) : (
                     <p className="text-xl font-bold text-care-teal">
-                      {careBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
+                      {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
                     </p>
                   )}
                 </div>

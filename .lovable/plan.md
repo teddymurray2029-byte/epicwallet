@@ -1,8 +1,107 @@
 
-# Add 10% Network Fee to CareCoin
+# CareCoin Launch Plan
+
+## Current Status
+✅ Off-chain rewards tracking via `rewards_ledger` table  
+✅ 10% network fee implemented  
+✅ UI shows "Earned Rewards" (off-chain) vs "On-Chain Balance"  
+⏳ ERC-20 contract deployment pending  
+
+---
+
+# Part 1: Launching CareCoin ERC-20 Token
+
+## Prerequisites
+1. **Wallet with POL/MATIC** for gas fees
+2. **Remix IDE** or Hardhat for deployment
+3. **Polygonscan account** for contract verification
+
+## Step 1: Deploy CareCoin ERC-20 Contract
+
+### Option A: Use Remix IDE (Easiest)
+
+1. Go to https://remix.ethereum.org
+2. Create new file `CareCoin.sol`:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract CareCoin is ERC20, Ownable {
+    // Treasury wallet that holds unminted supply
+    address public treasury;
+    
+    // Maximum supply: 1 billion CARE tokens
+    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18;
+    
+    constructor(address _treasury) ERC20("CareCoin", "CARE") Ownable(msg.sender) {
+        treasury = _treasury;
+        // Mint initial supply to treasury
+        _mint(_treasury, MAX_SUPPLY);
+    }
+    
+    // Treasury can mint rewards to recipients (up to MAX_SUPPLY)
+    function mintReward(address recipient, uint256 amount) external {
+        require(msg.sender == treasury || msg.sender == owner(), "Not authorized");
+        require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds max supply");
+        _mint(recipient, amount);
+    }
+    
+    // Update treasury address
+    function setTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
+    }
+}
+```
+
+3. Compile with Solidity 0.8.20+
+4. Deploy to **Polygon Amoy** (testnet first):
+   - Network: Polygon Amoy Testnet
+   - RPC: https://rpc-amoy.polygon.technology
+   - Chain ID: 80002
+   - Treasury address: `0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37`
+
+5. **Save the deployed contract address!**
+
+## Step 2: Update App Configuration
+
+After deployment, update `src/lib/wagmi.ts`:
+
+```typescript
+export const CONTRACT_ADDRESSES = {
+  [polygon.id]: {
+    careCoin: '0x...', // Mainnet address (deploy later)
+    // ...
+  },
+  [polygonAmoy.id]: {
+    careCoin: '0xYOUR_DEPLOYED_ADDRESS', // ← Update this!
+    // ...
+  },
+} as const;
+```
+
+## Step 3: Verify Contract on Polygonscan
+
+1. Go to https://amoy.polygonscan.com/address/YOUR_CONTRACT
+2. Click "Verify and Publish"
+3. Select "Solidity (Single file)"
+4. Paste contract code and constructor args
+
+## Step 4: Test the Integration
+
+1. Connect wallet to the app
+2. On-Chain Balance should now read from the deployed contract
+3. Check Polygonscan to verify token appears
+
+---
+
+# Part 2: Network Fee Implementation (Already Done)
 
 ## Overview
-This plan adds a 10% network fee to the CareCoin reward system. Whenever rewards are distributed (via Epic webhooks or future payment flows), 10% of the total reward will automatically go to the specified network fee wallet.
+10% of every reward goes to the network fee wallet before distribution.
 
 **Network Fee Wallet:** `0xbb1b796e3781ed0f4d36e3a4272653e6f496ce37`
 

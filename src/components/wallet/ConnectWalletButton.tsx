@@ -15,7 +15,7 @@ export function ConnectWalletButton() {
   const { connectors, connect, isPending } = useConnect();
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { entity, careBalance, balanceLoading } = useWallet();
+  const { entity, earnedBalance, earnedBalanceLoading } = useWallet();
   const [copied, setCopied] = useState(false);
 
   const truncateAddress = (addr: string) => {
@@ -58,12 +58,12 @@ export function ConnectWalletButton() {
             <p className="text-sm font-medium">Connected Wallet</p>
             <p className="text-xs text-muted-foreground font-mono">{truncateAddress(address)}</p>
             <div className="mt-2 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">CARE Balance</span>
-              {balanceLoading ? (
+            <span className="text-xs text-muted-foreground">Earned Rewards</span>
+              {earnedBalanceLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               ) : (
                 <span className="text-sm font-semibold text-care-teal">
-                  {careBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
+                  {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
                 </span>
               )}
             </div>

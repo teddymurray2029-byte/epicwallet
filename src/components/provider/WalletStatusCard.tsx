@@ -5,7 +5,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { Wallet, CheckCircle, AlertCircle, Coins, Loader2 } from 'lucide-react';
 
 export function WalletStatusCard() {
-  const { address, isConnected, entity, entityLoading, careBalance, balanceLoading } = useWallet();
+  const { address, isConnected, entity, entityLoading, earnedBalance, earnedBalanceLoading, onChainBalance, onChainBalanceLoading, isContractDeployed, chainName } = useWallet();
 
   const truncateAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -72,20 +72,48 @@ export function WalletStatusCard() {
           </div>
         )}
 
-        {/* CARE Token Balance */}
+        {/* Earned Rewards (Off-chain) */}
         <div className="pt-4 border-t">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Coins className="h-5 w-5 text-care-teal" />
-              <span className="text-sm font-medium">CARE Balance</span>
+              <div>
+                <span className="text-sm font-medium">Earned Rewards</span>
+                <span className="text-xs text-muted-foreground ml-1">(Claimable)</span>
+              </div>
             </div>
             <div className="text-right">
-              {balanceLoading ? (
+              {earnedBalanceLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : (
                 <>
                   <span className="text-2xl font-bold text-care-teal">
-                    {careBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-sm text-muted-foreground ml-1">CARE</span>
+                </>
+              )}
+            </div>
+          </div>
+          
+          {/* On-chain Balance */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-care-blue" />
+              <div>
+                <span className="text-sm font-medium">On-Chain</span>
+                <span className="text-xs text-muted-foreground ml-1">({chainName})</span>
+              </div>
+            </div>
+            <div className="text-right">
+              {onChainBalanceLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              ) : !isContractDeployed ? (
+                <span className="text-sm text-muted-foreground">Not deployed</span>
+              ) : (
+                <>
+                  <span className="text-xl font-bold text-care-blue">
+                    {onChainBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </span>
                   <span className="text-sm text-muted-foreground ml-1">CARE</span>
                 </>

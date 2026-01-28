@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAccount, useDisconnect, useConnect } from 'wagmi';
+import { useAccount, useDisconnect } from 'wagmi';
 import { supabase } from '@/integrations/supabase/client';
+import { useOnChainBalance } from '@/hooks/useOnChainBalance';
 
 export type EntityType = 'provider' | 'patient' | 'organization' | 'admin';
 
@@ -32,9 +33,18 @@ interface WalletContextType {
   isOrganization: boolean;
   isAdmin: boolean;
   
-  // Token balance from database
-  careBalance: number;
-  balanceLoading: boolean;
+  // Earned rewards from database (off-chain)
+  earnedBalance: number;
+  earnedBalanceLoading: boolean;
+  
+  // On-chain token balance (from blockchain)
+  onChainBalance: number;
+  onChainBalanceLoading: boolean;
+  isContractDeployed: boolean;
+  chainName: string;
+  
+  // Combined view
+  totalBalance: number;
   
   // Actions
   disconnect: () => void;
@@ -50,8 +60,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   
   const [entity, setEntity] = useState<Entity | null>(null);
   const [entityLoading, setEntityLoading] = useState(false);
-  const [careBalance, setCareBalance] = useState(0);
-  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [earnedBalance, setEarnedBalance] = useState(0);
+  const [earnedBalanceLoading, setEarnedBalanceLoading] = useState(false);
+  
+  // On-chain balance from blockchain
+  const { 
+    onChainBalance, 
+    isLoading: onChainBalanceLoading, 
+    isContractDeployed,
+    chainName 
+  } = useOnChainBalance(address);
 
   // Fetch entity data when wallet connects
   const fetchEntity = async () => {
@@ -75,9 +93,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setEntity(data as Entity | null);
       }
 
-      // Calculate CARE balance from rewards ledger
+      // Calculate earned CARE balance from rewards ledger
       if (data) {
-        setBalanceLoading(true);
+        setEarnedBalanceLoading(true);
         const { data: rewards } = await supabase
           .from('rewards_ledger')
           .select('amount')
@@ -86,9 +104,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         
         if (rewards) {
           const total = rewards.reduce((sum, r) => sum + Number(r.amount), 0);
-          setCareBalance(total);
+          setEarnedBalance(total);
         }
-        setBalanceLoading(false);
+        setEarnedBalanceLoading(false);
       }
     } catch (err) {
       console.error('Error in fetchEntity:', err);
@@ -143,8 +161,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     isPatient: entity?.entity_type === 'patient',
     isOrganization: entity?.entity_type === 'organization',
     isAdmin: entity?.entity_type === 'admin',
-    careBalance,
-    balanceLoading,
+    earnedBalance,
+    earnedBalanceLoading,
+    onChainBalance,
+    onChainBalanceLoading,
+    isContractDeployed,
+    chainName,
+    totalBalance: earnedBalance + onChainBalance,
     disconnect,
     refreshEntity,
     registerEntity,

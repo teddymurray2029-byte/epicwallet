@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Coins, TrendingUp, Calendar, Clock, Award, Percent } from 'lucide-react';
 
 export default function ProviderRewards() {
-  const { entity, isConnected, careBalance, balanceLoading } = useWallet();
+  const { entity, isConnected, earnedBalance, earnedBalanceLoading, onChainBalance, isContractDeployed, chainName } = useWallet();
   const { data: summary, isLoading: summaryLoading } = useRewardsSummary();
   const { data: byEventType, isLoading: byEventLoading } = useRewardsByEventType();
   const { data: policies, isLoading: policiesLoading } = useRewardPolicies();
@@ -71,18 +71,38 @@ export default function ProviderRewards() {
         <Card className="bg-gradient-to-r from-care-teal/10 to-care-green/10 border-care-teal/20">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Available Balance</p>
-                {balanceLoading ? (
-                  <Skeleton className="h-10 w-40" />
-                ) : (
+              <div className="space-y-4">
+                {/* Earned Rewards */}
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Earned Rewards (Claimable)</p>
+                  {earnedBalanceLoading ? (
+                    <Skeleton className="h-10 w-40" />
+                  ) : (
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-bold text-care-teal">
+                        {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-xl text-muted-foreground">CARE</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* On-chain Balance */}
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">On-Chain Balance ({chainName})</p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold text-care-teal">
-                      {careBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-xl text-muted-foreground">CARE</span>
+                    {!isContractDeployed ? (
+                      <span className="text-lg text-muted-foreground">Contract not deployed</span>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-bold text-care-blue">
+                          {onChainBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-lg text-muted-foreground">CARE</span>
+                      </>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
               <div className="h-16 w-16 rounded-full bg-care-teal/20 flex items-center justify-center">
                 <Coins className="h-8 w-8 text-care-teal" />
