@@ -57,8 +57,13 @@ export default function DeployContract() {
   };
 
   const handleDeploy = async () => {
-    if (!walletClient || !address || !publicClient) {
+    if (!address || !publicClient) {
       toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!walletClient) {
+      toast.error('Wallet client not ready. Please wait a moment and try again.');
       return;
     }
 
