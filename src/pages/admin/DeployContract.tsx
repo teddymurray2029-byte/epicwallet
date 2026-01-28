@@ -63,8 +63,32 @@ export default function DeployContract() {
   const handleSwitchToAmoy = async () => {
     try {
       await switchChain({ chainId: polygonAmoy.id });
-    } catch (err) {
-      toast.error('Failed to switch network. Please switch manually in your wallet.');
+    } catch (err: any) {
+      // If chain not configured in wallet, try to add it first
+      if (err?.message?.includes('Chain not configured') || err?.code === 4902) {
+        try {
+          // Request wallet to add the Amoy network
+          await (window as any).ethereum?.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: `0x${polygonAmoy.id.toString(16)}`,
+              chainName: 'Polygon Amoy Testnet',
+              nativeCurrency: {
+                name: 'POL',
+                symbol: 'POL',
+                decimals: 18,
+              },
+              rpcUrls: ['https://rpc-amoy.polygon.technology'],
+              blockExplorerUrls: ['https://amoy.polygonscan.com'],
+            }],
+          });
+          toast.success('Polygon Amoy network added! Please try again.');
+        } catch (addError) {
+          toast.error('Failed to add network. Please add Polygon Amoy manually in your wallet.');
+        }
+      } else {
+        toast.error('Failed to switch network. Please switch manually in your wallet.');
+      }
     }
   };
 
