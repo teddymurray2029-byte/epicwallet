@@ -150,6 +150,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Get network fee configuration
+    const { data: networkFeeSetting } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'network_fee')
+      .maybeSingle();
+
+    const networkFee = networkFeeSetting?.value as { wallet_address: string; percentage: number } | null;
+    const networkFeePercent = networkFee?.percentage || 0;
+
+    // Calculate network fee and remaining reward
+    const networkFeeAmount = (policy.base_reward * networkFeePercent) / 100;
+    const remainingReward = policy.base_reward - networkFeeAmount;
+
     // Create attestation (pending - will be confirmed when signed on-chain)
     const { data: attestation, error: attError } = await supabase
       .from('attestations')
@@ -166,8 +180,31 @@ Deno.serve(async (req) => {
       console.error('Error creating attestation:', attError);
       // Event was still created, just no attestation
     } else {
-      // Calculate rewards
-      const providerReward = (policy.base_reward * policy.provider_split) / 100;
+      // Create network fee ledger entry
+      if (networkFee && networkFeeAmount > 0) {
+        const { data: networkEntity } = await supabase
+          .from('entities')
+          .select('id')
+          .eq('wallet_address', networkFee.wallet_address.toLowerCase())
+          .maybeSingle();
+
+        if (networkEntity) {
+          await supabase.from('rewards_ledger').insert({
+            attestation_id: attestation.id,
+            recipient_id: networkEntity.id,
+            recipient_type: 'admin',
+            amount: networkFeeAmount,
+            status: 'confirmed',
+            confirmed_at: new Date().toISOString(),
+          });
+          console.log('Created network fee:', networkFeeAmount, 'CARE for treasury');
+        } else {
+          console.warn('Network fee wallet entity not found:', networkFee.wallet_address);
+        }
+      }
+
+      // Calculate provider reward from remaining amount (after network fee)
+      const providerReward = (remainingReward * policy.provider_split) / 100;
 
       // Create reward ledger entry for provider
       await supabase.from('rewards_ledger').insert({
@@ -179,15 +216,19 @@ Deno.serve(async (req) => {
         confirmed_at: new Date().toISOString(),
       });
 
-      console.log('Created reward:', providerReward, 'CARE for provider');
+      console.log('Created reward:', providerReward, 'CARE for provider (after', networkFeePercent, '% network fee)');
     }
+
+    // Calculate provider reward for response (after network fee)
+    const providerRewardForResponse = (remainingReward * policy.provider_split) / 100;
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Epic event processed successfully',
         eventId: docEvent.id,
-        reward: policy ? (policy.base_reward * policy.provider_split) / 100 : 0,
+        reward: providerRewardForResponse,
+        networkFee: networkFeeAmount,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
