@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useAccount, useChainId, useWalletClient, useSwitchChain, usePublicClient } from 'wagmi';
+import { useChainId, useWalletClient, useSwitchChain, usePublicClient } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
 import { parseEther, encodeDeployData, getContractAddress } from 'viem';
+import { useWallet } from '@/contexts/WalletContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +27,7 @@ import { CARE_COIN_BYTECODE, CARE_COIN_ABI, TREASURY_ADDRESS, DEFAULT_INITIAL_SU
 type DeploymentStep = 'idle' | 'confirming' | 'deploying' | 'success' | 'error';
 
 export default function DeployContract() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, isConnecting } = useWallet();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
   const { switchChain } = useSwitchChain();
@@ -76,24 +77,24 @@ export default function DeployContract() {
       });
 
       // Get nonce for contract address calculation
-      const nonce = await publicClient.getTransactionCount({ address });
+      const typedAddress = address as `0x${string}`;
+      const nonce = await publicClient.getTransactionCount({ address: typedAddress });
 
       // Deploy the contract using sendTransaction
       setStep('deploying');
       
-      // @ts-expect-error - viem types require kzg for blob transactions but we're not using blobs
       const hash = await walletClient.sendTransaction({
         data: deployData,
-        account: address,
-        to: undefined, // Contract deployment (no 'to' address)
-      });
+        account: typedAddress,
+        to: undefined as unknown as `0x${string}`, // Contract deployment (no 'to' address)
+      } as any);
 
       setTxHash(hash);
       toast.info('Transaction submitted! Waiting for confirmation...');
 
       // Calculate the expected contract address
       const expectedAddress = getContractAddress({
-        from: address,
+        from: typedAddress,
         nonce: BigInt(nonce),
       });
 
@@ -145,7 +146,12 @@ export default function DeployContract() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!isConnected ? (
+            {isConnecting ? (
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <p className="text-muted-foreground">Connecting wallet...</p>
+              </div>
+            ) : !isConnected ? (
               <div className="flex flex-col items-center gap-4">
                 <p className="text-muted-foreground">Connect your wallet to deploy</p>
                 <ConnectWalletButton />
