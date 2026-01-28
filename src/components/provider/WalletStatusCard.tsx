@@ -2,10 +2,10 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/contexts/WalletContext';
-import { Wallet, CheckCircle, AlertCircle, Coins } from 'lucide-react';
+import { Wallet, CheckCircle, AlertCircle, Coins, Loader2 } from 'lucide-react';
 
 export function WalletStatusCard() {
-  const { address, isConnected, entity, entityLoading, mockBalance, mockMode } = useWallet();
+  const { address, isConnected, entity, entityLoading, careBalance, balanceLoading } = useWallet();
 
   const truncateAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -80,17 +80,18 @@ export function WalletStatusCard() {
               <span className="text-sm font-medium">CARE Balance</span>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-bold text-care-teal">
-                {mockMode ? mockBalance.toLocaleString() : '0'}
-              </span>
-              <span className="text-sm text-muted-foreground ml-1">CARE</span>
+              {balanceLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              ) : (
+                <>
+                  <span className="text-2xl font-bold text-care-teal">
+                    {careBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-sm text-muted-foreground ml-1">CARE</span>
+                </>
+              )}
             </div>
           </div>
-          {mockMode && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Mock mode: Balance from database rewards
-            </p>
-          )}
         </div>
       </CardContent>
     </Card>

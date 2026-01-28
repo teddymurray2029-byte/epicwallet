@@ -8,14 +8,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Wallet, ChevronDown, LogOut, Copy, ExternalLink, Check, Smartphone } from 'lucide-react';
+import { Wallet, ChevronDown, LogOut, Copy, ExternalLink, Check, Smartphone, Loader2 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 
 export function ConnectWalletButton() {
   const { connectors, connect, isPending } = useConnect();
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { entity, mockBalance, mockMode } = useWallet();
+  const { entity, careBalance, balanceLoading } = useWallet();
   const [copied, setCopied] = useState(false);
 
   const truncateAddress = (addr: string) => {
@@ -57,14 +57,16 @@ export function ConnectWalletButton() {
           <div className="px-2 py-2">
             <p className="text-sm font-medium">Connected Wallet</p>
             <p className="text-xs text-muted-foreground font-mono">{truncateAddress(address)}</p>
-            {mockMode && (
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">CARE Balance</span>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">CARE Balance</span>
+              {balanceLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
                 <span className="text-sm font-semibold text-care-teal">
-                  {mockBalance.toLocaleString()} CARE
+                  {careBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
                 </span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={copyAddress}>
