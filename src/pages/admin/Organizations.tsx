@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,6 +25,10 @@ export default function Organizations() {
   const [inviteExpiry, setInviteExpiry] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [epicApiUrl, setEpicApiUrl] = useState('');
+  const [epicOrganizationId, setEpicOrganizationId] = useState('');
+  const [isSavingEpic, setIsSavingEpic] = useState(false);
+  const [epicError, setEpicError] = useState<string | null>(null);
 
   const organizationId = entity?.entity_type === 'organization' ? entity.id : entity?.organization_id;
   const organizationLabel = entity?.display_name || 'Your organization';
@@ -87,6 +91,45 @@ export default function Organizations() {
     setIsGenerating(false);
   };
 
+  const handleSaveEpic = async () => {
+    if (!entity || !isOrganizationOwner) {
+      setEpicError('Only the organization owner can attach Epic API details.');
+      return;
+    }
+
+    if (!epicApiUrl.trim() || !epicOrganizationId.trim()) {
+      setEpicError('Please provide both the Epic API link and Epic organization ID.');
+      return;
+    }
+
+    setIsSavingEpic(true);
+    setEpicError(null);
+
+    const updatedMetadata = {
+      ...epicMetadata,
+      epic_api_url: epicApiUrl.trim(),
+      epic_organization_id: epicOrganizationId.trim(),
+    };
+
+    const { error: updateError } = await supabase
+      .from('entities')
+      .update({ metadata: updatedMetadata })
+      .eq('id', entity.id);
+
+    if (updateError) {
+      console.error('Epic API update failed', updateError);
+      setEpicError('Could not save Epic details. Please try again.');
+      setIsSavingEpic(false);
+      return;
+    }
+
+    setIsSavingEpic(false);
+    toast({
+      title: 'Epic API attached',
+      description: 'Epic API details have been saved to your organization.',
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -106,11 +149,11 @@ export default function Organizations() {
           </Alert>
         )}
 
-        {isConnected && entity && entity.organization_id && !isOrganizationOwner && (
+        {isConnected && entity && !organizationId && !isOrganizationOwner && (
           <Alert>
-            <AlertTitle>Organization access</AlertTitle>
+            <AlertTitle>Join an organization</AlertTitle>
             <AlertDescription>
-              Only the organization owner can create invite links. Contact your organization admin for new invites.
+              Organizations are owned by the first account that creates them. Ask the owner for an invite link to join.
             </AlertDescription>
           </Alert>
         )}
@@ -183,6 +226,69 @@ export default function Organizations() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {isConnected && entity && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Epic API connection</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Organizations are owned by the first account that creates them. The owner can attach the Epic API
+                link and Epic organization ID so integrations run under the correct account.
+              </p>
+
+              {epicError && (
+                <Alert variant="destructive">
+                  <AlertTitle>Epic setup error</AlertTitle>
+                  <AlertDescription>{epicError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="epic-api-url">
+                    Epic API link
+                  </label>
+                  <Input
+                    id="epic-api-url"
+                    placeholder="https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4"
+                    value={epicUrlValue}
+                    onChange={(event) => setEpicApiUrl(event.target.value)}
+                    disabled={!isOrganizationOwner}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="epic-org-id">
+                    Epic organization ID
+                  </label>
+                  <Input
+                    id="epic-org-id"
+                    placeholder="Epic organization ID"
+                    value={epicIdValue}
+                    onChange={(event) => setEpicOrganizationId(event.target.value)}
+                    disabled={!isOrganizationOwner}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                {!isOrganizationOwner && (
+                  <span className="text-xs text-muted-foreground">
+                    Only the organization owner can update Epic API details.
+                  </span>
+                )}
+                <Button
+                  onClick={handleSaveEpic}
+                  disabled={!isOrganizationOwner || isSavingEpic}
+                  className="sm:ml-auto"
+                >
+                  {isSavingEpic ? 'Saving Epic details...' : 'Save Epic details'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
