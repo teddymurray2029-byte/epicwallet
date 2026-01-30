@@ -105,7 +105,11 @@ Example payload:
 }
 ```
 
-### Supported Epic events
+## Authentication
+
+CareCoin uses wallet-only authentication. Connect a Web3 wallet (e.g., MetaMask or WalletConnect) to access provider dashboards, rewards, and integrations—there are no email or password logins in the app.
+
+## How can I deploy this project?
 
 These map to internal documentation event types:
 

@@ -34,10 +34,38 @@ const App = () => (
               
               {/* Provider Routes */}
               <Route path="/provider" element={<ProviderDashboard />} />
-              <Route path="/provider/rewards" element={<ProviderRewards />} />
-              <Route path="/provider/activity" element={<ProviderActivity />} />
-              <Route path="/provider/transactions" element={<ProviderTransactions />} />
-              <Route path="/provider/epic" element={<EpicIntegration />} />
+              <Route
+                path="/provider/rewards"
+                element={
+                  <WalletProtectedRoute>
+                    <ProviderRewards />
+                  </WalletProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider/activity"
+                element={
+                  <WalletProtectedRoute>
+                    <ProviderActivity />
+                  </WalletProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider/transactions"
+                element={
+                  <WalletProtectedRoute>
+                    <ProviderTransactions />
+                  </WalletProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider/epic"
+                element={
+                  <WalletProtectedRoute>
+                    <EpicIntegration />
+                  </WalletProtectedRoute>
+                }
+              />
               
               {/* Admin Routes */}
               <Route path="/admin" element={<Navigate to="/admin/organizations" replace />} />
