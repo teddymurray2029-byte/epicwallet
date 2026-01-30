@@ -164,6 +164,28 @@ Deno.serve(async (req) => {
     const networkFeeAmount = (policy.base_reward * networkFeePercent) / 100;
     const remainingReward = policy.base_reward - networkFeeAmount;
 
+    const organizationId = provider.organization_id;
+    let orgCreatorWallet: string | null = null;
+
+    if (organizationId) {
+      const { data: organizationEntity } = await supabase
+        .from('entities')
+        .select('id, creator_wallet_address, metadata')
+        .eq('id', organizationId)
+        .maybeSingle();
+
+      const metadata = organizationEntity?.metadata as Record<string, unknown> | null;
+      const metadataWallet = typeof metadata?.creator_wallet_address === 'string'
+        ? metadata.creator_wallet_address
+        : typeof metadata?.owner_wallet_address === 'string'
+          ? metadata.owner_wallet_address
+          : typeof metadata?.org_creator_wallet_address === 'string'
+            ? metadata.org_creator_wallet_address
+            : null;
+
+      orgCreatorWallet = organizationEntity?.creator_wallet_address || metadataWallet || null;
+    }
+
     // Create attestation (pending - will be confirmed when signed on-chain)
     const { data: attestation, error: attError } = await supabase
       .from('attestations')
@@ -180,24 +202,54 @@ Deno.serve(async (req) => {
       console.error('Error creating attestation:', attError);
       // Event was still created, just no attestation
     } else {
-      // Create network fee ledger entry
+      // Create network fee ledger entry (split treasury fee: 25% org creator, 75% treasury)
       if (networkFee && networkFeeAmount > 0) {
+        let orgCreatorBonus = (networkFeeAmount * 25) / 100;
+        let treasuryAmount = networkFeeAmount - orgCreatorBonus;
+
+        if (orgCreatorWallet) {
+          const { data: orgCreatorEntity } = await supabase
+            .from('entities')
+            .select('id, entity_type')
+            .eq('wallet_address', orgCreatorWallet.toLowerCase())
+            .maybeSingle();
+
+          if (orgCreatorEntity) {
+            await supabase.from('rewards_ledger').insert({
+              attestation_id: attestation.id,
+              recipient_id: orgCreatorEntity.id,
+              recipient_type: orgCreatorEntity.entity_type,
+              amount: orgCreatorBonus,
+              status: 'confirmed',
+              confirmed_at: new Date().toISOString(),
+            });
+            console.log('Created org creator bonus:', orgCreatorBonus, 'CARE for', orgCreatorWallet);
+          } else {
+            console.warn('Org creator wallet entity not found:', orgCreatorWallet);
+            orgCreatorBonus = 0;
+            treasuryAmount = networkFeeAmount;
+          }
+        } else {
+          orgCreatorBonus = 0;
+          treasuryAmount = networkFeeAmount;
+        }
+
         const { data: networkEntity } = await supabase
           .from('entities')
           .select('id')
           .eq('wallet_address', networkFee.wallet_address.toLowerCase())
           .maybeSingle();
 
-        if (networkEntity) {
+        if (networkEntity && treasuryAmount > 0) {
           await supabase.from('rewards_ledger').insert({
             attestation_id: attestation.id,
             recipient_id: networkEntity.id,
             recipient_type: 'admin',
-            amount: networkFeeAmount,
+            amount: treasuryAmount,
             status: 'confirmed',
             confirmed_at: new Date().toISOString(),
           });
-          console.log('Created network fee:', networkFeeAmount, 'CARE for treasury');
+          console.log('Created network fee:', treasuryAmount, 'CARE for treasury');
         } else {
           console.warn('Network fee wallet entity not found:', networkFee.wallet_address);
         }
