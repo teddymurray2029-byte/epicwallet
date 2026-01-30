@@ -16,6 +16,8 @@ import ProviderActivity from "./pages/provider/ProviderActivity";
 import ProviderTransactions from "./pages/provider/ProviderTransactions";
 import EpicIntegration from "./pages/provider/EpicIntegration";
 import DeployContract from "./pages/admin/DeployContract";
+import OrganizationInvites from "./pages/organization/OrganizationInvites";
+import AcceptInvite from "./pages/invites/AcceptInvite";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +41,12 @@ const App = () => (
               
               {/* Admin Routes */}
               <Route path="/admin/deploy" element={<DeployContract />} />
+
+              {/* Organization Routes */}
+              <Route path="/organization/invites" element={<OrganizationInvites />} />
+
+              {/* Invite Routes */}
+              <Route path="/invites/accept" element={<AcceptInvite />} />
               
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
