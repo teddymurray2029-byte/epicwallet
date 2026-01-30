@@ -14,12 +14,12 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full">
+      <div className="flex min-h-screen w-full bg-gradient-to-br from-background via-muted/60 to-background">
         <AppSidebar />
         
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur-sm">
+          <header className="sticky top-0 z-40 border-b border-border/60 bg-card/75 shadow-sm backdrop-blur-md">
             <div className="flex h-16 items-center justify-between px-4 md:px-6">
               <div className="flex items-center gap-4">
                 <SidebarTrigger className="md:hidden" />
@@ -36,7 +36,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Main content */}
           <main className="flex-1 p-4 md:p-6 lg:p-8">
-            {children}
+            <div className="h-full rounded-2xl border border-border/60 bg-card/70 p-4 shadow-xl backdrop-blur-lg md:p-6 lg:p-8">
+              {children}
+            </div>
           </main>
         </div>
       </div>
