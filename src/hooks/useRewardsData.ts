@@ -53,10 +53,25 @@ export function useRewardsSummary() {
 
       const { data: rewards, error } = await supabase
         .from('rewards_ledger')
-        .select('amount, status, created_at')
+        .select(`
+          amount,
+          status,
+          created_at,
+          attestation:attestations (
+            event:documentation_events (
+              organization_id
+            )
+          )
+        `)
         .eq('recipient_id', entity.id);
 
       if (error) throw error;
+
+      const filteredRewards = (rewards || []).filter((reward) => {
+        if (!entity.organization_id) return true;
+        const organizationId = (reward.attestation as any)?.event?.organization_id;
+        return organizationId === entity.organization_id;
+      });
 
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -69,7 +84,7 @@ export function useRewardsSummary() {
       let pendingRewards = 0;
       let confirmedRewards = 0;
 
-      (rewards || []).forEach((r) => {
+      filteredRewards.forEach((r) => {
         const amount = Number(r.amount);
         const createdAt = new Date(r.created_at);
 
@@ -115,7 +130,8 @@ export function useRewardsByEventType() {
           amount,
           attestation:attestations (
             event:documentation_events (
-              event_type
+              event_type,
+              organization_id
             )
           )
         `)
@@ -124,10 +140,16 @@ export function useRewardsByEventType() {
 
       if (error) throw error;
 
+      const filteredRewards = (rewards || []).filter((reward) => {
+        if (!entity.organization_id) return true;
+        const organizationId = (reward.attestation as any)?.event?.organization_id;
+        return organizationId === entity.organization_id;
+      });
+
       // Aggregate by event type
       const byType: Record<string, { amount: number; count: number }> = {};
 
-      (rewards || []).forEach((r) => {
+      filteredRewards.forEach((r) => {
         const eventType = (r.attestation as any)?.event?.event_type || 'unknown';
         if (!byType[eventType]) {
           byType[eventType] = { amount: 0, count: 0 };
@@ -164,7 +186,8 @@ export function useRecentActivity(limit = 10) {
           attestation:attestations (
             event:documentation_events (
               event_type,
-              event_hash
+              event_hash,
+              organization_id
             )
           )
         `)
@@ -174,16 +197,22 @@ export function useRecentActivity(limit = 10) {
 
       if (error) throw error;
 
-      return (data || []).map((r) => ({
-        id: r.id,
-        eventType: ((r.attestation as any)?.event?.event_type || 'unknown')
-          .replace(/_/g, ' ')
-          .replace(/\b\w/g, (l: string) => l.toUpperCase()),
-        amount: Number(r.amount),
-        status: r.status,
-        createdAt: r.created_at,
-        eventHash: (r.attestation as any)?.event?.event_hash || '',
-      }));
+      return (data || [])
+        .filter((reward) => {
+          if (!entity.organization_id) return true;
+          const organizationId = (reward.attestation as any)?.event?.organization_id;
+          return organizationId === entity.organization_id;
+        })
+        .map((r) => ({
+          id: r.id,
+          eventType: ((r.attestation as any)?.event?.event_type || 'unknown')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          amount: Number(r.amount),
+          status: r.status,
+          createdAt: r.created_at,
+          eventHash: (r.attestation as any)?.event?.event_hash || '',
+        }));
     },
     enabled: !!entity?.id,
   });
@@ -199,21 +228,34 @@ export function useTransactionHistory() {
 
       const { data, error } = await supabase
         .from('rewards_ledger')
-        .select('*')
+        .select(`
+          *,
+          attestation:attestations (
+            event:documentation_events (
+              organization_id
+            )
+          )
+        `)
         .eq('recipient_id', entity.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      return (data || []).map((r) => ({
-        id: r.id,
-        amount: Number(r.amount),
-        status: r.status,
-        txHash: r.tx_hash,
-        createdAt: r.created_at,
-        confirmedAt: r.confirmed_at,
-        recipientType: r.recipient_type,
-      }));
+      return (data || [])
+        .filter((reward) => {
+          if (!entity.organization_id) return true;
+          const organizationId = (reward.attestation as any)?.event?.organization_id;
+          return organizationId === entity.organization_id;
+        })
+        .map((r) => ({
+          id: r.id,
+          amount: Number(r.amount),
+          status: r.status,
+          txHash: r.tx_hash,
+          createdAt: r.created_at,
+          confirmedAt: r.confirmed_at,
+          recipientType: r.recipient_type,
+        }));
     },
     enabled: !!entity?.id,
   });

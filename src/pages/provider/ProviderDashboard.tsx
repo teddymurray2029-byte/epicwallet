@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { WalletStatusCard } from '@/components/provider/WalletStatusCard';
 import { RewardsSummaryCard } from '@/components/provider/RewardsSummaryCard';
@@ -10,10 +10,48 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Wallet, Shield, Coins, UserPlus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+interface OrganizationOption {
+  id: string;
+  display_name: string | null;
+}
 
 export default function ProviderDashboard() {
-  const { isConnected, isConnecting, address, entity, entityLoading, registerEntity } = useWallet();
+  const { isConnected, isConnecting, address, entity, entityLoading, registerEntity, createOrganization } = useWallet();
   const [isRegistering, setIsRegistering] = useState(false);
+  const [organizations, setOrganizations] = useState<OrganizationOption[]>([]);
+  const [organizationsLoading, setOrganizationsLoading] = useState(false);
+  const [selectedOrganization, setSelectedOrganization] = useState<string>('');
+  const [newOrganizationName, setNewOrganizationName] = useState('');
+
+  const canRegister = useMemo(() => {
+    return Boolean(selectedOrganization || newOrganizationName.trim());
+  }, [newOrganizationName, selectedOrganization]);
+
+  useEffect(() => {
+    const loadOrganizations = async () => {
+      setOrganizationsLoading(true);
+      const { data, error } = await supabase
+        .from('entities')
+        .select('id, display_name')
+        .eq('entity_type', 'organization')
+        .order('display_name', { ascending: true });
+
+      if (error) {
+        console.error('Error loading organizations:', error);
+      } else {
+        setOrganizations(data || []);
+      }
+      setOrganizationsLoading(false);
+    };
+
+    if (isConnected && !entity) {
+      loadOrganizations();
+    }
+  }, [isConnected, entity]);
 
   // Wait for wallet reconnection before showing connect prompt
   if (isConnecting) {
@@ -28,7 +66,13 @@ export default function ProviderDashboard() {
 
   const handleRegister = async () => {
     setIsRegistering(true);
-    const success = await registerEntity('provider');
+    let organizationId = selectedOrganization || null;
+
+    if (!organizationId && newOrganizationName.trim()) {
+      organizationId = await createOrganization(newOrganizationName.trim());
+    }
+
+    const success = await registerEntity('provider', undefined, organizationId);
     if (success) {
       toast({
         title: 'Registration Successful',
@@ -101,6 +145,43 @@ export default function ProviderDashboard() {
                   {address}
                 </p>
               </div>
+              <div className="space-y-3 text-left">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Choose your organization</p>
+                  <Select
+                    value={selectedOrganization}
+                    onValueChange={(value) => setSelectedOrganization(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={organizationsLoading ? 'Loading organizations...' : 'Select organization'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          No organizations available
+                        </SelectItem>
+                      ) : (
+                        organizations.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            {org.display_name || 'Unnamed organization'}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Or create a new organization</p>
+                  <Input
+                    value={newOrganizationName}
+                    onChange={(event) => setNewOrganizationName(event.target.value)}
+                    placeholder="Organization name"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Creating a new organization assigns you as the owner.
+                  </p>
+                </div>
+              </div>
               <Button
                 onClick={handleRegister}
                 disabled={isRegistering}
@@ -109,6 +190,11 @@ export default function ProviderDashboard() {
                 <UserPlus className="mr-2 h-4 w-4" />
                 {isRegistering ? 'Registering...' : 'Register as Provider'}
               </Button>
+              {!canRegister && (
+                <p className="text-xs text-care-warning">
+                  Select an organization or create a new one to continue.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 This registers your wallet for testing. Production registration requires admin approval.
               </p>
