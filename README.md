@@ -1,6 +1,14 @@
 # EpicWallet (CareCoin)
 
-EpicWallet is a React + Vite app for managing CareCoin rewards, provider activity, and EHR integrations. It connects wallets (MetaMask/WalletConnect), tracks off-chain rewards in Supabase, and records on-chain balances via wagmi.
+EpicWallet is a React + Vite dashboard for managing CareCoin rewards, provider activity, and Epic EHR integrations. It blends a modern glassmorphism UI with wallet-based authentication and on-chain/off-chain reward tracking.
+
+## Highlights
+
+- **CareCoin dashboard** for providers, rewards, and activity insights.
+- **Wallet-only authentication** via MetaMask or WalletConnect (wagmi + viem).
+- **Supabase-backed rewards ledger** and Epic webhook processing.
+- **Modern UI refresh** featuring gradients, glass surfaces, subtle borders, and elevated shadows across the layout and sidebar.
+- **Epic Integration workflow** with generated webhook URLs for Epic App Orchard configuration.
 
 ## Tech Stack
 
@@ -12,68 +20,79 @@ EpicWallet is a React + Vite app for managing CareCoin rewards, provider activit
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+ (or 20+ recommended)
+
+- Node.js 18+ (20+ recommended)
 - npm
+- A Supabase project (for webhook + rewards data)
 
 ### Install & Run
+
 ```sh
 npm install
 npm run dev
 ```
 
 ### Build
+
 ```sh
 npm run build
 ```
 
 ## Environment Variables
 
-The frontend expects:
+Create a `.env` file in the project root with:
 
-- `VITE_SUPABASE_URL` — Supabase project URL
-- `VITE_SUPABASE_PUBLISHABLE_KEY` — Supabase anon/publishable key
+```sh
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
+```
 
 These are read in `src/integrations/supabase/client.ts`.
 
-## MetaMask (Wallet) Integration
+## Wallet Integration (MetaMask + WalletConnect)
 
-Wallet connection is handled by wagmi in `src/lib/wagmi.ts` and the UI lives in `src/components/wallet/ConnectWalletButton.tsx`.
+Wallet connection is defined in `src/lib/wagmi.ts` and the UI lives in
+`src/components/wallet/ConnectWalletButton.tsx`.
 
 ### How it works
-- MetaMask uses the `Injected` connector (`wagmi/connectors`).
-- WalletConnect is also enabled as a fallback.
-- Supported chains: Polygon Mainnet and Polygon Amoy (testnet).
-- The connect button prefers MetaMask if detected.
+
+- Uses wagmi `Injected` connector (MetaMask) with WalletConnect as fallback.
+- Supports Polygon Mainnet and Polygon Amoy (testnet).
+- The connect button prefers MetaMask when detected.
 
 ### Setup steps
-1. Install MetaMask in your browser: https://metamask.io/download/
-2. Open the app and click **Connect MetaMask**.
-3. Approve the connection in MetaMask.
-4. (Optional) Switch to Polygon or Polygon Amoy in MetaMask if needed.
+
+1. Install MetaMask: https://metamask.io/download/
+2. Run the app and click **Connect MetaMask**.
+3. Approve the connection.
+4. Switch to Polygon or Polygon Amoy if needed.
 
 ### Configuration tips
+
 - Update RPCs, chains, or the WalletConnect Project ID in `src/lib/wagmi.ts`.
-- Contract addresses are placeholders in `CONTRACT_ADDRESSES` and should be updated after deployment.
+- Contract addresses are stored in `CONTRACT_ADDRESSES` and should be updated after deployment.
 
 ## Epic Integration
 
-The Epic integration is managed via the **Epic Integration** page:
+The Epic integration workflow is available on the **Epic Integration** page.
 
 - Route: `/provider/epic`
 - UI: `src/pages/provider/EpicIntegration.tsx`
-- Webhook (Supabase Edge Function): `supabase/functions/epic-webhook`
+- Webhook: `supabase/functions/epic-webhook`
 
 ### Prerequisites
-- A Supabase project with the required tables and the `epic-webhook` edge function deployed.
-- A provider entity registered in the `entities` table with a matching wallet address.
+
+- Supabase project with the required tables and `epic-webhook` edge function deployed.
+- A provider entity in the `entities` table with a matching wallet address.
 - `VITE_SUPABASE_URL` set so the UI can compute the webhook URL.
 
 ### Configure the integration
+
 1. Connect your wallet in the app.
-2. Navigate to **Epic Integration** (`/provider/epic`).
+2. Open **Epic Integration** (`/provider/epic`).
 3. Enter your **Epic Client ID** (required).
-4. (Optional) Add **Webhook Secret** and **FHIR Base URL**.
-5. Copy the **Webhook URL** and configure it in your Epic App Orchard settings.
+4. Optionally add **Webhook Secret** and **FHIR Base URL**.
+5. Copy the **Webhook URL** for Epic App Orchard.
 
 The webhook URL is:
 
@@ -86,7 +105,7 @@ ${VITE_SUPABASE_URL}/functions/v1/epic-webhook
 `supabase/functions/epic-webhook/index.ts` expects JSON with:
 
 - `eventType` (required)
-- `providerWallet` (required; lowercase is normalized)
+- `providerWallet` (required; lowercase normalized)
 - `timestamp` (optional; uses current time if missing)
 - `patientId`, `organizationId`, `metadata` (optional)
 
@@ -105,11 +124,7 @@ Example payload:
 }
 ```
 
-## Authentication
-
-CareCoin uses wallet-only authentication. Connect a Web3 wallet (e.g., MetaMask or WalletConnect) to access provider dashboards, rewards, and integrations—there are no email or password logins in the app.
-
-## How can I deploy this project?
+## Reward Event Types
 
 These map to internal documentation event types:
 
@@ -125,8 +140,19 @@ These map to internal documentation event types:
 - `followup.completed`
 
 ### Notes
+
 - Reward processing uses Supabase tables like `documentation_events`, `reward_policies`, and `rewards_ledger`.
-- The webhook uses the Supabase service role key at runtime; deploy the function with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` configured.
+- The webhook uses the Supabase service role key at runtime; deploy the function with
+  `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` configured.
+
+## UI & Design Enhancements
+
+The dashboard now emphasizes CareCoin branding and usability with:
+
+- Gradient backgrounds across the main app shell.
+- Glass-like surfaces with `backdrop-blur` for header, content, and sidebar.
+- Subtle borders and soft shadows for depth and clarity.
+- Updated CareCoin branding badge in the sidebar header.
 
 ## Available Scripts
 

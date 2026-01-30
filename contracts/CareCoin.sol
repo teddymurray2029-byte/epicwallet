@@ -139,8 +139,11 @@ contract CareCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
         
         uint256 totalGross = 0;
         uint256 totalFees = 0;
+        uint256 recipientsLength = recipients.length;
+        uint256[] memory netAmounts = new uint256[](recipientsLength);
+        uint256[] memory feeAmounts = new uint256[](recipientsLength);
         
-        for (uint256 i = 0; i < recipients.length; i++) {
+        for (uint256 i = 0; i < recipientsLength; i++) {
             if (recipients[i] == address(0)) revert ZeroAddress();
             if (grossAmounts[i] == 0) revert InvalidAmount();
             
@@ -148,20 +151,25 @@ contract CareCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
             
             totalGross += grossAmounts[i];
             totalFees += feeAmount;
-            
-            _mint(recipients[i], netAmount);
-            
-            emit RewardMinted(
-                recipients[i],
-                grossAmounts[i],
-                netAmount,
-                feeAmount,
-                attestationIds[i]
-            );
+
+            netAmounts[i] = netAmount;
+            feeAmounts[i] = feeAmount;
         }
         
         // Check max supply for total
         if (totalSupply() + totalGross > MAX_SUPPLY) revert ExceedsMaxSupply();
+
+        for (uint256 i = 0; i < recipientsLength; i++) {
+            _mint(recipients[i], netAmounts[i]);
+            
+            emit RewardMinted(
+                recipients[i],
+                grossAmounts[i],
+                netAmounts[i],
+                feeAmounts[i],
+                attestationIds[i]
+            );
+        }
         
         // Mint accumulated fees to treasury in single operation
         if (totalFees > 0) {
@@ -177,7 +185,7 @@ contract CareCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
      * @param to Recipient address
      * @param amount Amount to mint
      */
-    function mint(address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function mint(address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) whenNotPaused {
         if (to == address(0)) revert ZeroAddress();
         if (totalSupply() + amount > MAX_SUPPLY) revert ExceedsMaxSupply();
         _mint(to, amount);

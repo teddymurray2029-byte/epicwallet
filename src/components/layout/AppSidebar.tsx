@@ -88,13 +88,17 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <Coins className="h-6 w-6" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-care-green via-care-blue to-care-green text-sidebar-primary-foreground shadow-sm">
+            <span className="text-lg">💚🪙</span>
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-lg font-bold text-sidebar-foreground">CareCoin</span>
-              <span className="text-xs text-sidebar-foreground/60">Healthcare Rewards</span>
+              <span className="text-lg font-bold text-sidebar-foreground">
+                CareCoin <span className="text-base">✨</span>
+              </span>
+              <span className="text-xs font-medium tracking-wide text-sidebar-foreground/60">
+                Care<span className="text-care-green">💖</span>Coin Rewards
+              </span>
             </div>
           )}
         </div>
