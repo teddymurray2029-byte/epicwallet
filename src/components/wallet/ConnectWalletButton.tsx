@@ -50,7 +50,7 @@ export function ConnectWalletButton() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2 border-primary/40 bg-background/80 shadow-[0_0_14px_rgba(59,130,246,0.15)]">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-care-green animate-pulse-glow" />
               <span className="font-mono text-sm">{truncateAddress(address)}</span>
@@ -104,7 +104,7 @@ export function ConnectWalletButton() {
   return (
     <div className="flex items-center gap-2">
       <Button
-        className="gap-2 bg-primary hover:bg-primary/90"
+        className="gap-2 bg-gradient-to-r from-primary to-care-teal text-white shadow-[0_0_18px_rgba(56,189,248,0.25)] hover:from-primary/90 hover:to-care-teal/90"
         onClick={() => preferredConnector && connect({ connector: preferredConnector })}
         disabled={isPending || !preferredConnector}
       >
@@ -113,7 +113,7 @@ export function ConnectWalletButton() {
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="h-10 px-3">
+          <Button variant="outline" className="h-10 px-3 border-primary/40 bg-background/80 shadow-[0_0_12px_rgba(59,130,246,0.12)]">
             <span className="sr-only">More wallet options</span>
             <ChevronDown className="h-4 w-4" />
           </Button>
