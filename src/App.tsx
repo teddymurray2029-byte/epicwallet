@@ -17,8 +17,8 @@ import ProviderActivity from "./pages/provider/ProviderActivity";
 import ProviderTransactions from "./pages/provider/ProviderTransactions";
 import EpicIntegration from "./pages/provider/EpicIntegration";
 import DeployContract from "./pages/admin/DeployContract";
-import Organizations from "./pages/admin/Organizations";
-import InviteAccept from "./pages/InviteAccept";
+import OrganizationInvites from "./pages/organization/OrganizationInvites";
+import AcceptInvite from "./pages/invites/AcceptInvite";
 
 const queryClient = new QueryClient();
 
