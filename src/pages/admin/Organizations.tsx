@@ -29,7 +29,8 @@ export default function Organizations() {
   const organizationId = entity?.entity_type === 'organization' ? entity.id : entity?.organization_id;
   const organizationLabel = entity?.display_name || 'Your organization';
 
-  const canGenerateInvite = Boolean(isConnected && organizationId && entity);
+  const isOrganizationOwner = entity?.entity_type === 'organization';
+  const canGenerateInvite = Boolean(isConnected && organizationId && isOrganizationOwner);
 
   const handleCopy = async (value: string) => {
     if (!value) return;
@@ -105,6 +106,15 @@ export default function Organizations() {
           </Alert>
         )}
 
+        {isConnected && entity && entity.organization_id && !isOrganizationOwner && (
+          <Alert>
+            <AlertTitle>Organization access</AlertTitle>
+            <AlertDescription>
+              Only the organization owner can create invite links. Contact your organization admin for new invites.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {!isConnected && (
           <Card>
             <CardHeader>
@@ -137,7 +147,7 @@ export default function Organizations() {
               <p className="text-sm text-muted-foreground">
                 {entity.entity_type === 'organization'
                   ? `${organizationLabel} is ready. Share an invite link to add providers and staff.`
-                  : 'Share an invite link so providers can join your organization.'}
+                  : 'Invite links can only be created by the organization owner.'}
               </p>
 
               {error && (
