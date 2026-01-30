@@ -2,10 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WagmiProvider } from 'wagmi';
 import { config } from '@/lib/wagmi';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { WalletProtectedRoute } from "@/components/auth/WalletProtectedRoute";
 
 // Pages
 import Index from "./pages/Index";
@@ -34,19 +35,46 @@ const App = () => (
               
               {/* Provider Routes */}
               <Route path="/provider" element={<ProviderDashboard />} />
-              <Route path="/provider/rewards" element={<ProviderRewards />} />
-              <Route path="/provider/activity" element={<ProviderActivity />} />
-              <Route path="/provider/transactions" element={<ProviderTransactions />} />
-              <Route path="/provider/epic" element={<EpicIntegration />} />
+              <Route
+                path="/provider/rewards"
+                element={
+                  <WalletProtectedRoute>
+                    <ProviderRewards />
+                  </WalletProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider/activity"
+                element={
+                  <WalletProtectedRoute>
+                    <ProviderActivity />
+                  </WalletProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider/transactions"
+                element={
+                  <WalletProtectedRoute>
+                    <ProviderTransactions />
+                  </WalletProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider/epic"
+                element={
+                  <WalletProtectedRoute>
+                    <EpicIntegration />
+                  </WalletProtectedRoute>
+                }
+              />
               
               {/* Admin Routes */}
+              <Route path="/admin" element={<Navigate to="/admin/organizations" replace />} />
               <Route path="/admin/deploy" element={<DeployContract />} />
-
-              {/* Organization Routes */}
-              <Route path="/organization/invites" element={<OrganizationInvites />} />
+              <Route path="/admin/organizations" element={<Organizations />} />
 
               {/* Invite Routes */}
-              <Route path="/invites/accept" element={<AcceptInvite />} />
+              <Route path="/invite/:token" element={<InviteAccept />} />
               
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />

@@ -49,7 +49,12 @@ interface WalletContextType {
   // Actions
   disconnect: () => void;
   refreshEntity: () => Promise<void>;
-  registerEntity: (entityType: EntityType, displayName?: string) => Promise<boolean>;
+  registerEntity: (
+    entityType: EntityType,
+    displayName?: string,
+    organizationId?: string | null
+  ) => Promise<boolean>;
+  createOrganization: (displayName: string) => Promise<string | null>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -126,18 +131,38 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     await fetchEntity();
   };
 
-  const registerEntity = async (entityType: EntityType, displayName?: string): Promise<boolean> => {
+  const registerEntity = async (
+    entityType: EntityType,
+    displayName?: string,
+    organizationId?: string | null
+  ): Promise<boolean> => {
     if (!address) return false;
 
     try {
+      if ((entityType === 'provider' || entityType === 'patient') && !organizationId) {
+        throw new Error('Organization is required for providers and patients.');
+      }
       const { error } = await supabase
         .from('entities')
         .insert({
           wallet_address: address.toLowerCase(),
           entity_type: entityType,
           display_name: displayName || null,
+          organization_id: organizationId || null,
           is_verified: false,
         });
+      const walletAddress = address.toLowerCase();
+      const { error } = await supabase
+        .from('entities')
+        .upsert(
+          {
+            wallet_address: walletAddress,
+            entity_type: entityType,
+            display_name: displayName || null,
+            is_verified: false,
+          },
+          { onConflict: 'wallet_address' },
+        );
 
       if (error) {
         console.error('Error registering entity:', error);
@@ -149,6 +174,36 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Error in registerEntity:', err);
       return false;
+    }
+  };
+
+  const createOrganization = async (displayName: string): Promise<string | null> => {
+    if (!address) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('entities')
+        .insert({
+          wallet_address: `org:${crypto.randomUUID()}`,
+          entity_type: 'organization',
+          display_name: displayName,
+          metadata: {
+            owner_wallet_address: address.toLowerCase(),
+          },
+          is_verified: false,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('Error creating organization:', error);
+        return null;
+      }
+
+      return data?.id ?? null;
+    } catch (err) {
+      console.error('Error in createOrganization:', err);
+      return null;
     }
   };
 
@@ -172,6 +227,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     disconnect,
     refreshEntity,
     registerEntity,
+    createOrganization,
   };
 
   return (
