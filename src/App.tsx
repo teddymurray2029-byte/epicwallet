@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WagmiProvider } from 'wagmi';
 import { config } from '@/lib/wagmi';
 import { WalletProvider } from '@/contexts/WalletContext';
@@ -16,7 +16,8 @@ import ProviderActivity from "./pages/provider/ProviderActivity";
 import ProviderTransactions from "./pages/provider/ProviderTransactions";
 import EpicIntegration from "./pages/provider/EpicIntegration";
 import DeployContract from "./pages/admin/DeployContract";
-import { WalletProtectedRoute } from "@/components/auth/WalletProtectedRoute";
+import Organizations from "./pages/admin/Organizations";
+import InviteAccept from "./pages/InviteAccept";
 
 const queryClient = new QueryClient();
 
@@ -67,7 +68,12 @@ const App = () => (
               />
               
               {/* Admin Routes */}
+              <Route path="/admin" element={<Navigate to="/admin/organizations" replace />} />
               <Route path="/admin/deploy" element={<DeployContract />} />
+              <Route path="/admin/organizations" element={<Organizations />} />
+
+              {/* Invite Routes */}
+              <Route path="/invite/:token" element={<InviteAccept />} />
               
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
