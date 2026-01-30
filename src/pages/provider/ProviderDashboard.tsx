@@ -94,14 +94,16 @@ export default function ProviderDashboard() {
   if (!isConnected) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <Card className="max-w-md w-full">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 sm:px-6">
+          <Card className="max-w-md w-full border border-primary/20 bg-gradient-to-br from-background via-background to-primary/10 shadow-[0_0_35px_rgba(56,189,248,0.18)]">
             <CardContent className="pt-8 pb-8 text-center space-y-6">
-              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 ring-1 ring-primary/30 shadow-[0_0_18px_rgba(56,189,248,0.25)] flex items-center justify-center">
                 <Wallet className="h-8 w-8 text-primary" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold">Connect Your Wallet</h2>
+                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-care-teal">
+                  Connect Your Wallet
+                </h2>
                 <p className="text-muted-foreground">
                   Connect your wallet to access the CareCoin Provider Dashboard and view your healthcare documentation rewards.
                 </p>
@@ -109,7 +111,7 @@ export default function ProviderDashboard() {
               <div className="flex flex-col gap-4">
                 <ConnectWalletButton />
                 <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
-                  <Shield className="h-3 w-3" />
+                  <Shield className="h-3 w-3 text-care-teal" />
                   <span>Your wallet is your identity. No email or password needed.</span>
                 </div>
               </div>
@@ -124,19 +126,21 @@ export default function ProviderDashboard() {
   if (!entityLoading && !entity) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <Card className="max-w-md w-full">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 sm:px-6">
+          <Card className="max-w-md w-full border border-care-warning/20 bg-gradient-to-br from-background via-background to-care-warning/10 shadow-[0_0_35px_rgba(251,191,36,0.16)]">
             <CardContent className="pt-8 pb-8 text-center space-y-6">
-              <div className="mx-auto w-16 h-16 rounded-full bg-care-warning/10 flex items-center justify-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-care-warning/10 ring-1 ring-care-warning/30 shadow-[0_0_18px_rgba(251,191,36,0.25)] flex items-center justify-center">
                 <Coins className="h-8 w-8 text-care-warning" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold">Wallet Not Registered</h2>
+                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-care-warning to-care-teal">
+                  Wallet Not Registered
+                </h2>
                 <p className="text-muted-foreground">
                   Your wallet is connected but not yet registered in the CareCoin network.
                 </p>
               </div>
-              <div className="p-4 bg-muted rounded-lg">
+              <div className="p-4 bg-muted/70 border border-border/60 rounded-lg">
                 <p className="text-xs text-muted-foreground font-mono break-all">
                   {address}
                 </p>
@@ -180,8 +184,8 @@ export default function ProviderDashboard() {
               </div>
               <Button
                 onClick={handleRegister}
-                disabled={isRegistering || !canRegister}
-                className="w-full"
+                disabled={isRegistering}
+                className="w-full bg-gradient-to-r from-care-warning to-care-teal text-white shadow-[0_0_18px_rgba(251,191,36,0.25)] hover:from-care-warning/90 hover:to-care-teal/90"
               >
                 <UserPlus className="mr-2 h-4 w-4" />
                 {isRegistering ? 'Registering...' : 'Register as Provider'}

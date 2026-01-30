@@ -151,6 +151,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           organization_id: organizationId || null,
           is_verified: false,
         });
+      const walletAddress = address.toLowerCase();
+      const { error } = await supabase
+        .from('entities')
+        .upsert(
+          {
+            wallet_address: walletAddress,
+            entity_type: entityType,
+            display_name: displayName || null,
+            is_verified: false,
+          },
+          { onConflict: 'wallet_address' },
+        );
 
       if (error) {
         console.error('Error registering entity:', error);
