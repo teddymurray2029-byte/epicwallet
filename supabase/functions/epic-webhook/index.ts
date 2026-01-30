@@ -30,6 +30,26 @@ interface EpicEvent {
   metadata?: Record<string, unknown>;
 }
 
+const MAX_EVENT_AGE_MS = 5 * 60 * 1000;
+
+const timingSafeEqual = (a: Uint8Array, b: Uint8Array) => {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+};
+
+const toHex = (buffer: ArrayBuffer) =>
+  Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+
+const parseTimestamp = (timestamp?: string) => {
+  if (!timestamp) return null;
+  const parsed = Date.parse(timestamp);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -41,8 +61,24 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse the Epic event payload
-    const payload: EpicEvent = await req.json();
+    const signatureHeader = req.headers.get('x-epic-signature') ?? '';
+    if (!signatureHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing signature header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    const rawBody = await req.text();
+    let payload: EpicEvent;
+    try {
+      payload = JSON.parse(rawBody) as EpicEvent;
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid JSON payload' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
     console.log('Received Epic event:', payload.eventType);
 
     // Validate required fields
@@ -50,6 +86,23 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing required fields: eventType and providerWallet' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const normalizedWallet = payload.providerWallet.toLowerCase();
+    const eventTimestampMs = parseTimestamp(payload.timestamp);
+    if (!eventTimestampMs) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing or invalid timestamp' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    const eventAgeMs = Math.abs(Date.now() - eventTimestampMs);
+    if (eventAgeMs > MAX_EVENT_AGE_MS) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Event timestamp outside allowed window' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -67,7 +120,7 @@ Deno.serve(async (req) => {
     const { data: provider, error: providerError } = await supabase
       .from('entities')
       .select('id, wallet_address, organization_id')
-      .eq('wallet_address', payload.providerWallet.toLowerCase())
+      .eq('wallet_address', normalizedWallet)
       .maybeSingle();
 
     if (providerError || !provider) {
@@ -78,18 +131,52 @@ Deno.serve(async (req) => {
       );
     }
 
+    const { data: integration, error: integrationError } = await supabase
+      .from('ehr_integrations')
+      .select('webhook_secret')
+      .eq('entity_id', provider.id)
+      .eq('integration_type', 'epic')
+      .maybeSingle();
+
+    if (integrationError || !integration?.webhook_secret) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Webhook secret not configured' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(integration.webhook_secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody));
+    const computedSignature = toHex(signature);
+    const signatureValid = timingSafeEqual(
+      encoder.encode(computedSignature),
+      encoder.encode(signatureHeader.trim()),
+    );
+
+    if (!signatureValid) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid signature' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Generate event hash (for deduplication and attestation)
     const eventData = JSON.stringify({
       eventType: payload.eventType,
-      timestamp: payload.timestamp,
-      providerWallet: payload.providerWallet,
+      timestamp: new Date(eventTimestampMs).toISOString(),
+      providerWallet: normalizedWallet,
       patientId: payload.patientId || null,
     });
-    const encoder = new TextEncoder();
     const data = encoder.encode(eventData);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const eventHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const eventHash = toHex(hashBuffer);
 
     // Check for duplicate events
     const { data: existingEvent } = await supabase
@@ -112,7 +199,7 @@ Deno.serve(async (req) => {
       .insert({
         event_type: eventType,
         event_hash: eventHash,
-        event_timestamp: payload.timestamp || new Date().toISOString(),
+        event_timestamp: new Date(eventTimestampMs).toISOString(),
         provider_id: provider.id,
         organization_id: provider.organization_id,
         metadata: payload.metadata || {},
