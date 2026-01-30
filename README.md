@@ -1,73 +1,133 @@
-# Welcome to your Lovable project
+# EpicWallet (CareCoin)
 
-## Project info
+EpicWallet is a React + Vite app for managing CareCoin rewards, provider activity, and EHR integrations. It connects wallets (MetaMask/WalletConnect), tracks off-chain rewards in Supabase, and records on-chain balances via wagmi.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+- Vite + React + TypeScript
+- Tailwind CSS + shadcn/ui
+- Supabase (database + edge functions)
+- wagmi + viem (wallet & chain integration)
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### Prerequisites
+- Node.js 18+ (or 20+ recommended)
+- npm
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
+### Install & Run
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Build
+```sh
+npm run build
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Environment Variables
 
-**Use GitHub Codespaces**
+The frontend expects:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- `VITE_SUPABASE_URL` — Supabase project URL
+- `VITE_SUPABASE_PUBLISHABLE_KEY` — Supabase anon/publishable key
 
-## What technologies are used for this project?
+These are read in `src/integrations/supabase/client.ts`.
 
-This project is built with:
+## MetaMask (Wallet) Integration
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Wallet connection is handled by wagmi in `src/lib/wagmi.ts` and the UI lives in `src/components/wallet/ConnectWalletButton.tsx`.
 
-## How can I deploy this project?
+### How it works
+- MetaMask uses the `Injected` connector (`wagmi/connectors`).
+- WalletConnect is also enabled as a fallback.
+- Supported chains: Polygon Mainnet and Polygon Amoy (testnet).
+- The connect button prefers MetaMask if detected.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+### Setup steps
+1. Install MetaMask in your browser: https://metamask.io/download/
+2. Open the app and click **Connect MetaMask**.
+3. Approve the connection in MetaMask.
+4. (Optional) Switch to Polygon or Polygon Amoy in MetaMask if needed.
 
-## Can I connect a custom domain to my Lovable project?
+### Configuration tips
+- Update RPCs, chains, or the WalletConnect Project ID in `src/lib/wagmi.ts`.
+- Contract addresses are placeholders in `CONTRACT_ADDRESSES` and should be updated after deployment.
 
-Yes, you can!
+## Epic Integration
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+The Epic integration is managed via the **Epic Integration** page:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- Route: `/provider/epic`
+- UI: `src/pages/provider/EpicIntegration.tsx`
+- Webhook (Supabase Edge Function): `supabase/functions/epic-webhook`
+
+### Prerequisites
+- A Supabase project with the required tables and the `epic-webhook` edge function deployed.
+- A provider entity registered in the `entities` table with a matching wallet address.
+- `VITE_SUPABASE_URL` set so the UI can compute the webhook URL.
+
+### Configure the integration
+1. Connect your wallet in the app.
+2. Navigate to **Epic Integration** (`/provider/epic`).
+3. Enter your **Epic Client ID** (required).
+4. (Optional) Add **Webhook Secret** and **FHIR Base URL**.
+5. Copy the **Webhook URL** and configure it in your Epic App Orchard settings.
+
+The webhook URL is:
+
+```
+${VITE_SUPABASE_URL}/functions/v1/epic-webhook
+```
+
+### Webhook payload expectations
+
+`supabase/functions/epic-webhook/index.ts` expects JSON with:
+
+- `eventType` (required)
+- `providerWallet` (required; lowercase is normalized)
+- `timestamp` (optional; uses current time if missing)
+- `patientId`, `organizationId`, `metadata` (optional)
+
+Example payload:
+
+```json
+{
+  "eventType": "encounter.complete",
+  "timestamp": "2025-01-01T00:00:00Z",
+  "providerWallet": "0x1234...abcd",
+  "patientId": "patient-hash",
+  "metadata": {
+    "noteId": "abc123",
+    "department": "Cardiology"
+  }
+}
+```
+
+### Supported Epic events
+
+These map to internal documentation event types:
+
+- `encounter.complete`
+- `medication.reconciliation`
+- `discharge.summary`
+- `problem.update`
+- `order.verified`
+- `preventive.care`
+- `coding.finalized`
+- `intake.completed`
+- `consent.signed`
+- `followup.completed`
+
+### Notes
+- Reward processing uses Supabase tables like `documentation_events`, `reward_policies`, and `rewards_ledger`.
+- The webhook uses the Supabase service role key at runtime; deploy the function with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` configured.
+
+## Available Scripts
+
+- `npm run dev` — Start dev server
+- `npm run build` — Production build
+- `npm run build:dev` — Development build
+- `npm run lint` — Lint
+- `npm run test` — Run tests (Vitest)
