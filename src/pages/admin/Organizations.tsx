@@ -34,22 +34,7 @@ export default function Organizations() {
   const organizationLabel = entity?.display_name || 'Your organization';
 
   const isOrganizationOwner = entity?.entity_type === 'organization';
-  const canGenerateInvite = Boolean(isConnected && organizationId && entity);
-  const epicMetadata = useMemo(() => {
-    if (!entity?.metadata || typeof entity.metadata !== 'object') {
-      return {};
-    }
-    return entity.metadata as Record<string, unknown>;
-  }, [entity?.metadata]);
-
-  const epicUrlValue = epicApiUrl || (epicMetadata.epic_api_url as string | undefined) || '';
-  const epicIdValue = epicOrganizationId || (epicMetadata.epic_organization_id as string | undefined) || '';
-
-  useEffect(() => {
-    if (!entity) return;
-    setEpicApiUrl((epicMetadata.epic_api_url as string | undefined) || '');
-    setEpicOrganizationId((epicMetadata.epic_organization_id as string | undefined) || '');
-  }, [entity, epicMetadata]);
+  const canGenerateInvite = Boolean(isConnected && organizationId && isOrganizationOwner);
 
   const handleCopy = async (value: string) => {
     if (!value) return;
@@ -205,7 +190,7 @@ export default function Organizations() {
               <p className="text-sm text-muted-foreground">
                 {entity.entity_type === 'organization'
                   ? `${organizationLabel} is ready. Share an invite link to add providers and staff.`
-                  : 'Generate and share an invite link so teammates can join your organization.'}
+                  : 'Invite links can only be created by the organization owner.'}
               </p>
 
               {error && (
