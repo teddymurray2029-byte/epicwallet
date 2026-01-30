@@ -38,6 +38,7 @@ const providerNavItems = [
   { title: 'Activity', url: '/provider/activity', icon: Activity },
   { title: 'Transactions', url: '/provider/transactions', icon: Receipt },
   { title: 'Epic Connection', url: '/provider/epic', icon: Link2 },
+  { title: 'Organization', url: '/admin/organizations', icon: Users },
 ];
 
 // Patient navigation items
@@ -75,7 +76,13 @@ export function AppSidebar() {
   };
 
   const navItems = getNavItems();
-  const groupLabel = isAdmin ? 'Admin Console' : isPatient ? 'Patient Portal' : 'Provider Dashboard';
+  const groupLabel = isAdmin
+    ? 'Admin Console'
+    : isOrganization
+      ? 'Organization'
+      : isPatient
+        ? 'Patient Portal'
+        : 'Provider Dashboard';
 
   return (
     <Sidebar collapsible="icon">
