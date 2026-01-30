@@ -2,16 +2,31 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
+const SUPABASE_FALLBACK_URL = 'https://example.supabase.co';
+const SUPABASE_FALLBACK_KEY = 'missing-supabase-key';
+const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
+
+if (!isSupabaseConfigured) {
+  console.warn(
+    'Supabase environment variables are missing. The app will run in offline mode until VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are set.',
+  );
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(
+  SUPABASE_URL || SUPABASE_FALLBACK_URL,
+  SUPABASE_PUBLISHABLE_KEY || SUPABASE_FALLBACK_KEY,
+  {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false,
   }
-});
+  },
+);
+
+export { isSupabaseConfigured };

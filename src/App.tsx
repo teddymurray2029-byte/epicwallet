@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WagmiProvider } from 'wagmi';
 import { config } from '@/lib/wagmi';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { WalletProtectedRoute } from "@/components/auth/WalletProtectedRoute";
 
 // Pages
 import Index from "./pages/Index";
