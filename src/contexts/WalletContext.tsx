@@ -142,15 +142,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if ((entityType === 'provider' || entityType === 'patient') && !organizationId) {
         throw new Error('Organization is required for providers and patients.');
       }
-      const { error } = await supabase
-        .from('entities')
-        .insert({
-          wallet_address: address.toLowerCase(),
-          entity_type: entityType,
-          display_name: displayName || null,
-          organization_id: organizationId || null,
-          is_verified: false,
-        });
       const walletAddress = address.toLowerCase();
       const { error } = await supabase
         .from('entities')
@@ -159,6 +150,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             wallet_address: walletAddress,
             entity_type: entityType,
             display_name: displayName || null,
+            organization_id: organizationId || null,
             is_verified: false,
           },
           { onConflict: 'wallet_address' },
