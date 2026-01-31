@@ -71,10 +71,10 @@ const App = () => (
               {/* Admin Routes */}
               <Route path="/admin" element={<Navigate to="/admin/organizations" replace />} />
               <Route path="/admin/deploy" element={<DeployContract />} />
-              <Route path="/admin/organizations" element={<Organizations />} />
+              <Route path="/admin/organizations" element={<OrganizationInvites />} />
 
               {/* Invite Routes */}
-              <Route path="/invite/:token" element={<InviteAccept />} />
+              <Route path="/invite/:token" element={<AcceptInvite />} />
               
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
