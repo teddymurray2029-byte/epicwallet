@@ -13,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ProviderSetupTutorial } from '@/components/tutorial/ProviderSetupTutorial';
 
 interface OrganizationOption {
   id: string;
@@ -207,6 +208,7 @@ export default function ProviderDashboard() {
 
   return (
     <DashboardLayout>
+      <ProviderSetupTutorial />
       <div className="space-y-6">
         {/* Page header */}
         <div>
