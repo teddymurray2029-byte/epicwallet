@@ -55,11 +55,11 @@ export default function AcceptInvite() {
     setSubmitting(true);
     setStatus('idle');
 
-    const { data: invite, error: inviteError } = await supabase
-      .from('organization_invites')
+    const { data: invite, error: inviteError } = await (supabase
+      .from('organization_invites' as any)
       .select('id, token, organization_id, expires_at, used_at, used_by')
       .eq('token', token)
-      .maybeSingle();
+      .maybeSingle() as any) as { data: { id: string; token: string; organization_id: string; expires_at: string; used_at: string | null; used_by: string | null } | null; error: any };
 
     if (inviteError) {
       console.error('Error loading invite:', inviteError);
@@ -88,14 +88,14 @@ export default function AcceptInvite() {
     }
 
     const nowIso = new Date().toISOString();
-    const { data: updatedInvite, error: updateInviteError } = await supabase
-      .from('organization_invites')
+    const { data: updatedInvite, error: updateInviteError } = await (supabase
+      .from('organization_invites' as any)
       .update({ used_at: nowIso, used_by: entity.id })
       .eq('id', invite.id)
       .is('used_at', null)
       .gt('expires_at', nowIso)
       .select('id')
-      .maybeSingle();
+      .maybeSingle() as any);
 
     if (updateInviteError || !updatedInvite) {
       console.error('Error updating invite:', updateInviteError);
@@ -111,10 +111,10 @@ export default function AcceptInvite() {
 
     if (updateEntityError) {
       console.error('Error updating entity:', updateEntityError);
-      await supabase
-        .from('organization_invites')
+      await (supabase
+        .from('organization_invites' as any)
         .update({ used_at: null, used_by: null })
-        .eq('id', invite.id);
+        .eq('id', invite.id) as any);
       setError('Unable to join the organization. Please try again.');
       setSubmitting(false);
       return;

@@ -45,11 +45,11 @@ export default function OrganizationInvites() {
   const fetchInvites = async () => {
     if (!entity) return;
     setLoadingInvites(true);
-    const { data, error } = await supabase
-      .from('organization_invites')
+    const { data, error } = await (supabase
+      .from('organization_invites' as any)
       .select('*')
       .eq('organization_id', entity.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }) as any);
 
     if (error) {
       console.error('Error loading invites:', error);
@@ -106,12 +106,12 @@ export default function OrganizationInvites() {
     const token = crypto.randomUUID().replace(/-/g, '');
     const expiresAt = new Date(Date.now() + parsedDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const { error } = await supabase.from('organization_invites').insert({
+    const { error } = await (supabase.from('organization_invites' as any).insert({
       organization_id: entity.id,
       token,
       created_by: entity.id,
       expires_at: expiresAt,
-    });
+    }) as any);
 
     if (error) {
       console.error('Error creating invite:', error);
