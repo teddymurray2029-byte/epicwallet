@@ -28,7 +28,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3" data-tutorial="connect-wallet">
                 <ConnectWalletButton />
               </div>
             </div>

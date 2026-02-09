@@ -14,7 +14,7 @@ const INVITE_EXPIRY_DAYS = 7;
 
 const generateToken = () => {
   if (crypto.randomUUID) {
-    return crypto.randomUUID().replaceAll('-', '');
+    return crypto.randomUUID().split('-').join('');
   }
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 };
@@ -35,6 +35,11 @@ export default function Organizations() {
 
   const isOrganizationOwner = entity?.entity_type === 'organization';
   const canGenerateInvite = Boolean(isConnected && organizationId && isOrganizationOwner);
+
+  // Parse existing Epic metadata from entity
+  const epicMetadata = (entity?.metadata as Record<string, unknown>) || {};
+  const epicUrlValue = epicApiUrl || (epicMetadata.epic_api_url as string) || '';
+  const epicIdValue = epicOrganizationId || (epicMetadata.epic_organization_id as string) || '';
 
   const handleCopy = async (value: string) => {
     if (!value) return;
