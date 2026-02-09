@@ -39,11 +39,11 @@ export default function InviteAccept() {
       }
 
       setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from('organization_invites')
+      const { data, error: fetchError } = await (supabase
+        .from('organization_invites' as any)
         .select('id, organization_id, expires_at, used_at, used_by')
         .eq('token', token)
-        .maybeSingle();
+        .maybeSingle() as any);
 
       if (fetchError) {
         console.error('Invite lookup failed', fetchError);
@@ -108,11 +108,11 @@ export default function InviteAccept() {
       return;
     }
 
-    const { error: inviteError } = await supabase
-      .from('organization_invites')
+    const { error: inviteError } = await (supabase
+      .from('organization_invites' as any)
       .update({ used_at: now, used_by: entity.id })
       .eq('id', invite.id)
-      .is('used_at', null);
+      .is('used_at', null) as any);
 
     if (inviteError) {
       console.error('Failed to mark invite as used', inviteError);

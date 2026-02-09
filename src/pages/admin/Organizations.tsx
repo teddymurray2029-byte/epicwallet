@@ -71,14 +71,14 @@ export default function Organizations() {
     const token = generateToken();
     const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-    const { error: inviteError } = await supabase
-      .from('organization_invites')
+    const { error: inviteError } = await (supabase
+      .from('organization_invites' as any)
       .insert({
         organization_id: organizationId,
         token,
         created_by: entity.id,
         expires_at: expiresAt,
-      });
+      }) as any);
 
     if (inviteError) {
       console.error('Invite creation failed', inviteError);
