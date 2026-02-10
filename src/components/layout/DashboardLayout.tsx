@@ -19,7 +19,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="sticky top-0 z-40 border-b border-border/60 bg-card/75 shadow-sm backdrop-blur-md">
+          <header className="sticky top-0 z-40 border-b border-border/40 bg-card/80 shadow-[var(--shadow-card)] backdrop-blur-xl">
             <div className="flex h-16 items-center justify-between px-4 md:px-6">
               <div className="flex items-center gap-4">
                 <SidebarTrigger className="md:hidden" />
@@ -36,7 +36,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Main content */}
           <main className="flex-1 p-4 md:p-6 lg:p-8">
-            <div className="h-full rounded-2xl border border-border/60 bg-card/70 p-4 shadow-xl backdrop-blur-lg md:p-6 lg:p-8">
+            <div className="h-full rounded-2xl border border-border/40 bg-gradient-to-br from-card/90 via-card/70 to-card/80 p-4 shadow-[var(--shadow-elevated)] backdrop-blur-lg md:p-6 lg:p-8">
               {children}
             </div>
           </main>

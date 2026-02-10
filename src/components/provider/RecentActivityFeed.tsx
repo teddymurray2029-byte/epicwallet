@@ -38,7 +38,7 @@ export function RecentActivityFeed() {
   }
 
   return (
-    <Card>
+    <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-muted/30 transition-shadow hover:card-shadow-hover">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
