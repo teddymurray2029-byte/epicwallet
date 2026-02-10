@@ -49,7 +49,7 @@ export function RewardsSummaryCard() {
   ];
 
   return (
-    <Card>
+    <Card className="card-glow-green border-border/40 bg-gradient-to-br from-card via-card to-accent/5 transition-shadow hover:card-shadow-hover">
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Rewards Summary</CardTitle>
       </CardHeader>
@@ -58,7 +58,7 @@ export function RewardsSummaryCard() {
           {stats.map((stat) => (
             <div
               key={stat.label}
-              className={`rounded-lg p-4 ${stat.bgColor}`}
+              className={`rounded-xl border border-border/30 p-4 ${stat.bgColor} shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-hover)] hover:scale-[1.02]`}
             >
               <div className="flex items-center gap-2 mb-2">
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />

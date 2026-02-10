@@ -159,7 +159,7 @@ export default function EpicIntegration() {
         </div>
 
         {/* Webhook URL Card */}
-        <Card>
+        <Card className="card-glow-teal border-border/40 bg-gradient-to-br from-card via-card to-primary/5">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Link2 className="h-5 w-5" />
@@ -187,7 +187,7 @@ export default function EpicIntegration() {
         </Card>
 
         {/* Configuration Card */}
-        <Card>
+        <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-accent/5">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -254,7 +254,7 @@ export default function EpicIntegration() {
         </Card>
 
         {/* Supported Events Card */}
-        <Card>
+        <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-care-green/5">
           <CardHeader>
             <CardTitle className="text-lg">Supported Events</CardTitle>
             <CardDescription>
@@ -275,7 +275,7 @@ export default function EpicIntegration() {
                 { event: 'consent.signed', label: 'Consent Signed' },
                 { event: 'followup.completed', label: 'Follow-up Completed' },
               ].map((item) => (
-                <div key={item.event} className="flex items-center gap-2 p-2 rounded bg-muted/50">
+                <div key={item.event} className="flex items-center gap-2 rounded-lg border border-border/30 bg-muted/40 p-2 shadow-[var(--shadow-card)] transition-colors hover:bg-muted/60">
                   <Check className="h-4 w-4 text-care-green" />
                   <span>{item.label}</span>
                 </div>
@@ -285,7 +285,7 @@ export default function EpicIntegration() {
         </Card>
 
         {/* Documentation Link */}
-        <Card className="border-dashed">
+        <Card className="border-dashed border-border/50 bg-gradient-to-r from-card to-muted/30">
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div>

@@ -35,7 +35,7 @@ export function RewardsChart() {
   const chartData = data || [];
 
   return (
-    <Card>
+    <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-shadow hover:card-shadow-hover">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">Rewards by Event Type</CardTitle>

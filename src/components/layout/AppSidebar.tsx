@@ -88,9 +88,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border/60 bg-gradient-to-b from-sidebar-accent/30 to-transparent">
         <div className="flex items-center gap-3 px-2 py-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-care-green via-care-blue to-care-green text-sidebar-primary-foreground shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-care-teal via-care-blue to-care-green text-sidebar-primary-foreground shadow-[0_2px_8px_hsl(180_45%_35%/0.3)]">
             <span className="text-lg">💚🪙</span>
           </div>
           {!collapsed && (
@@ -139,7 +139,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border">
+      <SidebarFooter className="border-t border-sidebar-border/60 bg-gradient-to-t from-sidebar-accent/20 to-transparent">
         <div className="px-2 py-3">
           {!collapsed && (
             <div className="flex items-center gap-2 text-xs text-sidebar-foreground/60">

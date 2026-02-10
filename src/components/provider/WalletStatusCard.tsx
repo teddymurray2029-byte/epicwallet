@@ -25,7 +25,7 @@ export function WalletStatusCard() {
   }
 
   return (
-    <Card>
+    <Card className="card-glow-teal border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-shadow hover:card-shadow-hover">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">Wallet Status</CardTitle>
