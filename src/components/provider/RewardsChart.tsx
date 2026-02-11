@@ -8,14 +8,14 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 const COLORS = [
-  'hsl(180, 45%, 35%)',  // care-teal
-  'hsl(160, 50%, 40%)',  // care-green
-  'hsl(210, 60%, 45%)',  // care-blue
-  'hsl(280, 40%, 50%)',  // purple
-  'hsl(45, 80%, 50%)',   // care-warning
-  'hsl(200, 50%, 50%)',  // light blue
-  'hsl(140, 45%, 45%)',  // emerald
-  'hsl(320, 45%, 50%)',  // pink
+  'hsl(180, 45%, 35%)',
+  'hsl(160, 50%, 40%)',
+  'hsl(210, 60%, 45%)',
+  'hsl(280, 40%, 50%)',
+  'hsl(45, 80%, 50%)',
+  'hsl(200, 50%, 50%)',
+  'hsl(140, 45%, 45%)',
+  'hsl(320, 45%, 50%)',
 ];
 
 export function RewardsChart() {
@@ -35,26 +35,26 @@ export function RewardsChart() {
   const chartData = data || [];
 
   return (
-    <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-shadow hover:card-shadow-hover">
+    <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-all duration-300 hover:card-shadow-hover">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">Rewards by Event Type</CardTitle>
-          <div className="flex gap-1">
+          <div className="flex gap-1 rounded-full bg-muted/60 p-1">
             <Button
               variant={chartType === 'bar' ? 'secondary' : 'ghost'}
               size="icon"
-              className="h-8 w-8"
+              className={`h-7 w-7 rounded-full transition-all ${chartType === 'bar' ? 'shadow-sm' : ''}`}
               onClick={() => setChartType('bar')}
             >
-              <BarChart3 className="h-4 w-4" />
+              <BarChart3 className="h-3.5 w-3.5" />
             </Button>
             <Button
               variant={chartType === 'pie' ? 'secondary' : 'ghost'}
               size="icon"
-              className="h-8 w-8"
+              className={`h-7 w-7 rounded-full transition-all ${chartType === 'pie' ? 'shadow-sm' : ''}`}
               onClick={() => setChartType('pie')}
             >
-              <PieChartIcon className="h-4 w-4" />
+              <PieChartIcon className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
@@ -83,11 +83,13 @@ export function RewardsChart() {
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
+                      borderRadius: '12px',
+                      boxShadow: 'var(--shadow-elevated)',
+                      backdropFilter: 'blur(12px)',
                     }}
                     formatter={(value: number) => [`${value.toFixed(2)} CARE`, 'Earned']}
                   />
-                  <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
                     {chartData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
@@ -115,7 +117,9 @@ export function RewardsChart() {
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
+                      borderRadius: '12px',
+                      boxShadow: 'var(--shadow-elevated)',
+                      backdropFilter: 'blur(12px)',
                     }}
                     formatter={(value: number) => [`${value.toFixed(2)} CARE`, 'Earned']}
                   />
@@ -126,7 +130,7 @@ export function RewardsChart() {
         ) : (
           <div className="h-64 flex items-center justify-center">
             <div className="text-center">
-              <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
               <p className="text-muted-foreground">No rewards data yet</p>
             </div>
           </div>

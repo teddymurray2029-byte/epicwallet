@@ -29,9 +29,9 @@ export default function ProviderTransactions() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return <Badge className="bg-care-green text-white">Confirmed</Badge>;
+        return <Badge className="bg-care-green text-primary-foreground gap-1"><span className="h-1.5 w-1.5 rounded-full bg-primary-foreground/80 inline-block" />Confirmed</Badge>;
       case 'pending':
-        return <Badge variant="outline" className="border-care-warning text-care-warning">Pending</Badge>;
+        return <Badge variant="outline" className="border-care-warning text-care-warning gap-1"><span className="h-1.5 w-1.5 rounded-full bg-care-warning inline-block animate-pulse" />Pending</Badge>;
       case 'rejected':
         return <Badge variant="destructive">Rejected</Badge>;
       default:
@@ -52,7 +52,6 @@ export default function ProviderTransactions() {
     return `${hash.slice(0, 10)}...${hash.slice(-8)}`;
   };
 
-  // Calculate totals
   const totalConfirmed = (transactions || [])
     .filter((tx) => tx.status === 'confirmed')
     .reduce((sum, tx) => sum + tx.amount, 0);
@@ -61,13 +60,18 @@ export default function ProviderTransactions() {
     .filter((tx) => tx.status === 'pending')
     .reduce((sum, tx) => sum + tx.amount, 0);
 
+  const summaryCards = [
+    { label: 'Earned Balance', value: earnedBalance, loading: earnedBalanceLoading, icon: Wallet, color: 'text-care-teal', bgColor: 'bg-care-teal/10', borderColor: 'border-t-[hsl(var(--care-teal))]' },
+    { label: 'Total Received', value: totalConfirmed, loading: false, icon: ArrowDownLeft, color: 'text-care-green', bgColor: 'bg-care-green/10', borderColor: 'border-t-[hsl(var(--care-green))]' },
+    { label: 'Pending', value: totalPending, loading: false, icon: Receipt, color: 'text-care-warning', bgColor: 'bg-care-warning/10', borderColor: 'border-t-[hsl(var(--care-warning))]' },
+  ];
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Page header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in-up">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-gradient-hero inline-block">Transactions</h1>
             <p className="text-muted-foreground">
               View your complete transaction history
             </p>
@@ -79,57 +83,27 @@ export default function ProviderTransactions() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-care-teal/10">
-                  <Wallet className="h-5 w-5 text-care-teal" />
+          {summaryCards.map((card, index) => (
+            <Card key={card.label} className={`border-t-2 ${card.borderColor} transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${card.bgColor} ring-1 ring-border/20 shadow-sm`}>
+                    <card.icon className={`h-5 w-5 ${card.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{card.label}</p>
+                    {card.loading ? (
+                      <Skeleton className="h-6 w-24" />
+                    ) : (
+                      <p className={`text-xl font-bold ${card.color}`}>
+                        {card.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Earned Balance</p>
-                  {earnedBalanceLoading ? (
-                    <Skeleton className="h-6 w-24" />
-                  ) : (
-                    <p className="text-xl font-bold text-care-teal">
-                      {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-care-green/10">
-                  <ArrowDownLeft className="h-5 w-5 text-care-green" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Received</p>
-                  <p className="text-xl font-bold text-care-green">
-                    {totalConfirmed.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-care-warning/10">
-                  <Receipt className="h-5 w-5 text-care-warning" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Pending</p>
-                  <p className="text-xl font-bold text-care-warning">
-                    {totalPending.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* Search */}
@@ -172,14 +146,15 @@ export default function ProviderTransactions() {
                 <p>Failed to load transactions</p>
               </div>
             ) : filteredTransactions.length > 0 ? (
-              <div className="divide-y">
-                {filteredTransactions.map((tx) => (
+              <div className="divide-y divide-border/30">
+                {filteredTransactions.map((tx, index) => (
                   <div
                     key={tx.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between py-4 gap-3"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between py-4 gap-3 rounded-lg px-3 -mx-3 transition-all duration-200 hover:bg-muted/40 hover:shadow-sm"
+                    style={{ animation: `fade-in-up 0.3s ease-out ${Math.min(index, 10) * 40}ms both` }}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg bg-care-green/10">
+                      <div className="p-2 rounded-lg bg-care-green/10 ring-1 ring-care-green/20">
                         <ArrowDownLeft className="h-4 w-4 text-care-green" />
                       </div>
                       <div>
@@ -200,7 +175,7 @@ export default function ProviderTransactions() {
                         </div>
                         {tx.txHash && (
                           <div className="flex items-center gap-2 mt-2">
-                            <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
+                            <code className="text-xs font-mono bg-muted/60 px-2.5 py-1 rounded-md border border-border/30">
                               {truncateHash(tx.txHash)}
                             </code>
                             <Button
@@ -227,7 +202,7 @@ export default function ProviderTransactions() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-40" />
                 <p className="text-muted-foreground">No transactions found</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {searchQuery ? 'Try adjusting your search' : 'Transactions will appear here when you earn rewards'}

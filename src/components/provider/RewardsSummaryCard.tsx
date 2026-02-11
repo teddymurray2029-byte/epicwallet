@@ -24,6 +24,7 @@ export function RewardsSummaryCard() {
       icon: Coins,
       color: 'text-care-teal',
       bgColor: 'bg-care-teal/10',
+      ringColor: 'ring-care-teal/20',
     },
     {
       label: 'This Month',
@@ -31,6 +32,7 @@ export function RewardsSummaryCard() {
       icon: Calendar,
       color: 'text-care-green',
       bgColor: 'bg-care-green/10',
+      ringColor: 'ring-care-green/20',
     },
     {
       label: 'This Week',
@@ -38,6 +40,7 @@ export function RewardsSummaryCard() {
       icon: TrendingUp,
       color: 'text-care-blue',
       bgColor: 'bg-care-blue/10',
+      ringColor: 'ring-care-blue/20',
     },
     {
       label: 'Pending',
@@ -45,11 +48,12 @@ export function RewardsSummaryCard() {
       icon: Clock,
       color: 'text-care-warning',
       bgColor: 'bg-care-warning/10',
+      ringColor: 'ring-care-warning/20',
     },
   ];
 
   return (
-    <Card className="card-glow-green border-border/40 bg-gradient-to-br from-card via-card to-accent/5 transition-shadow hover:card-shadow-hover">
+    <Card className="card-glow-green border-border/40 bg-gradient-to-br from-card via-card to-accent/5 transition-all duration-300 hover:card-shadow-hover">
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Rewards Summary</CardTitle>
       </CardHeader>
@@ -58,10 +62,12 @@ export function RewardsSummaryCard() {
           {stats.map((stat) => (
             <div
               key={stat.label}
-              className={`rounded-xl border border-border/30 p-4 ${stat.bgColor} shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-hover)] hover:scale-[1.02]`}
+              className={`rounded-xl border border-border/30 p-4 ${stat.bgColor} shadow-[var(--shadow-card)] transition-all duration-300 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1 hover:scale-[1.02]`}
             >
               <div className="flex items-center gap-2 mb-2">
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                <div className={`p-1.5 rounded-lg ${stat.bgColor} ring-1 ${stat.ringColor}`}>
+                  <stat.icon className={`h-3.5 w-3.5 ${stat.color}`} />
+                </div>
                 <span className="text-xs text-muted-foreground">{stat.label}</span>
               </div>
               {isLoading ? (

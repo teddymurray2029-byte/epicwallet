@@ -45,115 +45,67 @@ export default function OrganizationInvites() {
   const fetchInvites = async () => {
     if (!entity) return;
     setLoadingInvites(true);
-    const { data, error } = await (supabase
-      .from('organization_invites' as any)
-      .select('*')
-      .eq('organization_id', entity.id)
-      .order('created_at', { ascending: false }) as any);
-
+    const { data, error } = await (supabase.from('organization_invites' as any).select('*').eq('organization_id', entity.id).order('created_at', { ascending: false }) as any);
     if (error) {
       console.error('Error loading invites:', error);
-      toast({
-        title: 'Failed to load invites',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Failed to load invites', description: error.message, variant: 'destructive' });
       setLoadingInvites(false);
       return;
     }
-
     setInvites((data as OrganizationInvite[]) ?? []);
     setLoadingInvites(false);
   };
 
   useEffect(() => {
-    if (entity && isOrganization) {
-      fetchInvites();
-    }
+    if (entity && isOrganization) { fetchInvites(); }
   }, [entity, isOrganization]);
 
   const handleCopy = async (link: string) => {
     try {
       await navigator.clipboard.writeText(link);
-      toast({
-        title: 'Invite link copied',
-        description: 'Share this link with the team member you want to onboard.',
-      });
+      toast({ title: 'Invite link copied', description: 'Share this link with the team member you want to onboard.' });
     } catch (error) {
       console.error('Error copying invite link:', error);
-      toast({
-        title: 'Copy failed',
-        description: 'Please copy the invite link manually.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Copy failed', description: 'Please copy the invite link manually.', variant: 'destructive' });
     }
   };
 
   const handleCreateInvite = async () => {
     if (!entity) return;
-
     const parsedDays = Number(expiryDays);
     if (!Number.isFinite(parsedDays) || parsedDays <= 0) {
-      toast({
-        title: 'Invalid expiration window',
-        description: 'Enter a valid number of days for the invite to remain active.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Invalid expiration window', description: 'Enter a valid number of days for the invite to remain active.', variant: 'destructive' });
       return;
     }
-
     setCreatingInvite(true);
     const token = crypto.randomUUID().replace(/-/g, '');
     const expiresAt = new Date(Date.now() + parsedDays * 24 * 60 * 60 * 1000).toISOString();
-
-    const { error } = await (supabase.from('organization_invites' as any).insert({
-      organization_id: entity.id,
-      token,
-      created_by: entity.id,
-      expires_at: expiresAt,
-    }) as any);
-
+    const { error } = await (supabase.from('organization_invites' as any).insert({ organization_id: entity.id, token, created_by: entity.id, expires_at: expiresAt }) as any);
     if (error) {
       console.error('Error creating invite:', error);
-      toast({
-        title: 'Invite creation failed',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Invite creation failed', description: error.message, variant: 'destructive' });
       setCreatingInvite(false);
       return;
     }
-
     const inviteLink = `${window.location.origin}/invites/accept?token=${token}`;
     setLatestInviteLink(inviteLink);
-    toast({
-      title: 'Invite created',
-      description: 'Your invite link is ready to share.',
-    });
+    toast({ title: 'Invite created', description: 'Your invite link is ready to share.' });
     await fetchInvites();
     setCreatingInvite(false);
   };
 
   if (isConnecting) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="animate-pulse text-muted-foreground">Connecting wallet...</div>
-        </div>
-      </DashboardLayout>
-    );
+    return (<DashboardLayout><div className="flex flex-col items-center justify-center min-h-[60vh]"><div className="animate-pulse text-muted-foreground">Connecting wallet...</div></div></DashboardLayout>);
   }
 
   if (!isConnected) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <Card className="max-w-md w-full">
+          <Card className="max-w-md w-full animate-fade-in-up">
             <CardHeader>
               <CardTitle>Connect your wallet</CardTitle>
-              <CardDescription>
-                Organization invite management is available once your wallet is connected.
-              </CardDescription>
+              <CardDescription>Organization invite management is available once your wallet is connected.</CardDescription>
             </CardHeader>
           </Card>
         </div>
@@ -162,25 +114,17 @@ export default function OrganizationInvites() {
   }
 
   if (entityLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="animate-pulse text-muted-foreground">Loading organization data...</div>
-        </div>
-      </DashboardLayout>
-    );
+    return (<DashboardLayout><div className="flex flex-col items-center justify-center min-h-[60vh]"><div className="animate-pulse text-muted-foreground">Loading organization data...</div></div></DashboardLayout>);
   }
 
   if (!entityLoading && (!entity || !isOrganization)) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <Card className="max-w-md w-full">
+          <Card className="max-w-md w-full animate-fade-in-up">
             <CardHeader>
               <CardTitle>Organization access required</CardTitle>
-              <CardDescription>
-                Invite management is only available for organization admin wallets.
-              </CardDescription>
+              <CardDescription>Invite management is only available for organization admin wallets.</CardDescription>
             </CardHeader>
           </Card>
         </div>
@@ -188,17 +132,26 @@ export default function OrganizationInvites() {
     );
   }
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Active': return <Badge className="bg-care-green text-primary-foreground gap-1"><span className="h-1.5 w-1.5 rounded-full bg-primary-foreground/80 inline-block" />{status}</Badge>;
+      case 'Used': return <Badge variant="secondary">{status}</Badge>;
+      case 'Expired': return <Badge variant="outline" className="text-muted-foreground">{status}</Badge>;
+      default: return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Organization Invites</h1>
+        <div className="animate-fade-in-up">
+          <h1 className="text-2xl font-bold tracking-tight text-gradient-hero inline-block">Organization Invites</h1>
           <p className="text-muted-foreground">
             Generate secure links to onboard new providers, patients, and admins into your organization.
           </p>
         </div>
 
-        <Card>
+        <Card className="animate-fade-in-up" style={{ animationDelay: '80ms' }}>
           <CardHeader>
             <CardTitle>Create an invite</CardTitle>
             <CardDescription>Set an expiration window and share the link with your team.</CardDescription>
@@ -207,25 +160,14 @@ export default function OrganizationInvites() {
             <div className="grid gap-4 md:grid-cols-[160px_1fr_auto] md:items-end">
               <div className="space-y-2">
                 <Label htmlFor="expiryDays">Expires in (days)</Label>
-                <Input
-                  id="expiryDays"
-                  type="number"
-                  min={1}
-                  value={expiryDays}
-                  onChange={(event) => setExpiryDays(event.target.value)}
-                />
+                <Input id="expiryDays" type="number" min={1} value={expiryDays} onChange={(event) => setExpiryDays(event.target.value)} />
               </div>
               <div className="flex items-center gap-2">
-                <Button onClick={handleCreateInvite} disabled={creatingInvite} className="w-full md:w-auto">
+                <Button onClick={handleCreateInvite} disabled={creatingInvite} className="w-full md:w-auto transition-all duration-200 hover:shadow-[var(--shadow-glow-teal)]">
                   <Link2 className="mr-2 h-4 w-4" />
                   {creatingInvite ? 'Creating...' : 'Generate invite link'}
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={fetchInvites}
-                  disabled={loadingInvites}
-                  className="w-full md:w-auto"
-                >
+                <Button variant="outline" onClick={fetchInvites} disabled={loadingInvites} className="w-full md:w-auto">
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh
                 </Button>
@@ -233,7 +175,7 @@ export default function OrganizationInvites() {
             </div>
 
             {latestInviteLink && (
-              <div className="rounded-lg border bg-muted/40 p-4">
+              <div className="rounded-lg border border-border/40 shimmer-border bg-muted/30 p-4">
                 <p className="text-sm font-medium">Latest invite link</p>
                 <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <code className="text-xs text-muted-foreground break-all">{latestInviteLink}</code>
@@ -247,7 +189,7 @@ export default function OrganizationInvites() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="animate-fade-in-up" style={{ animationDelay: '160ms' }}>
           <CardHeader>
             <CardTitle>Active and past invites</CardTitle>
             <CardDescription>Track invite usage and expiration.</CardDescription>
@@ -259,16 +201,17 @@ export default function OrganizationInvites() {
               <div className="text-sm text-muted-foreground">No invites created yet.</div>
             ) : (
               <div className="space-y-3">
-                {inviteSummary.map((invite) => {
+                {inviteSummary.map((invite, index) => {
                   const inviteLink = `${window.location.origin}/invites/accept?token=${invite.token}`;
                   return (
                     <div
                       key={invite.id}
-                      className="rounded-lg border border-border/60 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                      className="rounded-lg border border-border/40 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between transition-all duration-200 hover:bg-muted/30 hover:shadow-sm"
+                      style={{ animation: `fade-in-up 0.3s ease-out ${index * 50}ms both` }}
                     >
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant={invite.status === 'Active' ? 'default' : 'secondary'}>{invite.status}</Badge>
+                          {getStatusBadge(invite.status)}
                           <span className="text-xs text-muted-foreground">
                             Expires {new Date(invite.expires_at).toLocaleString()}
                           </span>
