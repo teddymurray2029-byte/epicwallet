@@ -96,13 +96,13 @@ export default function ProviderDashboard() {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 sm:px-6">
-          <Card className="max-w-md w-full border border-primary/20 bg-gradient-to-br from-background via-background to-primary/10 shadow-[0_0_35px_rgba(56,189,248,0.18)]">
+          <Card className="max-w-md w-full shimmer-border bg-gradient-to-br from-background via-background to-primary/10 shadow-[var(--shadow-elevated)]">
             <CardContent className="pt-8 pb-8 text-center space-y-6">
-              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 ring-1 ring-primary/30 shadow-[0_0_18px_rgba(56,189,248,0.25)] flex items-center justify-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 ring-1 ring-primary/30 shadow-[var(--shadow-glow-teal)] flex items-center justify-center" style={{ animation: 'float 3s ease-in-out infinite' }}>
                 <Wallet className="h-8 w-8 text-primary" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-care-teal">
+                <h2 className="text-2xl font-bold text-gradient-hero">
                   Connect Your Wallet
                 </h2>
                 <p className="text-muted-foreground">
@@ -128,20 +128,20 @@ export default function ProviderDashboard() {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 sm:px-6">
-          <Card className="max-w-md w-full border border-care-warning/20 bg-gradient-to-br from-background via-background to-care-warning/10 shadow-[0_0_35px_rgba(251,191,36,0.16)]">
+          <Card className="max-w-md w-full shimmer-border bg-gradient-to-br from-background via-background to-care-warning/10 shadow-[var(--shadow-elevated)]">
             <CardContent className="pt-8 pb-8 text-center space-y-6">
-              <div className="mx-auto w-16 h-16 rounded-full bg-care-warning/10 ring-1 ring-care-warning/30 shadow-[0_0_18px_rgba(251,191,36,0.25)] flex items-center justify-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-care-warning/10 ring-1 ring-care-warning/30 shadow-[0_0_18px_hsl(var(--care-warning)/0.25)] flex items-center justify-center" style={{ animation: 'float 3s ease-in-out infinite' }}>
                 <Coins className="h-8 w-8 text-care-warning" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-care-warning to-care-teal">
+                <h2 className="text-2xl font-bold text-gradient">
                   Wallet Not Registered
                 </h2>
                 <p className="text-muted-foreground">
                   Your wallet is connected but not yet registered in the CareCoin network.
                 </p>
               </div>
-              <div className="p-4 bg-muted/70 border border-border/60 rounded-lg">
+              <div className="p-4 glass-card rounded-lg">
                 <p className="text-xs text-muted-foreground font-mono break-all">
                   {address}
                 </p>
@@ -186,7 +186,7 @@ export default function ProviderDashboard() {
               <Button
                 onClick={handleRegister}
                 disabled={isRegistering}
-                className="w-full bg-gradient-to-r from-care-warning to-care-teal text-white shadow-[0_0_18px_rgba(251,191,36,0.25)] hover:from-care-warning/90 hover:to-care-teal/90"
+                className="w-full bg-gradient-to-r from-care-warning to-care-teal text-primary-foreground shadow-[0_0_18px_hsl(var(--care-warning)/0.25)] hover:from-care-warning/90 hover:to-care-teal/90"
               >
                 <UserPlus className="mr-2 h-4 w-4" />
                 {isRegistering ? 'Registering...' : 'Register as Provider'}
@@ -211,8 +211,8 @@ export default function ProviderDashboard() {
       <ProviderSetupTutorial />
       <div className="space-y-6">
         {/* Page header */}
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Provider Dashboard</h1>
+        <div className="animate-fade-in-up">
+          <h1 className="text-2xl font-bold tracking-tight text-gradient-hero inline-block">Provider Dashboard</h1>
           <p className="text-muted-foreground">
             Track your healthcare documentation rewards and CARE token earnings
           </p>
@@ -221,18 +221,24 @@ export default function ProviderDashboard() {
         {/* Dashboard grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Wallet Status - spans 1 column */}
-          <WalletStatusCard />
+          <div className="animate-fade-in-up animate-stagger-1">
+            <WalletStatusCard />
+          </div>
 
           {/* Rewards Summary - spans 2 columns */}
-          <div className="md:col-span-1 lg:col-span-2">
+          <div className="md:col-span-1 lg:col-span-2 animate-fade-in-up animate-stagger-2">
             <RewardsSummaryCard />
           </div>
         </div>
 
         {/* Charts and Activity row */}
         <div className="grid gap-6 lg:grid-cols-2">
-          <RewardsChart />
-          <RecentActivityFeed />
+          <div className="animate-fade-in-up animate-stagger-3">
+            <RewardsChart />
+          </div>
+          <div className="animate-fade-in-up animate-stagger-4">
+            <RecentActivityFeed />
+          </div>
         </div>
       </div>
     </DashboardLayout>

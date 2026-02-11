@@ -27,7 +27,6 @@ export default function EpicIntegration() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Form state
   const [clientId, setClientId] = useState('');
   const [webhookSecret, setWebhookSecret] = useState('');
   const [fhirBaseUrl, setFhirBaseUrl] = useState('');
@@ -42,7 +41,6 @@ export default function EpicIntegration() {
 
   const fetchIntegration = async () => {
     if (!entity?.id) return;
-
     setLoading(true);
     const { data, error } = await supabase
       .from('ehr_integrations')
@@ -65,9 +63,7 @@ export default function EpicIntegration() {
       toast({ title: 'Error', description: 'Client ID is required', variant: 'destructive' });
       return;
     }
-
     setSaving(true);
-
     const integrationData = {
       entity_id: entity.id,
       integration_type: 'epic',
@@ -79,18 +75,9 @@ export default function EpicIntegration() {
 
     let result;
     if (integration) {
-      result = await supabase
-        .from('ehr_integrations')
-        .update(integrationData)
-        .eq('id', integration.id)
-        .select()
-        .single();
+      result = await supabase.from('ehr_integrations').update(integrationData).eq('id', integration.id).select().single();
     } else {
-      result = await supabase
-        .from('ehr_integrations')
-        .insert(integrationData)
-        .select()
-        .single();
+      result = await supabase.from('ehr_integrations').insert(integrationData).select().single();
     }
 
     if (result.error) {
@@ -104,12 +91,7 @@ export default function EpicIntegration() {
 
   const handleDelete = async () => {
     if (!integration) return;
-
-    const { error } = await supabase
-      .from('ehr_integrations')
-      .delete()
-      .eq('id', integration.id);
-
+    const { error } = await supabase.from('ehr_integrations').delete().eq('id', integration.id);
     if (error) {
       toast({ title: 'Error', description: 'Failed to delete integration', variant: 'destructive' });
     } else {
@@ -151,15 +133,15 @@ export default function EpicIntegration() {
   return (
     <DashboardLayout>
       <div className="space-y-6 max-w-2xl">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Epic Integration</h1>
+        <div className="animate-fade-in-up">
+          <h1 className="text-2xl font-bold tracking-tight text-gradient-hero inline-block">Epic Integration</h1>
           <p className="text-muted-foreground">
             Connect your Epic EHR to automatically earn CareCoin rewards for documentation events.
           </p>
         </div>
 
         {/* Webhook URL Card */}
-        <Card className="card-glow-teal border-border/40 bg-gradient-to-br from-card via-card to-primary/5">
+        <Card className="shimmer-border card-glow-teal bg-gradient-to-br from-card via-card to-primary/5 animate-fade-in-up" style={{ animationDelay: '80ms' }}>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Link2 className="h-5 w-5" />
@@ -171,13 +153,9 @@ export default function EpicIntegration() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Input
-                value={webhookUrl}
-                readOnly
-                className="font-mono text-sm"
-              />
+              <Input value={webhookUrl} readOnly className="font-mono text-sm" />
               <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="h-4 w-4 text-care-green" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -187,7 +165,7 @@ export default function EpicIntegration() {
         </Card>
 
         {/* Configuration Card */}
-        <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-accent/5">
+        <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-accent/5 animate-fade-in-up" style={{ animationDelay: '160ms' }}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -206,38 +184,17 @@ export default function EpicIntegration() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="clientId">Client ID *</Label>
-              <Input
-                id="clientId"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                placeholder="Enter your Epic Client ID"
-              />
+              <Input id="clientId" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Enter your Epic Client ID" />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="webhookSecret">Webhook Secret (Optional)</Label>
-              <Input
-                id="webhookSecret"
-                type="password"
-                value={webhookSecret}
-                onChange={(e) => setWebhookSecret(e.target.value)}
-                placeholder="For signature verification"
-              />
-              <p className="text-xs text-muted-foreground">
-                Used to verify webhook requests are from Epic.
-              </p>
+              <Input id="webhookSecret" type="password" value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} placeholder="For signature verification" />
+              <p className="text-xs text-muted-foreground">Used to verify webhook requests are from Epic.</p>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="fhirBaseUrl">FHIR Base URL (Optional)</Label>
-              <Input
-                id="fhirBaseUrl"
-                value={fhirBaseUrl}
-                onChange={(e) => setFhirBaseUrl(e.target.value)}
-                placeholder="https://fhir.epic.com/..."
-              />
+              <Input id="fhirBaseUrl" value={fhirBaseUrl} onChange={(e) => setFhirBaseUrl(e.target.value)} placeholder="https://fhir.epic.com/..." />
             </div>
-
             <div className="flex gap-2 pt-4">
               <Button onClick={handleSave} disabled={saving || !clientId}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -254,7 +211,7 @@ export default function EpicIntegration() {
         </Card>
 
         {/* Supported Events Card */}
-        <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-care-green/5">
+        <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-care-green/5 animate-fade-in-up" style={{ animationDelay: '240ms' }}>
           <CardHeader>
             <CardTitle className="text-lg">Supported Events</CardTitle>
             <CardDescription>
@@ -274,9 +231,11 @@ export default function EpicIntegration() {
                 { event: 'intake.completed', label: 'Intake Completed' },
                 { event: 'consent.signed', label: 'Consent Signed' },
                 { event: 'followup.completed', label: 'Follow-up Completed' },
-              ].map((item) => (
-                <div key={item.event} className="flex items-center gap-2 rounded-lg border border-border/30 bg-muted/40 p-2 shadow-[var(--shadow-card)] transition-colors hover:bg-muted/60">
-                  <Check className="h-4 w-4 text-care-green" />
+              ].map((item, index) => (
+                <div key={item.event} className="flex items-center gap-2 rounded-lg border border-border/30 bg-muted/30 p-2.5 shadow-[var(--shadow-card)] transition-all duration-200 hover:bg-muted/50 hover:shadow-[var(--shadow-card-hover)]" style={{ animation: `scale-pop 0.3s ease-out ${index * 40}ms both` }}>
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-care-green/15">
+                    <Check className="h-3 w-3 text-care-green" />
+                  </div>
                   <span>{item.label}</span>
                 </div>
               ))}
@@ -285,14 +244,12 @@ export default function EpicIntegration() {
         </Card>
 
         {/* Documentation Link */}
-        <Card className="border-dashed border-border/50 bg-gradient-to-r from-card to-muted/30">
+        <Card className="border-dashed border-border/50 bg-gradient-to-r from-card to-muted/30 animate-fade-in-up" style={{ animationDelay: '320ms' }}>
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Need help setting up?</p>
-                <p className="text-sm text-muted-foreground">
-                  View our Epic integration documentation
-                </p>
+                <p className="text-sm text-muted-foreground">View our Epic integration documentation</p>
               </div>
               <Button variant="outline" size="sm" asChild>
                 <a href="https://fhir.epic.com/" target="_blank" rel="noopener noreferrer">

@@ -72,8 +72,7 @@ export function AppSidebar() {
     if (isAdmin) return adminNavItems;
     if (isProvider) return providerNavItems;
     if (isPatient) return patientNavItems;
-    if (isOrganization) return adminNavItems; // Organizations see admin-like view
-    // Default: show provider dashboard for unregistered wallets
+    if (isOrganization) return adminNavItems;
     return providerNavItems;
   };
 
@@ -90,8 +89,9 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border/60 bg-gradient-to-b from-sidebar-accent/30 to-transparent">
         <div className="flex items-center gap-3 px-2 py-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-care-teal via-care-blue to-care-green text-sidebar-primary-foreground shadow-[0_2px_8px_hsl(180_45%_35%/0.3)]">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-care-teal via-care-blue to-care-green text-sidebar-primary-foreground shadow-[0_2px_8px_hsl(180_45%_35%/0.3)]">
             <span className="text-lg">💚🪙</span>
+            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-care-teal/20 to-transparent animate-pulse-glow" />
           </div>
           {!collapsed && (
             <div className="flex flex-col">
@@ -112,6 +112,11 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
+                const isActive =
+                  (item.url === '/provider' || item.url === '/patient' || item.url === '/admin')
+                    ? location.pathname === item.url
+                    : location.pathname.startsWith(item.url);
+
                 const dataTutorial = 
                   item.url === '/admin/organizations' ? 'organization-link' :
                   item.url === '/provider/epic' ? 'epic-link' :
@@ -123,11 +128,13 @@ export function AppSidebar() {
                       <NavLink
                         to={item.url}
                         end={item.url === '/provider' || item.url === '/patient' || item.url === '/admin'}
-                        className="flex items-center gap-3 hover:bg-sidebar-accent"
+                        className={`flex items-center gap-3 transition-all duration-200 hover:bg-sidebar-accent hover:translate-x-0.5 ${
+                          isActive ? 'bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-[hsl(var(--sidebar-primary))]' : ''
+                        }`}
                         activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                         data-tutorial={dataTutorial}
                       >
-                        <item.icon className="h-4 w-4" />
+                        <item.icon className={`h-4 w-4 transition-colors ${isActive ? 'text-sidebar-primary' : ''}`} />
                         {!collapsed && <span>{item.title}</span>}
                       </NavLink>
                     </SidebarMenuButton>
@@ -143,12 +150,12 @@ export function AppSidebar() {
         <div className="px-2 py-3">
           {!collapsed && (
             <div className="flex items-center gap-2 text-xs text-sidebar-foreground/60">
-              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-care-green' : 'bg-muted-foreground'}`} />
+              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-care-green animate-pulse-ring' : 'bg-muted-foreground'}`} />
               <span>{isConnected ? 'Wallet Connected' : 'Not Connected'}</span>
             </div>
           )}
           {collapsed && (
-            <div className={`mx-auto h-2 w-2 rounded-full ${isConnected ? 'bg-care-green' : 'bg-muted-foreground'}`} />
+            <div className={`mx-auto h-2 w-2 rounded-full ${isConnected ? 'bg-care-green animate-pulse-ring' : 'bg-muted-foreground'}`} />
           )}
         </div>
       </SidebarFooter>

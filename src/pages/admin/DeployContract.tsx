@@ -3,6 +3,7 @@ import { useChainId, useWaitForTransactionReceipt } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
 import { parseEther, createWalletClient, custom, type Hash, encodeDeployData } from 'viem';
 import { useWallet } from '@/contexts/WalletContext';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,13 @@ import { CARE_COIN_BYTECODE, CARE_COIN_ABI, TREASURY_ADDRESS, DEFAULT_INITIAL_SU
 
 type DeploymentStep = 'idle' | 'confirming' | 'deploying' | 'success' | 'error';
 
+const steps = [
+  { label: 'Configure', key: 'idle' },
+  { label: 'Confirm', key: 'confirming' },
+  { label: 'Deploy', key: 'deploying' },
+  { label: 'Complete', key: 'success' },
+];
+
 export default function DeployContract() {
   const { address, isConnected, isConnecting } = useWallet();
   const chainId = useChainId();
@@ -43,66 +51,31 @@ export default function DeployContract() {
   const [initialSupply, setInitialSupply] = useState<string>('0');
   const [txHash, setTxHash] = useState<Hash | undefined>(undefined);
 
-  const { 
-    data: receipt, 
-    isLoading: isWaitingReceipt,
-    isSuccess: isConfirmed 
-  } = useWaitForTransactionReceipt({ hash: txHash });
+  const { data: receipt, isLoading: isWaitingReceipt, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
   const isAmoy = chainId === polygonAmoy.id;
   const isPolygon = chainId === polygon.id;
   const isCorrectNetwork = isAmoy || isPolygon;
 
-  const networkName = isAmoy ? 'Polygon Amoy (Testnet)' : isPolygon ? 'Polygon Mainnet' : 'Unknown';
-  const explorerUrl = isAmoy 
-    ? 'https://amoy.polygonscan.com' 
-    : 'https://polygonscan.com';
+  const explorerUrl = isAmoy ? 'https://amoy.polygonscan.com' : 'https://polygonscan.com';
+
+  const currentStepIndex = steps.findIndex(s => s.key === step);
 
   const handleSwitchNetwork = async (targetChainId: number) => {
     const ethereum = (window as any).ethereum;
-    if (!ethereum) {
-      toast.error('No wallet detected');
-      return;
-    }
-
+    if (!ethereum) { toast.error('No wallet detected'); return; }
     const chainConfig = targetChainId === polygonAmoy.id 
-      ? {
-          chainId: `0x${polygonAmoy.id.toString(16)}`,
-          chainName: 'Polygon Amoy Testnet',
-          nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
-          rpcUrls: ['https://rpc-amoy.polygon.technology'],
-          blockExplorerUrls: ['https://amoy.polygonscan.com'],
-        }
-      : {
-          chainId: `0x${polygon.id.toString(16)}`,
-          chainName: 'Polygon Mainnet',
-          nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
-          rpcUrls: ['https://polygon-rpc.com'],
-          blockExplorerUrls: ['https://polygonscan.com'],
-        };
-
+      ? { chainId: `0x${polygonAmoy.id.toString(16)}`, chainName: 'Polygon Amoy Testnet', nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 }, rpcUrls: ['https://rpc-amoy.polygon.technology'], blockExplorerUrls: ['https://amoy.polygonscan.com'] }
+      : { chainId: `0x${polygon.id.toString(16)}`, chainName: 'Polygon Mainnet', nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 }, rpcUrls: ['https://polygon-rpc.com'], blockExplorerUrls: ['https://polygonscan.com'] };
     try {
-      await ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: chainConfig.chainId }],
-      });
+      await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainConfig.chainId }] });
     } catch (switchError: any) {
       if (switchError.code === 4902) {
-        try {
-          await ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [chainConfig],
-          });
-        } catch (addError) {
-          toast.error('Failed to add network. Please add it manually in your wallet.');
-        }
-      } else {
-        toast.error('Failed to switch network. Please switch manually in your wallet.');
-      }
+        try { await ethereum.request({ method: 'wallet_addEthereumChain', params: [chainConfig] }); } catch { toast.error('Failed to add network.'); }
+      } else { toast.error('Failed to switch network.'); }
     }
   };
 
-  // Track when receipt is confirmed
   useEffect(() => {
     if (isConfirmed && receipt?.contractAddress) {
       setDeployedAddress(receipt.contractAddress);
@@ -112,63 +85,24 @@ export default function DeployContract() {
   }, [isConfirmed, receipt]);
 
   useEffect(() => {
-    if (txHash && isWaitingReceipt) {
-      setStep('deploying');
-    }
+    if (txHash && isWaitingReceipt) { setStep('deploying'); }
   }, [txHash, isWaitingReceipt]);
 
   const handleDeploy = async () => {
-    if (!isConnected || !address) {
-      toast.error('Please connect your wallet first');
-      return;
-    }
-
+    if (!isConnected || !address) { toast.error('Please connect your wallet first'); return; }
     const ethereum = (window as any).ethereum;
-    if (!ethereum) {
-      toast.error('No wallet detected');
-      return;
-    }
-
-    if (!isCorrectNetwork) {
-      toast.error('Please switch to Polygon Mainnet or Amoy Testnet first');
-      return;
-    }
-
+    if (!ethereum) { toast.error('No wallet detected'); return; }
+    if (!isCorrectNetwork) { toast.error('Please switch to Polygon Mainnet or Amoy Testnet first'); return; }
     setError(null);
     setStep('confirming');
-
     try {
-      // Parse initial supply (convert from CARE to wei)
       const supplyWei = initialSupply ? parseEther(initialSupply) : DEFAULT_INITIAL_SUPPLY;
-
-      // Create wallet client directly from window.ethereum - bypasses wagmi chain validation
-      const walletClient = createWalletClient({
-        account: address as `0x${string}`,
-        chain: chainId === polygonAmoy.id ? polygonAmoy : polygon,
-        transport: custom(ethereum),
-      });
-
+      const walletClient = createWalletClient({ account: address as `0x${string}`, chain: chainId === polygonAmoy.id ? polygonAmoy : polygon, transport: custom(ethereum) });
       toast.info('Please confirm the transaction in your wallet...');
-
-      // Encode deployment data
-      const deployData = encodeDeployData({
-        abi: CARE_COIN_ABI,
-        bytecode: CARE_COIN_BYTECODE,
-        args: [TREASURY_ADDRESS, supplyWei],
-      });
-
-      // Deploy using raw request to avoid viem type issues
-      const hash = await ethereum.request({
-        method: 'eth_sendTransaction',
-        params: [{
-          from: address,
-          data: deployData,
-        }],
-      }) as Hash;
-
+      const deployData = encodeDeployData({ abi: CARE_COIN_ABI, bytecode: CARE_COIN_BYTECODE, args: [TREASURY_ADDRESS, supplyWei] });
+      const hash = await ethereum.request({ method: 'eth_sendTransaction', params: [{ from: address, data: deployData }] }) as Hash;
       setTxHash(hash);
       toast.info('Transaction submitted! Waiting for confirmation...');
-      
     } catch (err: any) {
       console.error('Deploy error:', err);
       const errorMessage = err?.shortMessage || err?.message || 'Deployment failed';
@@ -178,79 +112,61 @@ export default function DeployContract() {
     }
   };
 
-  const handleReset = () => {
-    setStep('idle');
-    setError(null);
-    setDeployedAddress(null);
-    setTxHash(undefined);
-  };
-
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard`);
-  };
+  const handleReset = () => { setStep('idle'); setError(null); setDeployedAddress(null); setTxHash(undefined); };
+  const copyToClipboard = (text: string, label: string) => { navigator.clipboard.writeText(text); toast.success(`${label} copied to clipboard`); };
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <DashboardLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">Deploy CareCoin</h1>
-          <p className="text-muted-foreground">
-            Deploy the CARE token contract directly from your browser
-          </p>
+        <div className="text-center space-y-2 animate-fade-in-up">
+          <h1 className="text-3xl font-bold text-gradient-hero inline-block">Deploy CareCoin</h1>
+          <p className="text-muted-foreground">Deploy the CARE token contract directly from your browser</p>
+        </div>
+
+        {/* Step Indicator */}
+        <div className="flex items-center justify-center gap-2 animate-fade-in-up" style={{ animationDelay: '80ms' }}>
+          {steps.map((s, i) => (
+            <div key={s.key} className="flex items-center gap-2">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${
+                i <= currentStepIndex
+                  ? 'bg-gradient-to-br from-primary to-care-teal text-primary-foreground shadow-[var(--shadow-glow-teal)]'
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {i < currentStepIndex ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+              </div>
+              <span className={`text-xs hidden sm:inline ${i <= currentStepIndex ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{s.label}</span>
+              {i < steps.length - 1 && <div className={`h-0.5 w-8 rounded transition-colors duration-300 ${i < currentStepIndex ? 'bg-primary' : 'bg-muted'}`} />}
+            </div>
+          ))}
         </div>
 
         {/* Wallet Connection */}
-        <Card>
+        <Card className="animate-fade-in-up" style={{ animationDelay: '160ms' }}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5" />
-              Wallet Connection
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5" />Wallet Connection</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {isConnecting ? (
-              <div className="flex flex-col items-center gap-4">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                <p className="text-muted-foreground">Connecting wallet...</p>
-              </div>
+              <div className="flex flex-col items-center gap-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /><p className="text-muted-foreground">Connecting wallet...</p></div>
             ) : !isConnected ? (
-              <div className="flex flex-col items-center gap-4">
-                <p className="text-muted-foreground">Connect your wallet to deploy</p>
-                <ConnectWalletButton />
-              </div>
+              <div className="flex flex-col items-center gap-4"><p className="text-muted-foreground">Connect your wallet to deploy</p><ConnectWalletButton /></div>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Connected:</span>
-                  <Badge variant="outline" className="font-mono">
-                    {address?.slice(0, 6)}...{address?.slice(-4)}
-                  </Badge>
+                  <Badge variant="outline" className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</Badge>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm text-muted-foreground">Network:</Label>
-                  <Select 
-                    value={chainId?.toString()} 
-                    onValueChange={(value) => handleSwitchNetwork(parseInt(value))}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select network" />
-                    </SelectTrigger>
+                  <Select value={chainId?.toString()} onValueChange={(value) => handleSwitchNetwork(parseInt(value))}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select network" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={polygon.id.toString()}>
-                        Polygon Mainnet
-                      </SelectItem>
-                      <SelectItem value={polygonAmoy.id.toString()}>
-                        Polygon Amoy (Testnet)
-                      </SelectItem>
+                      <SelectItem value={polygon.id.toString()}>Polygon Mainnet</SelectItem>
+                      <SelectItem value={polygonAmoy.id.toString()}>Polygon Amoy (Testnet)</SelectItem>
                     </SelectContent>
                   </Select>
-                  {!isCorrectNetwork && (
-                    <p className="text-xs text-destructive">
-                      Please switch to a supported network
-                    </p>
-                  )}
+                  {!isCorrectNetwork && <p className="text-xs text-destructive">Please switch to a supported network</p>}
                 </div>
               </div>
             )}
@@ -259,56 +175,27 @@ export default function DeployContract() {
 
         {/* Deployment Config */}
         {isConnected && isCorrectNetwork && step === 'idle' && (
-          <Card>
+          <Card className="animate-fade-in-up" style={{ animationDelay: '240ms' }}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Deployment Configuration
-              </CardTitle>
-              <CardDescription>
-                Configure the initial parameters for CareCoin
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" />Deployment Configuration</CardTitle>
+              <CardDescription>Configure the initial parameters for CareCoin</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="treasury">Treasury Address</Label>
                 <div className="flex items-center gap-2">
-                  <Input 
-                    id="treasury" 
-                    value={TREASURY_ADDRESS} 
-                    disabled 
-                    className="font-mono text-sm"
-                  />
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => copyToClipboard(TREASURY_ADDRESS, 'Treasury address')}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
+                  <Input id="treasury" value={TREASURY_ADDRESS} disabled className="font-mono text-sm" />
+                  <Button variant="ghost" size="icon" onClick={() => copyToClipboard(TREASURY_ADDRESS, 'Treasury address')}><Copy className="h-4 w-4" /></Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Network fees (10%) will be sent to this address
-                </p>
+                <p className="text-xs text-muted-foreground">Network fees (10%) will be sent to this address</p>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="initialSupply">Initial Supply (CARE)</Label>
-                <Input 
-                  id="initialSupply" 
-                  type="number"
-                  value={initialSupply}
-                  onChange={(e) => setInitialSupply(e.target.value)}
-                  placeholder="0"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Tokens minted to treasury on deploy. Use 0 to mint only via rewards.
-                </p>
+                <Input id="initialSupply" type="number" value={initialSupply} onChange={(e) => setInitialSupply(e.target.value)} placeholder="0" />
+                <p className="text-xs text-muted-foreground">Tokens minted to treasury on deploy. Use 0 to mint only via rewards.</p>
               </div>
-
               <Separator />
-
-              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+              <div className="glass-card rounded-lg p-4 space-y-2">
                 <h4 className="font-medium">Contract Features</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Max Supply: 1,000,000,000 CARE</li>
@@ -318,12 +205,7 @@ export default function DeployContract() {
                   <li>• Burnable tokens</li>
                 </ul>
               </div>
-
-              <Button 
-                onClick={handleDeploy} 
-                className="w-full" 
-                size="lg"
-              >
+              <Button onClick={handleDeploy} className="w-full bg-gradient-to-r from-primary to-care-teal text-primary-foreground shadow-[var(--shadow-glow-teal)] hover:shadow-[0_0_28px_-4px_hsl(var(--care-teal)/0.4)] transition-all duration-300" size="lg">
                 <Rocket className="h-4 w-4 mr-2" />
                 Deploy CareCoin
               </Button>
@@ -333,25 +215,16 @@ export default function DeployContract() {
 
         {/* Deploying State */}
         {(step === 'confirming' || step === 'deploying') && (
-          <Card>
+          <Card className="animate-scale-pop">
             <CardContent className="py-8">
               <div className="flex flex-col items-center gap-4">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 <div className="text-center">
-                  <h3 className="font-semibold text-lg">
-                    {step === 'confirming' ? 'Confirm in Wallet' : 'Deploying Contract...'}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {step === 'confirming' 
-                      ? 'Please confirm the transaction in your wallet'
-                      : 'Waiting for blockchain confirmation'}
-                  </p>
+                  <h3 className="font-semibold text-lg">{step === 'confirming' ? 'Confirm in Wallet' : 'Deploying Contract...'}</h3>
+                  <p className="text-sm text-muted-foreground">{step === 'confirming' ? 'Please confirm the transaction in your wallet' : 'Waiting for blockchain confirmation'}</p>
                 </div>
                 {txHash && (
-                  <Button 
-                    variant="link" 
-                    onClick={() => window.open(`${explorerUrl}/tx/${txHash}`, '_blank')}
-                  >
+                  <Button variant="link" onClick={() => window.open(`${explorerUrl}/tx/${txHash}`, '_blank')}>
                     View on Explorer <ExternalLink className="h-3 w-3 ml-1" />
                   </Button>
                 )}
@@ -362,53 +235,32 @@ export default function DeployContract() {
 
         {/* Success State */}
         {step === 'success' && deployedAddress && (
-          <Card className="border-green-500/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-600">
+          <Card className="border-[hsl(var(--care-green))]/50 shimmer-border animate-scale-pop relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,hsl(var(--care-green)/0.1)_0%,transparent_60%)] pointer-events-none" />
+            <CardHeader className="relative">
+              <CardTitle className="flex items-center gap-2 text-care-green">
                 <CheckCircle2 className="h-5 w-5" />
                 Deployment Successful!
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 relative">
               <Alert>
                 <AlertTitle>Contract Address</AlertTitle>
                 <AlertDescription className="mt-2">
                   <div className="flex items-center gap-2">
-                    <code className="bg-muted px-2 py-1 rounded text-sm font-mono break-all">
-                      {deployedAddress}
-                    </code>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => copyToClipboard(deployedAddress, 'Contract address')}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
+                    <code className="bg-muted/60 px-3 py-1.5 rounded-md text-sm font-mono break-all border border-border/30">{deployedAddress}</code>
+                    <Button variant="ghost" size="icon" onClick={() => copyToClipboard(deployedAddress, 'Contract address')}><Copy className="h-4 w-4" /></Button>
                   </div>
                 </AlertDescription>
               </Alert>
-
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => window.open(`${explorerUrl}/address/${deployedAddress}`, '_blank')}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View on Explorer
+                <Button variant="outline" className="flex-1" onClick={() => window.open(`${explorerUrl}/address/${deployedAddress}`, '_blank')}>
+                  <ExternalLink className="h-4 w-4 mr-2" />View on Explorer
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => window.open(`${explorerUrl}/address/${deployedAddress}#code`, '_blank')}
-                >
-                  Verify Contract
-                </Button>
+                <Button variant="outline" className="flex-1" onClick={() => window.open(`${explorerUrl}/address/${deployedAddress}#code`, '_blank')}>Verify Contract</Button>
               </div>
-
               <Separator />
-
-              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+              <div className="glass-card rounded-lg p-4 space-y-2">
                 <h4 className="font-medium">Next Steps</h4>
                 <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                   <li>Copy the contract address above</li>
@@ -423,23 +275,16 @@ export default function DeployContract() {
 
         {/* Error State */}
         {step === 'error' && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="animate-fade-in-up">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Deployment Failed</AlertTitle>
             <AlertDescription className="mt-2">
               <p>{error}</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-3"
-                onClick={handleReset}
-              >
-                Try Again
-              </Button>
+              <Button variant="outline" size="sm" className="mt-3" onClick={handleReset}>Try Again</Button>
             </AlertDescription>
           </Alert>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

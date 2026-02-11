@@ -12,9 +12,9 @@ export function RecentActivityFeed() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return <Badge className="bg-care-green text-white">Confirmed</Badge>;
+        return <Badge className="bg-care-green text-primary-foreground gap-1"><span className="h-1.5 w-1.5 rounded-full bg-primary-foreground/80 inline-block" />Confirmed</Badge>;
       case 'pending':
-        return <Badge variant="outline" className="border-care-warning text-care-warning">Pending</Badge>;
+        return <Badge variant="outline" className="border-care-warning text-care-warning gap-1"><span className="h-1.5 w-1.5 rounded-full bg-care-warning inline-block animate-pulse" />Pending</Badge>;
       case 'rejected':
         return <Badge variant="destructive">Rejected</Badge>;
       default:
@@ -38,7 +38,7 @@ export function RecentActivityFeed() {
   }
 
   return (
-    <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-muted/30 transition-shadow hover:card-shadow-hover">
+    <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-muted/30 transition-all duration-300 hover:card-shadow-hover">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -62,10 +62,13 @@ export function RecentActivityFeed() {
           </div>
         ) : activities && activities.length > 0 ? (
           <div className="space-y-1">
-            {activities.map((activity) => (
+            {activities.map((activity, index) => (
               <div
                 key={activity.id}
-                className="flex items-center justify-between py-3 border-b last:border-0 hover:bg-muted/50 rounded-lg px-2 -mx-2 transition-colors"
+                className={`flex items-center justify-between py-3 border-b border-border/30 last:border-0 hover:bg-muted/40 rounded-lg px-2 -mx-2 transition-all duration-200 ${
+                  index % 2 === 0 ? 'bg-muted/10' : ''
+                }`}
+                style={{ animation: `fade-in-up 0.4s ease-out ${index * 60}ms both` }}
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -75,7 +78,7 @@ export function RecentActivityFeed() {
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>{formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}</span>
                     {activity.eventHash && (
-                      <code className="font-mono bg-muted px-1.5 py-0.5 rounded">
+                      <code className="font-mono bg-muted/60 px-1.5 py-0.5 rounded-md border border-border/30">
                         {truncateHash(activity.eventHash)}
                       </code>
                     )}
@@ -92,7 +95,7 @@ export function RecentActivityFeed() {
           </div>
         ) : (
           <div className="py-8 text-center">
-            <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+            <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
             <p className="text-muted-foreground">No activity yet</p>
             <p className="text-xs text-muted-foreground mt-1">
               Rewards will appear here when documentation events are processed

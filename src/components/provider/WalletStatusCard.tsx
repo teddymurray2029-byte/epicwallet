@@ -25,7 +25,7 @@ export function WalletStatusCard() {
   }
 
   return (
-    <Card className="card-glow-teal border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-shadow hover:card-shadow-hover">
+    <Card className="shimmer-border card-glow-teal bg-gradient-to-br from-card via-card to-primary/5 transition-all duration-300 hover:card-shadow-hover hover:-translate-y-0.5">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">Wallet Status</CardTitle>
@@ -51,7 +51,7 @@ export function WalletStatusCard() {
         {/* Wallet Address */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Address</span>
-          <code className="font-mono text-sm bg-muted px-2 py-1 rounded">
+          <code className="font-mono text-sm bg-muted/80 px-3 py-1.5 rounded-full border border-border/40">
             {address ? truncateAddress(address) : '—'}
           </code>
         </div>
@@ -73,10 +73,12 @@ export function WalletStatusCard() {
         )}
 
         {/* Earned Rewards (Off-chain) */}
-        <div className="pt-4 border-t">
+        <div className="pt-4 border-t border-border/40">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Coins className="h-5 w-5 text-care-teal" />
+              <div className="p-1.5 rounded-lg bg-care-teal/10 ring-1 ring-care-teal/20">
+                <Coins className="h-4 w-4 text-care-teal" />
+              </div>
               <div>
                 <span className="text-sm font-medium">Earned Rewards</span>
                 <span className="text-xs text-muted-foreground ml-1">(Claimable)</span>
@@ -87,7 +89,7 @@ export function WalletStatusCard() {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : (
                 <>
-                  <span className="text-2xl font-bold text-care-teal">
+                  <span className="text-2xl font-bold text-gradient inline-block">
                     {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </span>
                   <span className="text-sm text-muted-foreground ml-1">CARE</span>
@@ -99,7 +101,9 @@ export function WalletStatusCard() {
           {/* On-chain Balance */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-care-blue" />
+              <div className="p-1.5 rounded-lg bg-care-blue/10 ring-1 ring-care-blue/20">
+                <Wallet className="h-4 w-4 text-care-blue" />
+              </div>
               <div>
                 <span className="text-sm font-medium">On-Chain</span>
                 <span className="text-xs text-muted-foreground ml-1">({chainName})</span>

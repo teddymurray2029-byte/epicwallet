@@ -99,12 +99,51 @@ export default {
           from: { transform: "translateX(100%)", opacity: "0" },
           to: { transform: "translateX(0)", opacity: "1" },
         },
+        "shimmer": {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
+        "gradient-shift": {
+          "0%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+          "100%": { backgroundPosition: "0% 50%" },
+        },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(16px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "scale-pop": {
+          "0%": { opacity: "0", transform: "scale(0.9)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "pulse-ring": {
+          "0%": { boxShadow: "0 0 0 0 hsl(160 50% 40% / 0.5)" },
+          "70%": { boxShadow: "0 0 0 6px hsl(160 50% 40% / 0)" },
+          "100%": { boxShadow: "0 0 0 0 hsl(160 50% 40% / 0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "slide-in-right": "slide-in-right 0.3s ease-out",
+        "shimmer": "shimmer 4s linear infinite",
+        "float": "float 3s ease-in-out infinite",
+        "gradient-shift": "gradient-shift 6s ease infinite",
+        "fade-in-up": "fade-in-up 0.5s ease-out both",
+        "scale-pop": "scale-pop 0.35s ease-out both",
+        "pulse-ring": "pulse-ring 2s ease-out infinite",
+      },
+      backgroundImage: {
+        "hero-gradient": "linear-gradient(135deg, hsl(var(--care-teal) / 0.08), hsl(var(--care-green) / 0.05), hsl(var(--care-blue) / 0.08))",
+        "card-mesh": "radial-gradient(at 20% 30%, hsl(var(--care-teal) / 0.06) 0%, transparent 50%), radial-gradient(at 80% 70%, hsl(var(--care-green) / 0.04) 0%, transparent 50%)",
+      },
+      backgroundSize: {
+        "shimmer": "300% 100%",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
