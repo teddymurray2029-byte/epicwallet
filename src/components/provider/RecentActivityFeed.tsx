@@ -3,11 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useRecentActivity } from '@/hooks/useRewardsData';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Activity, ExternalLink } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { MOCK_RECENT_ACTIVITY } from '@/lib/mockData';
 
 export function RecentActivityFeed() {
   const { data: activities, isLoading, error } = useRecentActivity(8);
+
+  const isMock = !isLoading && (!activities || activities.length === 0) && !error;
+  const displayData = isMock ? MOCK_RECENT_ACTIVITY : activities;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -38,13 +42,16 @@ export function RecentActivityFeed() {
   }
 
   return (
-    <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-muted/30 transition-all duration-300 hover:card-shadow-hover">
+    <Card className={`card-shadow border-border/40 bg-gradient-to-br from-card via-card to-muted/30 transition-all duration-300 hover:card-shadow-hover ${isMock ? 'opacity-75' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <Activity className="h-5 w-5" />
             Recent Activity
           </CardTitle>
+          {isMock && (
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -60,9 +67,9 @@ export function RecentActivityFeed() {
               </div>
             ))}
           </div>
-        ) : activities && activities.length > 0 ? (
+        ) : displayData && displayData.length > 0 ? (
           <div className="space-y-1">
-            {activities.map((activity, index) => (
+            {displayData.map((activity, index) => (
               <div
                 key={activity.id}
                 className={`flex items-center justify-between py-3 border-b border-border/30 last:border-0 hover:bg-muted/40 rounded-lg px-2 -mx-2 transition-all duration-200 ${
@@ -93,15 +100,7 @@ export function RecentActivityFeed() {
               </div>
             ))}
           </div>
-        ) : (
-          <div className="py-8 text-center">
-            <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
-            <p className="text-muted-foreground">No activity yet</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Rewards will appear here when documentation events are processed
-            </p>
-          </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -1,11 +1,13 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useRewardsByEventType } from '@/hooks/useRewardsData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { MOCK_REWARDS_BY_EVENT_TYPE } from '@/lib/mockData';
 
 const COLORS = [
   'hsl(180, 45%, 35%)',
@@ -22,6 +24,9 @@ export function RewardsChart() {
   const { data, isLoading, error } = useRewardsByEventType();
   const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
 
+  const isMock = !isLoading && !error && (!data || data.length === 0);
+  const chartData = isMock ? MOCK_REWARDS_BY_EVENT_TYPE : (data || []);
+
   if (error) {
     return (
       <Card className="border-destructive">
@@ -32,13 +37,16 @@ export function RewardsChart() {
     );
   }
 
-  const chartData = data || [];
-
   return (
-    <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-all duration-300 hover:card-shadow-hover">
+    <Card className={`card-shadow border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-all duration-300 hover:card-shadow-hover ${isMock ? 'opacity-75' : ''}`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold">Rewards by Event Type</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg font-semibold">Rewards by Event Type</CardTitle>
+            {isMock && (
+              <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>
+            )}
+          </div>
           <div className="flex gap-1 rounded-full bg-muted/60 p-1">
             <Button
               variant={chartType === 'bar' ? 'secondary' : 'ghost'}
@@ -127,14 +135,7 @@ export function RewardsChart() {
               )}
             </ResponsiveContainer>
           </div>
-        ) : (
-          <div className="h-64 flex items-center justify-center">
-            <div className="text-center">
-              <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <p className="text-muted-foreground">No rewards data yet</p>
-            </div>
-          </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

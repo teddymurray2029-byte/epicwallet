@@ -7,6 +7,7 @@ import { useRewardsSummary, useRewardsByEventType, useRewardPolicies } from '@/h
 import { RewardsChart } from '@/components/provider/RewardsChart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Coins, TrendingUp, Calendar, Clock, Award, Percent } from 'lucide-react';
+import { MOCK_REWARDS_SUMMARY, MOCK_REWARDS_BY_EVENT_TYPE, MOCK_REWARD_POLICIES } from '@/lib/mockData';
 
 export default function ProviderRewards() {
   const { entity, isConnected, earnedBalance, earnedBalanceLoading, onChainBalance, isContractDeployed, chainName } = useWallet();
@@ -25,11 +26,20 @@ export default function ProviderRewards() {
     );
   }
 
+  const isSummaryMock = !summaryLoading && (!summary || (summary.totalEarned === 0 && summary.pendingRewards === 0));
+  const displaySummary = isSummaryMock ? MOCK_REWARDS_SUMMARY : summary;
+
+  const isByEventMock = !byEventLoading && (!byEventType || byEventType.length === 0);
+  const displayByEvent = isByEventMock ? MOCK_REWARDS_BY_EVENT_TYPE : byEventType;
+
+  const isPoliciesMock = !policiesLoading && (!policies || policies.length === 0);
+  const displayPolicies = isPoliciesMock ? MOCK_REWARD_POLICIES : policies;
+
   const stats = [
-    { label: 'Total Earned', value: summary?.totalEarned ?? 0, icon: Coins, color: 'text-care-teal', bgColor: 'bg-care-teal/10', borderColor: 'border-t-[hsl(var(--care-teal))]' },
-    { label: 'This Month', value: summary?.thisMonth ?? 0, icon: Calendar, color: 'text-care-green', bgColor: 'bg-care-green/10', borderColor: 'border-t-[hsl(var(--care-green))]' },
-    { label: 'This Week', value: summary?.thisWeek ?? 0, icon: TrendingUp, color: 'text-care-blue', bgColor: 'bg-care-blue/10', borderColor: 'border-t-[hsl(var(--care-blue))]' },
-    { label: 'Pending', value: summary?.pendingRewards ?? 0, icon: Clock, color: 'text-care-warning', bgColor: 'bg-care-warning/10', borderColor: 'border-t-[hsl(var(--care-warning))]' },
+    { label: 'Total Earned', value: displaySummary?.totalEarned ?? 0, icon: Coins, color: 'text-care-teal', bgColor: 'bg-care-teal/10', borderColor: 'border-t-[hsl(var(--care-teal))]' },
+    { label: 'This Month', value: displaySummary?.thisMonth ?? 0, icon: Calendar, color: 'text-care-green', bgColor: 'bg-care-green/10', borderColor: 'border-t-[hsl(var(--care-green))]' },
+    { label: 'This Week', value: displaySummary?.thisWeek ?? 0, icon: TrendingUp, color: 'text-care-blue', bgColor: 'bg-care-blue/10', borderColor: 'border-t-[hsl(var(--care-blue))]' },
+    { label: 'Pending', value: displaySummary?.pendingRewards ?? 0, icon: Clock, color: 'text-care-warning', bgColor: 'bg-care-warning/10', borderColor: 'border-t-[hsl(var(--care-warning))]' },
   ];
 
   return (
@@ -88,12 +98,15 @@ export default function ProviderRewards() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, index) => (
-            <Card key={stat.label} className={`border-t-2 ${stat.borderColor} transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
+            <Card key={stat.label} className={`border-t-2 ${stat.borderColor} transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)] ${isSummaryMock ? 'opacity-75' : ''}`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className={`p-2 rounded-lg ${stat.bgColor}`}>
                     <stat.icon className={`h-4 w-4 ${stat.color}`} />
                   </div>
+                  {isSummaryMock && index === 0 && (
+                    <Badge variant="secondary" className="text-[10px] uppercase tracking-wider ml-auto">Sample</Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
                 {summaryLoading ? (
@@ -112,12 +125,17 @@ export default function ProviderRewards() {
         <div className="grid lg:grid-cols-2 gap-6">
           <RewardsChart />
 
-          <Card>
+          <Card className={isByEventMock ? 'opacity-75' : ''}>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Award className="h-5 w-5" />
-                Earnings by Event Type
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Award className="h-5 w-5" />
+                  Earnings by Event Type
+                </CardTitle>
+                {isByEventMock && (
+                  <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>
+                )}
+              </div>
               <CardDescription>
                 Breakdown of your rewards by documentation type
               </CardDescription>
@@ -129,9 +147,9 @@ export default function ProviderRewards() {
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : byEventType && byEventType.length > 0 ? (
+              ) : displayByEvent && displayByEvent.length > 0 ? (
                 <div className="space-y-3">
-                  {byEventType.map((item, index) => (
+                  {displayByEvent.map((item, index) => (
                     <div
                       key={item.eventType}
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/20 transition-all duration-200 hover:bg-muted/60 hover:shadow-sm"
@@ -149,26 +167,28 @@ export default function ProviderRewards() {
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Award className="h-10 w-10 mx-auto mb-2 opacity-40" />
-                  <p>No rewards earned yet</p>
-                </div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
         </div>
 
         {/* Active Reward Policies */}
-        <Card>
+        <Card className={isPoliciesMock ? 'opacity-75' : ''}>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Percent className="h-5 w-5" />
-              Active Reward Policies
-            </CardTitle>
-            <CardDescription>
-              Current reward rates for documentation events (10% network fee applied)
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Percent className="h-5 w-5" />
+                  Active Reward Policies
+                </CardTitle>
+                <CardDescription>
+                  Current reward rates for documentation events (10% network fee applied)
+                </CardDescription>
+              </div>
+              {isPoliciesMock && (
+                <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {policiesLoading ? (
@@ -177,9 +197,9 @@ export default function ProviderRewards() {
                   <Skeleton key={i} className="h-24 w-full" />
                 ))}
               </div>
-            ) : policies && policies.length > 0 ? (
+            ) : displayPolicies && displayPolicies.length > 0 ? (
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {policies.map((policy, index) => (
+                {displayPolicies.map((policy, index) => (
                   <div
                     key={policy.id}
                     className="p-4 rounded-lg border border-border/40 bg-card border-l-2 border-l-[hsl(var(--care-teal))] transition-all duration-300 hover:shadow-[var(--shadow-card-hover),var(--shadow-glow-teal)] hover:-translate-y-0.5"
@@ -199,12 +219,7 @@ export default function ProviderRewards() {
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Percent className="h-10 w-10 mx-auto mb-2 opacity-40" />
-                <p>No active policies</p>
-              </div>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       </div>
