@@ -342,8 +342,10 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Calculate provider reward from remaining amount (after network fee)
+      // Calculate stakeholder rewards from remaining amount (after network fee)
       const providerReward = (remainingReward * policy.provider_split) / 100;
+      const organizationReward = (remainingReward * policy.organization_split) / 100;
+      const patientReward = (remainingReward * policy.patient_split) / 100;
 
       // Create reward ledger entry for provider
       await supabase.from('rewards_ledger').insert({
@@ -351,22 +353,65 @@ Deno.serve(async (req) => {
         recipient_id: provider.id,
         recipient_type: 'provider',
         amount: providerReward,
-        status: 'confirmed', // In mock mode, confirm immediately
+        status: 'confirmed',
         confirmed_at: new Date().toISOString(),
       });
+      console.log('Created reward:', providerReward, 'CARE for provider');
 
-      console.log('Created reward:', providerReward, 'CARE for provider (after', networkFeePercent, '% network fee)');
+      // Create reward ledger entry for organization
+      if (organizationReward > 0 && provider.organization_id) {
+        await supabase.from('rewards_ledger').insert({
+          attestation_id: attestation.id,
+          recipient_id: provider.organization_id,
+          recipient_type: 'organization',
+          amount: organizationReward,
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+        });
+        console.log('Created reward:', organizationReward, 'CARE for organization');
+      }
+
+      // Create reward ledger entry for patient (if patient entity exists)
+      if (patientReward > 0 && payload.patientId) {
+        const { data: patientEntity } = await supabase
+          .from('entities')
+          .select('id')
+          .eq('wallet_address', payload.patientId.toLowerCase())
+          .maybeSingle();
+
+        if (patientEntity) {
+          await supabase.from('rewards_ledger').insert({
+            attestation_id: attestation.id,
+            recipient_id: patientEntity.id,
+            recipient_type: 'patient',
+            amount: patientReward,
+            status: 'confirmed',
+            confirmed_at: new Date().toISOString(),
+          });
+          console.log('Created reward:', patientReward, 'CARE for patient');
+        } else {
+          console.warn('Patient entity not found for:', payload.patientId, '- patient reward skipped');
+        }
+      }
+
+      console.log('Total distribution - Provider:', providerReward, 'Org:', organizationReward, 'Patient:', patientReward, 'Network fee:', networkFeeAmount);
     }
 
-    // Calculate provider reward for response (after network fee)
+    // Calculate rewards for response
     const providerRewardForResponse = (remainingReward * policy.provider_split) / 100;
+    const orgRewardForResponse = (remainingReward * policy.organization_split) / 100;
+    const patientRewardForResponse = (remainingReward * policy.patient_split) / 100;
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Epic event processed successfully',
         eventId: docEvent.id,
-        reward: providerRewardForResponse,
+        reward: {
+          provider: providerRewardForResponse,
+          organization: orgRewardForResponse,
+          patient: patientRewardForResponse,
+        },
         networkFee: networkFeeAmount,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
