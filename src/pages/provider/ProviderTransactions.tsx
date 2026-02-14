@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTransactionHistory } from '@/hooks/useRewardsData';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Receipt, Search, ExternalLink, ArrowUpRight, ArrowDownLeft, Wallet } from 'lucide-react';
+import { Receipt, Search, ExternalLink, ArrowDownLeft, Wallet } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { MOCK_TRANSACTION_HISTORY } from '@/lib/mockData';
 
 export default function ProviderTransactions() {
   const { entity, isConnected, earnedBalance, earnedBalanceLoading } = useWallet();
@@ -26,6 +27,9 @@ export default function ProviderTransactions() {
     );
   }
 
+  const isMock = !isLoading && !error && (!transactions || transactions.length === 0);
+  const displayTransactions = isMock ? MOCK_TRANSACTION_HISTORY : (transactions || []);
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
@@ -39,7 +43,7 @@ export default function ProviderTransactions() {
     }
   };
 
-  const filteredTransactions = (transactions || []).filter((tx) => {
+  const filteredTransactions = displayTransactions.filter((tx) => {
     if (!searchQuery) return true;
     return (
       tx.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -52,16 +56,16 @@ export default function ProviderTransactions() {
     return `${hash.slice(0, 10)}...${hash.slice(-8)}`;
   };
 
-  const totalConfirmed = (transactions || [])
+  const totalConfirmed = displayTransactions
     .filter((tx) => tx.status === 'confirmed')
     .reduce((sum, tx) => sum + tx.amount, 0);
 
-  const totalPending = (transactions || [])
+  const totalPending = displayTransactions
     .filter((tx) => tx.status === 'pending')
     .reduce((sum, tx) => sum + tx.amount, 0);
 
   const summaryCards = [
-    { label: 'Earned Balance', value: earnedBalance, loading: earnedBalanceLoading, icon: Wallet, color: 'text-care-teal', bgColor: 'bg-care-teal/10', borderColor: 'border-t-[hsl(var(--care-teal))]' },
+    { label: 'Earned Balance', value: isMock ? 1247.50 : earnedBalance, loading: isMock ? false : earnedBalanceLoading, icon: Wallet, color: 'text-care-teal', bgColor: 'bg-care-teal/10', borderColor: 'border-t-[hsl(var(--care-teal))]' },
     { label: 'Total Received', value: totalConfirmed, loading: false, icon: ArrowDownLeft, color: 'text-care-green', bgColor: 'bg-care-green/10', borderColor: 'border-t-[hsl(var(--care-green))]' },
     { label: 'Pending', value: totalPending, loading: false, icon: Receipt, color: 'text-care-warning', bgColor: 'bg-care-warning/10', borderColor: 'border-t-[hsl(var(--care-warning))]' },
   ];
@@ -84,7 +88,7 @@ export default function ProviderTransactions() {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {summaryCards.map((card, index) => (
-            <Card key={card.label} className={`border-t-2 ${card.borderColor} transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
+            <Card key={card.label} className={`border-t-2 ${card.borderColor} transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)] ${isMock ? 'opacity-75' : ''}`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${card.bgColor} ring-1 ring-border/20 shadow-sm`}>
@@ -106,6 +110,10 @@ export default function ProviderTransactions() {
           ))}
         </div>
 
+        {isMock && (
+          <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Showing Sample Data — earn rewards to see real transactions</Badge>
+        )}
+
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -118,7 +126,7 @@ export default function ProviderTransactions() {
         </div>
 
         {/* Transactions List */}
-        <Card>
+        <Card className={isMock ? 'opacity-75' : ''}>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Receipt className="h-5 w-5" />
@@ -203,10 +211,8 @@ export default function ProviderTransactions() {
             ) : (
               <div className="text-center py-12">
                 <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-40" />
-                <p className="text-muted-foreground">No transactions found</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {searchQuery ? 'Try adjusting your search' : 'Transactions will appear here when you earn rewards'}
-                </p>
+                <p className="text-muted-foreground">No matching transactions</p>
+                <p className="text-xs text-muted-foreground mt-1">Try adjusting your search</p>
               </div>
             )}
           </CardContent>

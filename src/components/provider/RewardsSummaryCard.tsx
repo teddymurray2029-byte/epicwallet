@@ -1,11 +1,16 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useRewardsSummary } from '@/hooks/useRewardsData';
 import { TrendingUp, Calendar, Clock, Coins } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MOCK_REWARDS_SUMMARY } from '@/lib/mockData';
 
 export function RewardsSummaryCard() {
   const { data, isLoading, error } = useRewardsSummary();
+
+  const isMock = !isLoading && !error && (!data || (data.totalEarned === 0 && data.pendingRewards === 0));
+  const displayData = isMock ? MOCK_REWARDS_SUMMARY : data;
 
   if (error) {
     return (
@@ -18,44 +23,21 @@ export function RewardsSummaryCard() {
   }
 
   const stats = [
-    {
-      label: 'Total Earned',
-      value: data?.totalEarned ?? 0,
-      icon: Coins,
-      color: 'text-care-teal',
-      bgColor: 'bg-care-teal/10',
-      ringColor: 'ring-care-teal/20',
-    },
-    {
-      label: 'This Month',
-      value: data?.thisMonth ?? 0,
-      icon: Calendar,
-      color: 'text-care-green',
-      bgColor: 'bg-care-green/10',
-      ringColor: 'ring-care-green/20',
-    },
-    {
-      label: 'This Week',
-      value: data?.thisWeek ?? 0,
-      icon: TrendingUp,
-      color: 'text-care-blue',
-      bgColor: 'bg-care-blue/10',
-      ringColor: 'ring-care-blue/20',
-    },
-    {
-      label: 'Pending',
-      value: data?.pendingRewards ?? 0,
-      icon: Clock,
-      color: 'text-care-warning',
-      bgColor: 'bg-care-warning/10',
-      ringColor: 'ring-care-warning/20',
-    },
+    { label: 'Total Earned', value: displayData?.totalEarned ?? 0, icon: Coins, color: 'text-care-teal', bgColor: 'bg-care-teal/10', ringColor: 'ring-care-teal/20' },
+    { label: 'This Month', value: displayData?.thisMonth ?? 0, icon: Calendar, color: 'text-care-green', bgColor: 'bg-care-green/10', ringColor: 'ring-care-green/20' },
+    { label: 'This Week', value: displayData?.thisWeek ?? 0, icon: TrendingUp, color: 'text-care-blue', bgColor: 'bg-care-blue/10', ringColor: 'ring-care-blue/20' },
+    { label: 'Pending', value: displayData?.pendingRewards ?? 0, icon: Clock, color: 'text-care-warning', bgColor: 'bg-care-warning/10', ringColor: 'ring-care-warning/20' },
   ];
 
   return (
-    <Card className="card-glow-green border-border/40 bg-gradient-to-br from-card via-card to-accent/5 transition-all duration-300 hover:card-shadow-hover">
+    <Card className={`card-glow-green border-border/40 bg-gradient-to-br from-card via-card to-accent/5 transition-all duration-300 hover:card-shadow-hover ${isMock ? 'opacity-75' : ''}`}>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Rewards Summary</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-semibold">Rewards Summary</CardTitle>
+          {isMock && (
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4">

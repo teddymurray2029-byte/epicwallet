@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useWallet } from '@/contexts/WalletContext';
 import { useRecentActivity } from '@/hooks/useRewardsData';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Activity, Search, Filter, ExternalLink, FileText } from 'lucide-react';
+import { Activity, Search, Filter, FileText } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { MOCK_RECENT_ACTIVITY } from '@/lib/mockData';
 
 export default function ProviderActivity() {
   const { entity, isConnected } = useWallet();
@@ -27,6 +28,9 @@ export default function ProviderActivity() {
       </DashboardLayout>
     );
   }
+
+  const isMock = !isLoading && !error && (!activities || activities.length === 0);
+  const displayActivities = isMock ? MOCK_RECENT_ACTIVITY : (activities || []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -52,7 +56,7 @@ export default function ProviderActivity() {
     }
   };
 
-  const filteredActivities = (activities || []).filter((activity) => {
+  const filteredActivities = displayActivities.filter((activity) => {
     const matchesSearch = activity.eventType.toLowerCase().includes(searchQuery.toLowerCase()) ||
       activity.eventHash.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || activity.status === statusFilter;
@@ -110,12 +114,17 @@ export default function ProviderActivity() {
         </Card>
 
         {/* Activity List */}
-        <Card>
+        <Card className={isMock ? 'opacity-75' : ''}>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Documentation Events
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Documentation Events
+              </CardTitle>
+              {isMock && (
+                <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>
+              )}
+            </div>
             <CardDescription>
               {filteredActivities.length} events found
             </CardDescription>
@@ -179,12 +188,8 @@ export default function ProviderActivity() {
             ) : (
               <div className="text-center py-12">
                 <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-40" />
-                <p className="text-muted-foreground">No activity found</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {searchQuery || statusFilter !== 'all'
-                    ? 'Try adjusting your filters'
-                    : 'Documentation events will appear here'}
-                </p>
+                <p className="text-muted-foreground">No matching activity</p>
+                <p className="text-xs text-muted-foreground mt-1">Try adjusting your filters</p>
               </div>
             )}
           </CardContent>
