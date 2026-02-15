@@ -16,6 +16,12 @@ import {
 import { NavLink } from '@/components/NavLink';
 import { useWallet } from '@/contexts/WalletContext';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   LayoutDashboard,
   FileText,
   Wallet,
@@ -30,6 +36,7 @@ import {
   Coins,
   Link2,
   UserPlus,
+  Rocket,
 } from 'lucide-react';
 
 // Provider navigation items
@@ -55,6 +62,7 @@ const adminNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Organizations', url: '/admin/organizations', icon: Users },
   { title: 'Invites', url: '/organization/invites', icon: UserPlus },
+  { title: 'Deploy Contract', url: '/admin/deploy', icon: Rocket },
   { title: 'Policies', url: '/admin/policies', icon: FileText },
   { title: 'Oracle Keys', url: '/admin/oracles', icon: Shield },
   { title: 'Monitoring', url: '/admin/monitoring', icon: TrendingUp },
@@ -65,7 +73,9 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const location = useLocation();
-  const { entity, isProvider, isPatient, isAdmin, isOrganization, isConnected } = useWallet();
+  const { entity, isProvider, isPatient, isAdmin, isOrganization, isConnected, address } = useWallet();
+
+  const truncateAddress = (addr: string) => `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 
   // Determine which nav items to show based on entity type
   const getNavItems = () => {
@@ -89,17 +99,20 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border/60 bg-gradient-to-b from-sidebar-accent/30 to-transparent">
         <div className="flex items-center gap-3 px-2 py-3">
-          <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-care-teal via-care-blue to-care-green text-sidebar-primary-foreground shadow-[0_2px_8px_hsl(180_45%_35%/0.3)]">
-            <span className="text-lg">💚🪙</span>
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-care-teal/20 to-transparent animate-pulse-glow" />
+          {/* Professional SVG logo mark */}
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(var(--care-teal))] via-[hsl(var(--care-blue))] to-[hsl(var(--care-green))] text-white shadow-[0_2px_8px_hsl(180_45%_35%/0.3)]">
+            <svg viewBox="0 0 32 32" fill="none" className="h-6 w-6">
+              <text x="3" y="23" fontFamily="Inter, sans-serif" fontSize="16" fontWeight="700" fill="white">CC</text>
+            </svg>
+            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent" />
           </div>
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-lg font-bold text-sidebar-foreground">
-                CareCoin <span className="text-base">✨</span>
+                CareCoin
               </span>
               <span className="text-xs font-medium tracking-wide text-sidebar-foreground/60">
-                Care<span className="text-care-green">💖</span>Coin Rewards
+                Healthcare Rewards
               </span>
             </div>
           )}
@@ -111,36 +124,53 @@ export function AppSidebar() {
           {!collapsed && <SidebarGroupLabel>{groupLabel}</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
-                const isActive =
-                  (item.url === '/provider' || item.url === '/patient' || item.url === '/admin')
-                    ? location.pathname === item.url
-                    : location.pathname.startsWith(item.url);
+              <TooltipProvider delayDuration={0}>
+                {navItems.map((item) => {
+                  const isActive =
+                    (item.url === '/provider' || item.url === '/patient' || item.url === '/admin')
+                      ? location.pathname === item.url
+                      : location.pathname.startsWith(item.url);
 
-                const dataTutorial = 
-                  item.url === '/admin/organizations' ? 'organization-link' :
-                  item.url === '/provider/epic' ? 'epic-link' :
-                  undefined;
-                
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === '/provider' || item.url === '/patient' || item.url === '/admin'}
-                        className={`flex items-center gap-3 transition-all duration-200 hover:bg-sidebar-accent hover:translate-x-0.5 ${
-                          isActive ? 'bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-[hsl(var(--sidebar-primary))]' : ''
-                        }`}
-                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                        data-tutorial={dataTutorial}
-                      >
-                        <item.icon className={`h-4 w-4 transition-colors ${isActive ? 'text-sidebar-primary' : ''}`} />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+                  const dataTutorial = 
+                    item.url === '/admin/organizations' ? 'organization-link' :
+                    item.url === '/provider/epic' ? 'epic-link' :
+                    undefined;
+
+                  const linkContent = (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.url}
+                          end={item.url === '/provider' || item.url === '/patient' || item.url === '/admin'}
+                          className={`flex items-center gap-3 transition-all duration-200 hover:bg-sidebar-accent hover:translate-x-0.5 ${
+                            isActive ? 'bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-[hsl(var(--sidebar-primary))]' : ''
+                          }`}
+                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                          data-tutorial={dataTutorial}
+                        >
+                          <item.icon className={`h-4 w-4 transition-colors ${isActive ? 'text-sidebar-primary' : ''}`} />
+                          {!collapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+
+                  if (collapsed) {
+                    return (
+                      <Tooltip key={item.title}>
+                        <TooltipTrigger asChild>
+                          {linkContent}
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">
+                          {item.title}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+
+                  return linkContent;
+                })}
+              </TooltipProvider>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -150,12 +180,23 @@ export function AppSidebar() {
         <div className="px-2 py-3">
           {!collapsed && (
             <div className="flex items-center gap-2 text-xs text-sidebar-foreground/60">
-              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-care-green animate-pulse-ring' : 'bg-muted-foreground'}`} />
-              <span>{isConnected ? 'Wallet Connected' : 'Not Connected'}</span>
+              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-[hsl(var(--care-green))] animate-pulse-ring' : 'bg-muted-foreground'}`} />
+              <span>
+                {isConnected && address
+                  ? truncateAddress(address)
+                  : 'Not Connected'}
+              </span>
             </div>
           )}
           {collapsed && (
-            <div className={`mx-auto h-2 w-2 rounded-full ${isConnected ? 'bg-care-green animate-pulse-ring' : 'bg-muted-foreground'}`} />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={`mx-auto h-2 w-2 rounded-full cursor-default ${isConnected ? 'bg-[hsl(var(--care-green))] animate-pulse-ring' : 'bg-muted-foreground'}`} />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">
+                {isConnected && address ? truncateAddress(address) : 'Not Connected'}
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </SidebarFooter>

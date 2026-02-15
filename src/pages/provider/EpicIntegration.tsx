@@ -59,13 +59,7 @@ export default function EpicIntegration() {
   const fetchIntegration = async () => {
     if (!entity?.id) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('ehr_integrations')
-      .select('*')
-      .eq('entity_id', entity.id)
-      .eq('integration_type', 'epic')
-      .maybeSingle();
-
+    const { data, error } = await supabase.from('ehr_integrations').select('*').eq('entity_id', entity.id).eq('integration_type', 'epic').maybeSingle();
     if (!error && data && data.is_active) {
       setIntegration(data as EhrIntegration);
     } else {
@@ -78,9 +72,7 @@ export default function EpicIntegration() {
     if (!entity?.id) return;
     setConnecting(true);
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/epic-auth?action=authorize&entity_id=${entity.id}`,
-      );
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/epic-auth?action=authorize&entity_id=${entity.id}`);
       const data = await res.json();
       if (data.authorize_url) {
         window.location.href = data.authorize_url;
@@ -98,9 +90,7 @@ export default function EpicIntegration() {
     if (!entity?.id) return;
     setDisconnecting(true);
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/epic-auth?action=disconnect&entity_id=${entity.id}`,
-      );
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/epic-auth?action=disconnect&entity_id=${entity.id}`);
       const data = await res.json();
       if (data.success) {
         setIntegration(null);
@@ -138,7 +128,7 @@ export default function EpicIntegration() {
     <DashboardLayout>
       <div className="space-y-6 max-w-2xl">
         <div className="animate-fade-in-up">
-          <h1 className="text-2xl font-bold tracking-tight text-gradient-hero inline-block">Epic Integration</h1>
+          <h1 className="page-header inline-block">Epic Integration</h1>
           <p className="text-muted-foreground">
             Connect your Epic EHR to automatically earn CareCoin rewards for documentation events.
           </p>
@@ -146,7 +136,7 @@ export default function EpicIntegration() {
 
         {/* Connection Card */}
         {integration ? (
-          <Card className="shimmer-border card-glow-green bg-gradient-to-br from-card via-card to-accent/10 animate-fade-in-up" style={{ animationDelay: '80ms' }}>
+          <Card variant="glow" className="bg-gradient-to-br from-card via-card to-accent/10 animate-fade-in-up" style={{ animationDelay: '80ms' }}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -162,6 +152,21 @@ export default function EpicIntegration() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Animated connection indicator */}
+              <div className="flex items-center justify-center gap-3 py-3">
+                <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-sm">
+                  <div className="h-2 w-2 rounded-full bg-[hsl(var(--care-green))]" />
+                  Your System
+                </div>
+                <div className="relative h-0.5 w-16 bg-[hsl(var(--care-green)/0.3)] overflow-hidden rounded-full">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[hsl(var(--care-green))] to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
+                </div>
+                <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-sm">
+                  <div className="h-2 w-2 rounded-full bg-[hsl(var(--care-green))]" />
+                  Epic EHR
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="rounded-lg border border-border/30 bg-muted/30 p-3">
                   <p className="text-muted-foreground text-xs">Connected Since</p>
@@ -175,14 +180,14 @@ export default function EpicIntegration() {
                   </div>
                 </div>
               </div>
-              <Button variant="destructive" onClick={handleDisconnect} disabled={disconnecting} className="w-full">
-                {disconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Unplug className="mr-2 h-4 w-4" />}
+              <Button variant="destructive" onClick={handleDisconnect} loading={disconnecting} className="w-full">
+                <Unplug className="mr-2 h-4 w-4" />
                 Disconnect Epic
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <Card className="shimmer-border card-glow-teal bg-gradient-to-br from-card via-card to-primary/5 animate-fade-in-up" style={{ animationDelay: '80ms' }}>
+          <Card className="shimmer-border bg-gradient-to-br from-card via-card to-primary/5 animate-fade-in-up" style={{ animationDelay: '80ms' }}>
             <CardHeader className="text-center pb-2">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-3">
                 <Zap className="h-8 w-8 text-primary" />
@@ -193,17 +198,8 @@ export default function EpicIntegration() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-2">
-              <Button
-                size="lg"
-                className="w-full text-base h-12"
-                onClick={handleConnect}
-                disabled={connecting}
-              >
-                {connecting ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                ) : (
-                  <Activity className="mr-2 h-5 w-5" />
-                )}
+              <Button size="lg" variant="gradient" className="w-full text-base h-12" onClick={handleConnect} loading={connecting}>
+                <Activity className="mr-2 h-5 w-5" />
                 {connecting ? 'Connecting...' : 'Connect to Epic'}
               </Button>
               <p className="text-xs text-muted-foreground text-center mt-3">
@@ -213,18 +209,16 @@ export default function EpicIntegration() {
           </Card>
         )}
 
-        {/* Supported Events Card */}
-        <Card className="card-shadow border-border/40 bg-gradient-to-br from-card via-card to-accent/5 animate-fade-in-up" style={{ animationDelay: '160ms' }}>
+        {/* Supported Events */}
+        <Card className="border-border/40 bg-gradient-to-br from-card via-card to-accent/5 animate-fade-in-up" style={{ animationDelay: '160ms' }}>
           <CardHeader>
             <CardTitle className="text-lg">Supported Events</CardTitle>
-            <CardDescription>
-              These Epic events will automatically generate CARE token rewards.
-            </CardDescription>
+            <CardDescription>These Epic events will automatically generate CARE token rewards.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2 text-sm">
               {SUPPORTED_EVENTS.map((item, index) => (
-                <div key={item.event} className="flex items-center gap-2 rounded-lg border border-border/30 bg-muted/30 p-2.5 shadow-[var(--shadow-card)] transition-all duration-200 hover:bg-muted/50 hover:shadow-[var(--shadow-card-hover)]" style={{ animation: `scale-pop 0.3s ease-out ${index * 40}ms both` }}>
+                <div key={item.event} className="flex items-center gap-2 rounded-lg border border-border/30 bg-muted/30 p-2.5 card-interactive" style={{ animation: `scale-pop 0.3s ease-out ${index * 40}ms both` }}>
                   <div className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15">
                     <Check className="h-3 w-3 text-accent" />
                   </div>

@@ -120,7 +120,7 @@ export default function DeployContract() {
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2 animate-fade-in-up">
-          <h1 className="text-3xl font-bold text-gradient-hero inline-block">Deploy CareCoin</h1>
+          <h1 className="text-3xl font-bold page-header inline-block">Deploy CareCoin</h1>
           <p className="text-muted-foreground">Deploy the CARE token contract directly from your browser</p>
         </div>
 
@@ -205,7 +205,7 @@ export default function DeployContract() {
                   <li>• Burnable tokens</li>
                 </ul>
               </div>
-              <Button onClick={handleDeploy} className="w-full bg-gradient-to-r from-primary to-care-teal text-primary-foreground shadow-[var(--shadow-glow-teal)] hover:shadow-[0_0_28px_-4px_hsl(var(--care-teal)/0.4)] transition-all duration-300" size="lg">
+              <Button onClick={handleDeploy} variant="gradient" className="w-full" size="lg">
                 <Rocket className="h-4 w-4 mr-2" />
                 Deploy CareCoin
               </Button>
@@ -253,11 +253,14 @@ export default function DeployContract() {
                   </div>
                 </AlertDescription>
               </Alert>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" className="flex-1" onClick={() => window.open(`${explorerUrl}/address/${deployedAddress}`, '_blank')}>
                   <ExternalLink className="h-4 w-4 mr-2" />View on Explorer
                 </Button>
                 <Button variant="outline" className="flex-1" onClick={() => window.open(`${explorerUrl}/address/${deployedAddress}#code`, '_blank')}>Verify Contract</Button>
+                <Button variant="outline" className="flex-1" onClick={() => copyToClipboard(JSON.stringify(CARE_COIN_ABI, null, 2), 'ABI')}>
+                  <Copy className="h-4 w-4 mr-2" />Copy ABI
+                </Button>
               </div>
               <Separator />
               <div className="glass-card rounded-lg p-4 space-y-2">

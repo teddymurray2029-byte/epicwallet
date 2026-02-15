@@ -1,17 +1,53 @@
 import React from 'react';
 import { ReactNode } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
+const routeLabels: Record<string, string> = {
+  provider: 'Provider',
+  patient: 'Patient',
+  admin: 'Admin',
+  rewards: 'Rewards',
+  activity: 'Activity',
+  transactions: 'Transactions',
+  epic: 'Epic Integration',
+  organizations: 'Organizations',
+  invites: 'Invites',
+  deploy: 'Deploy Contract',
+  organization: 'Organization',
+  policies: 'Policies',
+  oracles: 'Oracle Keys',
+  monitoring: 'Monitoring',
+  settings: 'Settings',
+};
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const location = useLocation();
+  const segments = location.pathname.split('/').filter(Boolean);
+
+  const breadcrumbs = segments.map((seg, i) => ({
+    label: routeLabels[seg] || seg.charAt(0).toUpperCase() + seg.slice(1),
+    path: '/' + segments.slice(0, i + 1).join('/'),
+    isLast: i === segments.length - 1,
+  }));
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-gradient-to-br from-background via-muted/60 to-background">
@@ -24,9 +60,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Header */}
           <header className="sticky top-0 z-40 bg-card/80 shadow-[var(--shadow-card)] backdrop-blur-xl">
-            <div className="flex h-16 items-center justify-between px-4 md:px-6">
-              <div className="flex items-center gap-4">
+            <div className="flex h-14 sm:h-16 items-center justify-between px-4 md:px-6">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <SidebarTrigger className="md:hidden" />
+                {breadcrumbs.length > 0 && (
+                  <Breadcrumb className="hidden sm:block">
+                    <BreadcrumbList>
+                      {breadcrumbs.map((crumb, i) => (
+                        <React.Fragment key={crumb.path}>
+                          {i > 0 && <BreadcrumbSeparator />}
+                          <BreadcrumbItem>
+                            {crumb.isLast ? (
+                              <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                            ) : (
+                              <BreadcrumbLink asChild>
+                                <Link to={crumb.path}>{crumb.label}</Link>
+                              </BreadcrumbLink>
+                            )}
+                          </BreadcrumbItem>
+                        </React.Fragment>
+                      ))}
+                    </BreadcrumbList>
+                  </Breadcrumb>
+                )}
               </div>
 
               <div className="flex items-center gap-3" data-tutorial="connect-wallet">
@@ -39,7 +95,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Main content */}
           <main className="flex-1 p-4 md:p-6 lg:p-8 relative">
-            <div className="h-full animate-fade-in-up rounded-2xl border border-border/40 bg-gradient-to-br from-card/90 via-card/70 to-card/80 p-4 shadow-[var(--shadow-elevated)] backdrop-blur-lg md:p-6 lg:p-8">
+            <div className="h-full animate-fade-in-up">
               {children}
             </div>
           </main>

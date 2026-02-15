@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Copy, Link2, RefreshCw } from 'lucide-react';
+import { Copy, Link2, RefreshCw, XCircle } from 'lucide-react';
 
 interface OrganizationInvite {
   id: string;
@@ -41,6 +41,12 @@ export default function OrganizationInvites() {
       return { ...invite, status };
     });
   }, [invites]);
+
+  const counts = useMemo(() => {
+    const c = { Active: 0, Used: 0, Expired: 0 };
+    inviteSummary.forEach((i) => { c[i.status as keyof typeof c]++; });
+    return c;
+  }, [inviteSummary]);
 
   const fetchInvites = async () => {
     if (!entity) return;
@@ -94,6 +100,16 @@ export default function OrganizationInvites() {
     setCreatingInvite(false);
   };
 
+  const handleRevoke = async (inviteId: string) => {
+    const { error } = await (supabase.from('organization_invites' as any).update({ expires_at: new Date().toISOString() }).eq('id', inviteId) as any);
+    if (error) {
+      toast({ title: 'Revoke failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Invite revoked' });
+    await fetchInvites();
+  };
+
   if (isConnecting) {
     return (<DashboardLayout><div className="flex flex-col items-center justify-center min-h-[60vh]"><div className="animate-pulse text-muted-foreground">Connecting wallet...</div></div></DashboardLayout>);
   }
@@ -134,7 +150,7 @@ export default function OrganizationInvites() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'Active': return <Badge className="bg-care-green text-primary-foreground gap-1"><span className="h-1.5 w-1.5 rounded-full bg-primary-foreground/80 inline-block" />{status}</Badge>;
+      case 'Active': return <Badge className="bg-[hsl(var(--care-green))] text-primary-foreground gap-1"><span className="h-1.5 w-1.5 rounded-full bg-primary-foreground/80 inline-block" />{status}</Badge>;
       case 'Used': return <Badge variant="secondary">{status}</Badge>;
       case 'Expired': return <Badge variant="outline" className="text-muted-foreground">{status}</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
@@ -145,10 +161,17 @@ export default function OrganizationInvites() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="animate-fade-in-up">
-          <h1 className="text-2xl font-bold tracking-tight text-gradient-hero inline-block">Organization Invites</h1>
+          <h1 className="page-header inline-block">Organization Invites</h1>
           <p className="text-muted-foreground">
             Generate secure links to onboard new providers, patients, and admins into your organization.
           </p>
+        </div>
+
+        {/* Summary badges */}
+        <div className="flex flex-wrap gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
+          <Badge variant="outline" className="text-sm px-3 py-1 border-[hsl(var(--care-green)/0.4)] text-[hsl(var(--care-green))]">{counts.Active} Active</Badge>
+          <Badge variant="outline" className="text-sm px-3 py-1">{counts.Used} Used</Badge>
+          <Badge variant="outline" className="text-sm px-3 py-1 text-muted-foreground">{counts.Expired} Expired</Badge>
         </div>
 
         <Card className="animate-fade-in-up" style={{ animationDelay: '80ms' }}>
@@ -163,11 +186,11 @@ export default function OrganizationInvites() {
                 <Input id="expiryDays" type="number" min={1} value={expiryDays} onChange={(event) => setExpiryDays(event.target.value)} />
               </div>
               <div className="flex items-center gap-2">
-                <Button onClick={handleCreateInvite} disabled={creatingInvite} className="w-full md:w-auto transition-all duration-200 hover:shadow-[var(--shadow-glow-teal)]">
+                <Button onClick={handleCreateInvite} loading={creatingInvite} variant="gradient" className="w-full md:w-auto">
                   <Link2 className="mr-2 h-4 w-4" />
-                  {creatingInvite ? 'Creating...' : 'Generate invite link'}
+                  Generate invite link
                 </Button>
-                <Button variant="outline" onClick={fetchInvites} disabled={loadingInvites} className="w-full md:w-auto">
+                <Button variant="outline" onClick={fetchInvites} loading={loadingInvites} className="w-full md:w-auto">
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh
                 </Button>
@@ -180,8 +203,7 @@ export default function OrganizationInvites() {
                 <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <code className="text-xs text-muted-foreground break-all">{latestInviteLink}</code>
                   <Button variant="secondary" size="sm" onClick={() => handleCopy(latestInviteLink)}>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy
+                    <Copy className="mr-2 h-4 w-4" />Copy
                   </Button>
                 </div>
               </div>
@@ -225,9 +247,13 @@ export default function OrganizationInvites() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleCopy(inviteLink)}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy link
+                          <Copy className="mr-2 h-4 w-4" />Copy link
                         </Button>
+                        {invite.status === 'Active' && (
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleRevoke(invite.id)}>
+                            <XCircle className="mr-1 h-4 w-4" />Revoke
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
