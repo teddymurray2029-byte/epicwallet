@@ -269,6 +269,40 @@
   .animate-stagger-4 { animation-delay: 240ms; }
   .animate-stagger-5 { animation-delay: 320ms; }
   .animate-stagger-6 { animation-delay: 400ms; }
+
+  /* Page header utility */
+  .page-header {
+    @apply text-2xl sm:text-3xl font-bold tracking-tight;
+    background: linear-gradient(135deg, hsl(var(--care-teal)), hsl(var(--care-blue)), hsl(var(--care-green)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Interactive card hover */
+  .card-interactive {
+    @apply transition-all duration-200 hover:-translate-y-1 hover:shadow-lg;
+    &:hover {
+      border-color: hsl(var(--care-teal) / 0.3);
+    }
+  }
+
+  /* Skeleton shimmer loading */
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--care-teal) / 0.08) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 300% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* Alternate row shading */
+  .row-striped > *:nth-child(even) {
+    @apply bg-muted/20;
+  }
 }
 
 /* Keyframe animations */
