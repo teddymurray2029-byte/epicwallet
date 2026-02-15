@@ -122,35 +122,50 @@ export type Database = {
       }
       ehr_integrations: {
         Row: {
-          client_id: string
+          access_token: string | null
+          auth_state: string | null
+          client_id: string | null
           created_at: string
           entity_id: string
           fhir_base_url: string | null
           id: string
           integration_type: string
           is_active: boolean | null
+          refresh_token: string | null
+          subscription_id: string | null
+          token_expires_at: string | null
           updated_at: string
           webhook_secret: string | null
         }
         Insert: {
-          client_id: string
+          access_token?: string | null
+          auth_state?: string | null
+          client_id?: string | null
           created_at?: string
           entity_id: string
           fhir_base_url?: string | null
           id?: string
           integration_type?: string
           is_active?: boolean | null
+          refresh_token?: string | null
+          subscription_id?: string | null
+          token_expires_at?: string | null
           updated_at?: string
           webhook_secret?: string | null
         }
         Update: {
-          client_id?: string
+          access_token?: string | null
+          auth_state?: string | null
+          client_id?: string | null
           created_at?: string
           entity_id?: string
           fhir_base_url?: string | null
           id?: string
           integration_type?: string
           is_active?: boolean | null
+          refresh_token?: string | null
+          subscription_id?: string | null
+          token_expires_at?: string | null
           updated_at?: string
           webhook_secret?: string | null
         }
