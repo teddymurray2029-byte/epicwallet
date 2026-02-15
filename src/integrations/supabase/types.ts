@@ -301,6 +301,98 @@ export type Database = {
           },
         ]
       }
+      outreach_calls: {
+        Row: {
+          appointment_date: string | null
+          contact_id: string
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          outcome: string | null
+          started_at: string | null
+          status: string
+          transcript: Json | null
+          twilio_call_sid: string | null
+        }
+        Insert: {
+          appointment_date?: string | null
+          contact_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          outcome?: string | null
+          started_at?: string | null
+          status?: string
+          transcript?: Json | null
+          twilio_call_sid?: string | null
+        }
+        Update: {
+          appointment_date?: string | null
+          contact_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          outcome?: string | null
+          started_at?: string | null
+          status?: string
+          transcript?: Json | null
+          twilio_call_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_calls_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_contacts: {
+        Row: {
+          city: string | null
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          facility_name: string
+          id: string
+          notes: string | null
+          phone_number: string
+          state: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          facility_name: string
+          id?: string
+          notes?: string | null
+          phone_number: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          facility_name?: string
+          id?: string
+          notes?: string | null
+          phone_number?: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reward_policies: {
         Row: {
           base_reward: number
