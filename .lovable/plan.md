@@ -1,96 +1,123 @@
 
-
-# Epic Magic Link Integration
+# Enhance Theme and Usability Across Every Page
 
 ## Overview
-Transform the Epic Integration page from a manual credential entry form into a streamlined "magic link" experience. Instead of asking providers to manually enter Client IDs and webhook secrets, the page will feature a single "Connect to Epic" button that initiates an OAuth 2.0 authorization flow with Epic's FHIR server, automatically registers webhook subscriptions, and stores the resulting credentials.
+Polish the entire CareCoin application with consistent visual refinements, improved responsive behavior, better empty/loading states, and smoother micro-interactions. The goal is a more cohesive, professional healthcare dashboard experience.
 
-## How It Works
+## Changes by Area
 
-1. **Provider clicks "Connect to Epic"** on the redesigned page
-2. A backend function generates a unique authorization URL with a state token and redirects to Epic's OAuth authorize endpoint
-3. After the provider logs into Epic and grants access, Epic redirects back to a callback URL
-4. A backend function exchanges the authorization code for access/refresh tokens, stores them in `ehr_integrations`, and registers FHIR Subscription resources on Epic's server so our webhook receives notifications automatically
-5. The page shows a "Connected" state with connection details and a disconnect option
+### 1. Sidebar (AppSidebar.tsx)
+- Replace emoji icons in header with a proper SVG logo mark (gradient circle with "CC" initials) for a more professional look
+- Add subtle hover tooltips when sidebar is collapsed so users know what each icon does
+- Improve footer: show truncated wallet address when connected (not just a dot)
+- Add a "Deploy Contract" link under admin nav for discoverability
 
-## Changes
+### 2. Dashboard Layout (DashboardLayout.tsx)
+- Add a page title breadcrumb area in the header (e.g. "Provider > Dashboard") using react-router location
+- Improve mobile header spacing -- add more breathing room on small screens
+- Soften the main content container border and add a subtle inset shadow for depth
+- Remove the hard rounded-2xl wrapper on `<main>` content so individual cards can breathe more naturally; use spacing and background instead
 
-### 1. Database Migration
-Add columns to `ehr_integrations` to store OAuth tokens and subscription state:
-- `access_token` (text, encrypted at rest) -- Epic OAuth access token
-- `refresh_token` (text) -- for token renewal
-- `token_expires_at` (timestamptz) -- expiry tracking
-- `subscription_id` (text) -- Epic FHIR Subscription resource ID
-- `auth_state` (text) -- CSRF state token during OAuth flow
+### 3. Provider Dashboard (ProviderDashboard.tsx)
+- **Connect wallet state**: Add a feature highlights section below the connect button (3 small icons: "Earn Rewards", "Track Activity", "On-Chain Tokens") to give new users context
+- **Registration state**: Improve the organization selector with a search/filter for long lists and clearer visual separation between "select existing" and "create new"
+- **Connected state**: Add a welcome banner with the user's display name and a quick-stats row
 
-### 2. New Backend Function: `epic-auth`
-Handles two flows:
-- **GET `?action=authorize&entity_id=...`** -- Generates a random state token, stores it in `ehr_integrations.auth_state`, and returns the Epic OAuth authorization URL for the frontend to redirect to
-- **GET `?code=...&state=...`** (callback) -- Validates the state token, exchanges the authorization code for tokens via Epic's token endpoint, stores credentials, registers a FHIR Subscription pointing to our `epic-webhook` URL, and redirects the user back to `/provider/epic?connected=true`
+### 4. Rewards Page (ProviderRewards.tsx)
+- Add a subtle progress bar under the hero card showing progress toward a milestone (e.g., next 1000 CARE)
+- Improve the policy cards grid: add icon per event type and a colored left border for visual scanning
+- Add empty state illustrations for the "Earnings by Event Type" section
 
-### 3. Redesigned Epic Integration Page (`EpicIntegration.tsx`)
-Replace the manual form with a streamlined experience:
-- **Not connected state**: Hero card with Epic logo, explanation text, and a prominent "Connect to Epic" magic link button. Supported events shown below.
-- **Connected state**: Success card showing connection status, connected timestamp, active subscription indicator, and a "Disconnect" button.
-- Remove manual Client ID / Webhook Secret / FHIR URL input fields entirely.
-- On mount, check URL params for `?connected=true` to show a success toast.
+### 5. Activity Page (ProviderActivity.tsx)
+- Add date range filter (quick presets: Today, This Week, This Month, All Time) alongside the existing status filter
+- Improve the empty state with a more descriptive illustration
+- Add a "Load more" pagination button at the bottom instead of loading all 50 at once
+- Alternate row shading for better readability in the activity list
 
-### 4. Update `supabase/config.toml`
-Add `[functions.epic-auth]` with `verify_jwt = false` since Epic's OAuth callback is an external redirect.
+### 6. Transactions Page (ProviderTransactions.tsx)
+- Add a mini status legend at the top explaining what Confirmed/Pending/Rejected mean
+- Add CSV export button in the header for downloading transaction history
+- Improve the transaction hash display with a copy button inline
+
+### 7. Epic Integration (EpicIntegration.tsx)
+- The page is already well-styled from the recent redesign
+- Minor: Add an animated connection status indicator (pulsing line between "Your System" and "Epic") in the connected state
+- Add a "Last notification received" timestamp if available
+
+### 8. Organization Management (Organizations.tsx)
+- Add a card showing current organization name, member count, and creation date
+- Improve the Epic API section with a "Test Connection" button that pings the saved URL
+- Add visual confirmation (checkmark animation) after saving Epic details
+
+### 9. Organization Invites (OrganizationInvites.tsx)
+- Add invite count summary badges (Active / Used / Expired) at the top
+- Add a "Revoke" button for active invites
+- Improve the invite list with better visual hierarchy -- larger status badges, clearer expiry indicators
+
+### 10. Invite Accept Pages (AcceptInvite.tsx, InviteAccept.tsx)
+- Add the CareCoin branding and background gradient orbs (matching NotFound page aesthetic)
+- AcceptInvite.tsx: Add the DashboardLayout wrapper for consistent navigation
+- Show the organization name instead of just the ID when accepting
+
+### 11. Deploy Contract (DeployContract.tsx)
+- Already well-polished with step indicators
+- Minor: Add estimated gas cost display before deployment
+- Add a "Copy ABI" button in the success state
+
+### 12. NotFound Page
+- Already well-styled
+- Minor: Add a search suggestions or "popular pages" links below the return home button
+
+### 13. Global Component Improvements
+
+#### Card Component (card.tsx)
+- Add a `variant` prop supporting "default", "glass", and "glow" for consistent card styling across pages without repeating utility classes
+
+#### Button Component (button.tsx)
+- Add a "gradient" variant with the teal-to-green gradient used throughout the app
+- Add a "loading" prop that shows a spinner and disables the button
+
+#### Input Component (input.tsx)
+- Add focus ring color matching the care-teal theme instead of default ring color
+- Add subtle transition on focus for smoother feel
+
+### 14. CSS / Tailwind Enhancements (index.css, tailwind.config.ts)
+- Add a `.page-header` utility class for consistent page header styling (gradient text, spacing)
+- Add `.card-interactive` combining hover lift, shadow transition, and subtle border glow
+- Add responsive font sizing for headings (smaller on mobile)
+- Add a `.skeleton-shimmer` animation for loading states that matches the brand gradient
 
 ## Technical Details
 
-### Epic OAuth Flow (in `epic-auth` function)
-```
-Provider clicks "Connect to Epic"
-        |
-        v
-epic-auth?action=authorize&entity_id=xxx
-        |
-        v
-Redirect to: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize
-  ?response_type=code
-  &client_id=<OUR_APP_CLIENT_ID>
-  &redirect_uri=<SUPABASE_URL>/functions/v1/epic-auth
-  &state=<random_token>
-  &scope=system/*.read
-        |
-        v
-Provider logs into Epic, grants access
-        |
-        v
-Epic redirects to: epic-auth?code=ABC&state=<token>
-        |
-        v
-Exchange code for tokens, store in DB
-Register FHIR Subscription -> our epic-webhook URL
-        |
-        v
-Redirect to /provider/epic?connected=true
-```
+### Files to Create
+- None (all changes are to existing files)
 
-### FHIR Subscription Registration
-After obtaining tokens, the function POSTs a Subscription resource to Epic:
-```json
-{
-  "resourceType": "Subscription",
-  "status": "requested",
-  "channel": {
-    "type": "rest-hook",
-    "endpoint": "<webhook_url>",
-    "payload": "application/json"
-  },
-  "criteria": "Encounter?status=finished"
-}
-```
+### Files to Modify
+- `src/components/layout/AppSidebar.tsx` -- Logo, tooltips, footer
+- `src/components/layout/DashboardLayout.tsx` -- Breadcrumb, main content wrapper
+- `src/pages/provider/ProviderDashboard.tsx` -- Feature highlights, welcome banner
+- `src/pages/provider/ProviderRewards.tsx` -- Progress bar, empty states
+- `src/pages/provider/ProviderActivity.tsx` -- Date filter, pagination, row shading
+- `src/pages/provider/ProviderTransactions.tsx` -- Status legend, export button
+- `src/pages/provider/EpicIntegration.tsx` -- Connection indicator, last notification
+- `src/pages/admin/Organizations.tsx` -- Org summary card, test connection
+- `src/pages/admin/DeployContract.tsx` -- Gas estimate, copy ABI
+- `src/pages/organization/OrganizationInvites.tsx` -- Summary badges, revoke
+- `src/pages/invites/AcceptInvite.tsx` -- Branding, background
+- `src/pages/InviteAccept.tsx` -- Branding, org name display
+- `src/pages/NotFound.tsx` -- Popular pages links
+- `src/components/ui/card.tsx` -- Variant prop
+- `src/components/ui/button.tsx` -- Gradient variant, loading prop
+- `src/components/ui/input.tsx` -- Focus ring theming
+- `src/index.css` -- New utility classes
+- `tailwind.config.ts` -- Additional animation/utility definitions
 
-### Secrets Required
-- `EPIC_CLIENT_ID` -- Our registered Epic App Orchard client ID
-- `EPIC_CLIENT_SECRET` -- Corresponding secret for the token exchange
+### Implementation Order
+1. Global foundations: CSS utilities, Tailwind config, component variants (Card, Button, Input)
+2. Layout: Sidebar branding, DashboardLayout breadcrumb and content wrapper
+3. Provider pages: Dashboard, Rewards, Activity, Transactions
+4. Integration pages: Epic, Organization, Invites
+5. Standalone pages: Accept Invite, NotFound, Deploy Contract
 
-### Page UI States
-- **Loading**: Spinner while checking integration status
-- **Disconnected**: Large card with Epic branding, "Connect to Epic" button, and event list
-- **Connecting**: Button shows loading spinner after click
-- **Connected**: Green success state with subscription status, timestamp, and disconnect option
-
+### No Database Changes Required
+All enhancements are purely frontend visual and usability improvements.
