@@ -10,7 +10,7 @@ import { useRecentActivity } from '@/hooks/useRewardsData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Activity, Search, Filter, FileText, CalendarDays } from 'lucide-react';
 import { formatDistanceToNow, format, subDays, subWeeks, subMonths, isAfter } from 'date-fns';
-import { MOCK_RECENT_ACTIVITY } from '@/lib/mockData';
+
 
 const DATE_PRESETS = [
   { label: 'All Time', value: 'all' },
@@ -40,8 +40,7 @@ export default function ProviderActivity() {
     );
   }
 
-  const isMock = !isLoading && !error && (!activities || activities.length === 0);
-  const displayActivities = isMock ? MOCK_RECENT_ACTIVITY : (activities || []);
+  const displayActivities = activities || [];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -141,14 +140,13 @@ export default function ProviderActivity() {
         </Card>
 
         {/* Activity List */}
-        <Card className={isMock ? 'opacity-75' : ''}>
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Activity className="h-5 w-5" />
                 Documentation Events
               </CardTitle>
-              {isMock && <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>}
             </div>
             <CardDescription>{filteredActivities.length} events found</CardDescription>
           </CardHeader>

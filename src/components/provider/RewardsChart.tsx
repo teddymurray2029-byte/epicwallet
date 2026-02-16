@@ -1,13 +1,12 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+
 import { useRewardsByEventType } from '@/hooks/useRewardsData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { MOCK_REWARDS_BY_EVENT_TYPE } from '@/lib/mockData';
 
 const COLORS = [
   'hsl(180, 45%, 35%)',
@@ -24,8 +23,7 @@ export function RewardsChart() {
   const { data, isLoading, error } = useRewardsByEventType();
   const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
 
-  const isMock = !isLoading && !error && (!data || data.length === 0);
-  const chartData = isMock ? MOCK_REWARDS_BY_EVENT_TYPE : (data || []);
+  const chartData = data || [];
 
   if (error) {
     return (
@@ -38,14 +36,11 @@ export function RewardsChart() {
   }
 
   return (
-    <Card className={`card-shadow border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-all duration-300 hover:card-shadow-hover ${isMock ? 'opacity-75' : ''}`}>
+    <Card className={`card-shadow border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-all duration-300 hover:card-shadow-hover`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-lg font-semibold">Rewards by Event Type</CardTitle>
-            {isMock && (
-              <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>
-            )}
           </div>
           <div className="flex gap-1 rounded-full bg-muted/60 p-1">
             <Button
