@@ -12,7 +12,7 @@ import {
   FileText, Pill, ClipboardList, ListChecks, ShieldCheck,
   HeartPulse, Code, UserCheck, Handshake, PhoneCall
 } from 'lucide-react';
-import { MOCK_REWARDS_SUMMARY, MOCK_REWARDS_BY_EVENT_TYPE, MOCK_REWARD_POLICIES } from '@/lib/mockData';
+
 
 const eventTypeIcons: Record<string, React.ElementType> = {
   encounter_note: FileText,
@@ -44,24 +44,15 @@ export default function ProviderRewards() {
     );
   }
 
-  const isSummaryMock = !summaryLoading && (!summary || (summary.totalEarned === 0 && summary.pendingRewards === 0));
-  const displaySummary = isSummaryMock ? MOCK_REWARDS_SUMMARY : summary;
-
-  const isByEventMock = !byEventLoading && (!byEventType || byEventType.length === 0);
-  const displayByEvent = isByEventMock ? MOCK_REWARDS_BY_EVENT_TYPE : byEventType;
-
-  const isPoliciesMock = !policiesLoading && (!policies || policies.length === 0);
-  const displayPolicies = isPoliciesMock ? MOCK_REWARD_POLICIES : policies;
-
-  const totalEarned = displaySummary?.totalEarned ?? 0;
+  const totalEarned = summary?.totalEarned ?? 0;
   const nextMilestone = Math.ceil(totalEarned / 1000) * 1000 || 1000;
   const milestoneProgress = (totalEarned / nextMilestone) * 100;
 
   const stats = [
-    { label: 'Total Earned', value: displaySummary?.totalEarned ?? 0, icon: Coins, color: 'text-[hsl(var(--care-teal))]', bgColor: 'bg-[hsl(var(--care-teal)/0.1)]', borderColor: 'border-t-[hsl(var(--care-teal))]' },
-    { label: 'This Month', value: displaySummary?.thisMonth ?? 0, icon: Calendar, color: 'text-[hsl(var(--care-green))]', bgColor: 'bg-[hsl(var(--care-green)/0.1)]', borderColor: 'border-t-[hsl(var(--care-green))]' },
-    { label: 'This Week', value: displaySummary?.thisWeek ?? 0, icon: TrendingUp, color: 'text-[hsl(var(--care-blue))]', bgColor: 'bg-[hsl(var(--care-blue)/0.1)]', borderColor: 'border-t-[hsl(var(--care-blue))]' },
-    { label: 'Pending', value: displaySummary?.pendingRewards ?? 0, icon: Clock, color: 'text-[hsl(var(--care-warning))]', bgColor: 'bg-[hsl(var(--care-warning)/0.1)]', borderColor: 'border-t-[hsl(var(--care-warning))]' },
+    { label: 'Total Earned', value: summary?.totalEarned ?? 0, icon: Coins, color: 'text-[hsl(var(--care-teal))]', bgColor: 'bg-[hsl(var(--care-teal)/0.1)]', borderColor: 'border-t-[hsl(var(--care-teal))]' },
+    { label: 'This Month', value: summary?.thisMonth ?? 0, icon: Calendar, color: 'text-[hsl(var(--care-green))]', bgColor: 'bg-[hsl(var(--care-green)/0.1)]', borderColor: 'border-t-[hsl(var(--care-green))]' },
+    { label: 'This Week', value: summary?.thisWeek ?? 0, icon: TrendingUp, color: 'text-[hsl(var(--care-blue))]', bgColor: 'bg-[hsl(var(--care-blue)/0.1)]', borderColor: 'border-t-[hsl(var(--care-blue))]' },
+    { label: 'Pending', value: summary?.pendingRewards ?? 0, icon: Clock, color: 'text-[hsl(var(--care-warning))]', bgColor: 'bg-[hsl(var(--care-warning)/0.1)]', borderColor: 'border-t-[hsl(var(--care-warning))]' },
   ];
 
   return (
@@ -126,15 +117,12 @@ export default function ProviderRewards() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, index) => (
-            <Card key={stat.label} className={`border-t-2 ${stat.borderColor} card-interactive ${isSummaryMock ? 'opacity-75' : ''}`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
+            <Card key={stat.label} className={`border-t-2 ${stat.borderColor} card-interactive`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className={`p-2 rounded-lg ${stat.bgColor}`}>
                     <stat.icon className={`h-4 w-4 ${stat.color}`} />
                   </div>
-                  {isSummaryMock && index === 0 && (
-                    <Badge variant="secondary" className="text-[10px] uppercase tracking-wider ml-auto">Sample</Badge>
-                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
                 {summaryLoading ? (
@@ -153,14 +141,13 @@ export default function ProviderRewards() {
         <div className="grid lg:grid-cols-2 gap-6">
           <RewardsChart />
 
-          <Card className={isByEventMock ? 'opacity-75' : ''}>
+          <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Award className="h-5 w-5" />
                   Earnings by Event Type
                 </CardTitle>
-                {isByEventMock && <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>}
               </div>
               <CardDescription>Breakdown of your rewards by documentation type</CardDescription>
             </CardHeader>
@@ -169,9 +156,9 @@ export default function ProviderRewards() {
                 <div className="space-y-3">
                   {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
                 </div>
-              ) : displayByEvent && displayByEvent.length > 0 ? (
+            ) : byEventType && byEventType.length > 0 ? (
                 <div className="space-y-3">
-                  {displayByEvent.map((item, index) => {
+                  {byEventType.map((item, index) => {
                     const IconComp = eventTypeIcons[item.eventType] || FileText;
                     return (
                       <div
@@ -207,7 +194,7 @@ export default function ProviderRewards() {
         </div>
 
         {/* Active Reward Policies */}
-        <Card className={isPoliciesMock ? 'opacity-75' : ''}>
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -217,7 +204,6 @@ export default function ProviderRewards() {
                 </CardTitle>
                 <CardDescription>Current reward rates for documentation events (10% network fee applied)</CardDescription>
               </div>
-              {isPoliciesMock && <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Sample Data</Badge>}
             </div>
           </CardHeader>
           <CardContent>
@@ -225,9 +211,9 @@ export default function ProviderRewards() {
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
               </div>
-            ) : displayPolicies && displayPolicies.length > 0 ? (
+            ) : policies && policies.length > 0 ? (
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {displayPolicies.map((policy, index) => {
+                {policies.map((policy, index) => {
                   const eventKey = policy.event_type as string;
                   const IconComp = eventTypeIcons[eventKey] || FileText;
                   return (

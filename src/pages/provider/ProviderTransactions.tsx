@@ -9,7 +9,7 @@ import { useTransactionHistory } from '@/hooks/useRewardsData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Receipt, Search, ExternalLink, ArrowDownLeft, Wallet, Copy, Download } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { MOCK_TRANSACTION_HISTORY } from '@/lib/mockData';
+
 import { toast } from '@/hooks/use-toast';
 
 export default function ProviderTransactions() {
@@ -28,8 +28,7 @@ export default function ProviderTransactions() {
     );
   }
 
-  const isMock = !isLoading && !error && (!transactions || transactions.length === 0);
-  const displayTransactions = isMock ? MOCK_TRANSACTION_HISTORY : (transactions || []);
+  const displayTransactions = transactions || [];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -85,7 +84,7 @@ export default function ProviderTransactions() {
   };
 
   const summaryCards = [
-    { label: 'Earned Balance', value: isMock ? 1247.50 : earnedBalance, loading: isMock ? false : earnedBalanceLoading, icon: Wallet, color: 'text-[hsl(var(--care-teal))]', bgColor: 'bg-[hsl(var(--care-teal)/0.1)]', borderColor: 'border-t-[hsl(var(--care-teal))]' },
+    { label: 'Earned Balance', value: earnedBalance, loading: earnedBalanceLoading, icon: Wallet, color: 'text-[hsl(var(--care-teal))]', bgColor: 'bg-[hsl(var(--care-teal)/0.1)]', borderColor: 'border-t-[hsl(var(--care-teal))]' },
     { label: 'Total Received', value: totalConfirmed, loading: false, icon: ArrowDownLeft, color: 'text-[hsl(var(--care-green))]', bgColor: 'bg-[hsl(var(--care-green)/0.1)]', borderColor: 'border-t-[hsl(var(--care-green))]' },
     { label: 'Pending', value: totalPending, loading: false, icon: Receipt, color: 'text-[hsl(var(--care-warning))]', bgColor: 'bg-[hsl(var(--care-warning)/0.1)]', borderColor: 'border-t-[hsl(var(--care-warning))]' },
   ];
@@ -117,7 +116,7 @@ export default function ProviderTransactions() {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {summaryCards.map((card, index) => (
-            <Card key={card.label} className={`border-t-2 ${card.borderColor} card-interactive ${isMock ? 'opacity-75' : ''}`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
+            <Card key={card.label} className={`border-t-2 ${card.borderColor} card-interactive`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${card.bgColor} ring-1 ring-border/20 shadow-sm`}>
@@ -135,7 +134,7 @@ export default function ProviderTransactions() {
           ))}
         </div>
 
-        {isMock && <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">Showing Sample Data — earn rewards to see real transactions</Badge>}
+        
 
         {/* Search */}
         <div className="relative">
@@ -144,7 +143,7 @@ export default function ProviderTransactions() {
         </div>
 
         {/* Transactions List */}
-        <Card className={isMock ? 'opacity-75' : ''}>
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Receipt className="h-5 w-5" />
