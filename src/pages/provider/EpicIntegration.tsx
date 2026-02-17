@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Check, ExternalLink, Loader2, Unplug, Zap, ShieldCheck, Activity } from 'lucide-react';
+import { Check, ExternalLink, Loader2, Unplug, Zap, ShieldCheck, Activity, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSearchParams } from 'react-router-dom';
 
 interface EhrIntegration {
@@ -39,6 +40,7 @@ export default function EpicIntegration() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [notConfigured, setNotConfigured] = useState(false);
 
   // Handle OAuth callback params
   useEffect(() => {
@@ -74,6 +76,11 @@ export default function EpicIntegration() {
     try {
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/epic-auth?action=authorize&entity_id=${entity.id}`);
       const data = await res.json();
+      if (data.configured === false) {
+        setNotConfigured(true);
+        setConnecting(false);
+        return;
+      }
       if (data.authorize_url) {
         window.location.href = data.authorize_url;
       } else {
@@ -133,6 +140,22 @@ export default function EpicIntegration() {
             Connect your Epic EHR to automatically earn CareCoin rewards for documentation events.
           </p>
         </div>
+
+        {/* Not Configured Alert */}
+        {notConfigured && (
+          <Alert className="border-yellow-500/50 bg-yellow-500/10 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
+            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+            <AlertTitle>Epic Integration Not Yet Configured</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>Your administrator hasn't set up Epic OAuth credentials yet. To enable this integration:</p>
+              <ol className="list-decimal list-inside text-xs space-y-1 text-muted-foreground">
+                <li>Register an app at <a href="https://open.epic.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">open.epic.com</a></li>
+                <li>Choose "Backend System" app type with <code className="text-xs bg-muted px-1 rounded">system/*.read</code> scope</li>
+                <li>Add the Client ID and Client Secret to Lovable Cloud secrets</li>
+              </ol>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Connection Card */}
         {integration ? (

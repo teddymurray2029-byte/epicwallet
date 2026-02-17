@@ -17,7 +17,17 @@ Deno.serve(async (req) => {
     const epicClientSecret = Deno.env.get('EPIC_CLIENT_SECRET');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (!epicClientId || !epicClientSecret) {
+    const credentialsConfigured = !!(epicClientId && epicClientSecret);
+
+    // For authorize action, return a clear status instead of 500 when not configured
+    if (!credentialsConfigured && url.searchParams.get('action') === 'authorize') {
+      return new Response(
+        JSON.stringify({ configured: false, message: 'Epic OAuth credentials have not been configured by your administrator yet.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    if (!credentialsConfigured) {
       return new Response(
         JSON.stringify({ error: 'Epic OAuth credentials not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
