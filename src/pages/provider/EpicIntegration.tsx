@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Check, ExternalLink, Loader2, Unplug, Zap, ShieldCheck, Activity, AlertTriangle } from 'lucide-react';
+import { Check, ExternalLink, Loader2, Unplug, Zap, ShieldCheck, Activity, AlertTriangle, Copy, Link } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSearchParams } from 'react-router-dom';
 
@@ -42,7 +42,9 @@ export default function EpicIntegration() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [notConfigured, setNotConfigured] = useState(false);
 
-  // Handle OAuth callback params
+  const [autoConnectTriggered, setAutoConnectTriggered] = useState(false);
+
+  // Handle OAuth callback params and magic link auto-connect
   useEffect(() => {
     if (searchParams.get('connected') === 'true') {
       toast({ title: 'Connected!', description: 'Epic EHR is now connected and receiving notifications.' });
@@ -53,6 +55,22 @@ export default function EpicIntegration() {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  // Magic link: auto-trigger connection when ?connect=true is present
+  useEffect(() => {
+    if (
+      searchParams.get('connect') === 'true' &&
+      !autoConnectTriggered &&
+      !loading &&
+      !integration &&
+      entity?.id &&
+      isConnected
+    ) {
+      setAutoConnectTriggered(true);
+      setSearchParams({}, { replace: true });
+      handleConnect();
+    }
+  }, [searchParams, loading, integration, entity?.id, isConnected, autoConnectTriggered]);
 
   useEffect(() => {
     if (entity?.id) fetchIntegration();
@@ -228,6 +246,24 @@ export default function EpicIntegration() {
               <p className="text-xs text-muted-foreground text-center mt-3">
                 You'll be redirected to Epic to authorize access. No credentials needed.
               </p>
+              <div className="mt-4 pt-4 border-t border-border/30">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    const magicLink = `${window.location.origin}/provider/epic?connect=true`;
+                    navigator.clipboard.writeText(magicLink);
+                    toast({ title: 'Magic Link Copied!', description: 'Share this link to instantly start Epic connection.' });
+                  }}
+                >
+                  <Link className="mr-2 h-4 w-4" />
+                  Copy Magic Link
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Share this link to auto-start the Epic connection flow.
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}
