@@ -16,6 +16,7 @@ Deno.serve(async (req) => {
     const epicClientId = Deno.env.get('EPIC_CLIENT_ID');
     const epicClientSecret = Deno.env.get('EPIC_CLIENT_SECRET');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const url = new URL(req.url);
 
     const credentialsConfigured = !!(epicClientId && epicClientSecret);
 
@@ -34,7 +35,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    const url = new URL(req.url);
     const action = url.searchParams.get('action');
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
