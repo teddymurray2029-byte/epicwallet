@@ -45,7 +45,7 @@ const providerNavItems = [
   { title: 'Rewards', url: '/provider/rewards', icon: Coins },
   { title: 'Activity', url: '/provider/activity', icon: Activity },
   { title: 'Transactions', url: '/provider/transactions', icon: Receipt },
-  { title: 'Epic Connection', url: '/provider/epic', icon: Link2 },
+  { title: 'EHR Integration', url: '/provider/ehr', icon: Link2 },
   { title: 'Organization', url: '/admin/organizations', icon: Users },
 ];
 
@@ -133,7 +133,7 @@ export function AppSidebar() {
 
                   const dataTutorial = 
                     item.url === '/admin/organizations' ? 'organization-link' :
-                    item.url === '/provider/epic' ? 'epic-link' :
+                    item.url === '/provider/ehr' ? 'epic-link' :
                     undefined;
 
                   const linkContent = (
