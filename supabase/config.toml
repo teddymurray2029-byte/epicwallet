@@ -2,3 +2,6 @@ project_id = "urshsiapemvfdxkqaiow"
 
 [functions.epic-auth]
 verify_jwt = false
+
+[functions.pointclickcare-auth]
+verify_jwt = false

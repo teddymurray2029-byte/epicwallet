@@ -3,10 +3,10 @@ import { crypto } from 'https://deno.land/std@0.177.0/crypto/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-epic-signature, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-epic-signature, x-pcc-signature, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Map Epic event types to our documentation event types
+// Map EHR event types to our documentation event types
 const EPIC_EVENT_MAP: Record<string, string> = {
   'encounter.complete': 'encounter_note',
   'medication.reconciliation': 'medication_reconciliation',
@@ -20,9 +20,23 @@ const EPIC_EVENT_MAP: Record<string, string> = {
   'followup.completed': 'follow_up_completed',
 };
 
-interface EpicEvent {
+const PCC_EVENT_MAP: Record<string, string> = {
+  'encounter.complete': 'encounter_note',
+  'medication.reconciliation': 'medication_reconciliation',
+  'discharge.summary': 'discharge_summary',
+  'problem.update': 'problem_list_update',
+  'order.verified': 'orders_verified',
+  'preventive.care': 'preventive_care',
+  'coding.finalized': 'coding_finalized',
+  'intake.completed': 'intake_completed',
+  'consent.signed': 'consent_signed',
+  'followup.completed': 'follow_up_completed',
+};
+
+interface EhrEvent {
   eventType: string;
   timestamp: string;
+  source?: 'epic' | 'pointclickcare'; // Detected from header or payload
   providerNPI?: string;
   providerWallet?: string;
   patientId?: string; // Hashed/anonymized patient ID
@@ -61,25 +75,32 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const signatureHeader = req.headers.get('x-epic-signature') ?? '';
+    // Detect source EHR from header
+    const pccSignatureHeader = req.headers.get('x-pcc-signature') ?? '';
+    const epicSignatureHeader = req.headers.get('x-epic-signature') ?? '';
+    const signatureHeader = epicSignatureHeader || pccSignatureHeader;
+
     if (!signatureHeader) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Missing signature header' }),
+        JSON.stringify({ success: false, error: 'Missing signature header (x-epic-signature or x-pcc-signature)' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     const rawBody = await req.text();
-    let payload: EpicEvent;
+    let payload: EhrEvent;
     try {
-      payload = JSON.parse(rawBody) as EpicEvent;
+      payload = JSON.parse(rawBody) as EhrEvent;
     } catch {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid JSON payload' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
-    console.log('Received Epic event:', payload.eventType);
+
+    // Determine the source EHR system
+    const sourceEhr: 'epic' | 'pointclickcare' = pccSignatureHeader ? 'pointclickcare' : payload.source === 'pointclickcare' ? 'pointclickcare' : 'epic';
+    console.log('Received EHR event:', payload.eventType, 'from', sourceEhr);
 
     // Validate required fields
     if (!payload.eventType || !payload.providerWallet) {
@@ -106,10 +127,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Map Epic event type to our event type
-    const eventType = EPIC_EVENT_MAP[payload.eventType];
+    // Map EHR event type to our internal event type
+    const eventMap = sourceEhr === 'pointclickcare' ? PCC_EVENT_MAP : EPIC_EVENT_MAP;
+    const eventType = eventMap[payload.eventType];
     if (!eventType) {
-      console.log('Unknown Epic event type:', payload.eventType);
+      console.log('Unknown event type from', sourceEhr, ':', payload.eventType);
       return new Response(
         JSON.stringify({ success: false, error: `Unknown event type: ${payload.eventType}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -135,7 +157,7 @@ Deno.serve(async (req) => {
       .from('ehr_integrations')
       .select('webhook_secret')
       .eq('entity_id', provider.id)
-      .eq('integration_type', 'epic')
+      .eq('integration_type', sourceEhr)
       .maybeSingle();
 
     if (integrationError || !integration?.webhook_secret) {
@@ -405,7 +427,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Epic event processed successfully',
+        message: 'EHR event processed successfully',
         eventId: docEvent.id,
         reward: {
           provider: providerRewardForResponse,
@@ -418,7 +440,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error processing Epic webhook:', error);
+    console.error('Error processing EHR webhook:', error);
     return new Response(
       JSON.stringify({ success: false, error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -15,7 +15,7 @@ import ProviderDashboard from "./pages/provider/ProviderDashboard";
 import ProviderRewards from "./pages/provider/ProviderRewards";
 import ProviderActivity from "./pages/provider/ProviderActivity";
 import ProviderTransactions from "./pages/provider/ProviderTransactions";
-import EpicIntegration from "./pages/provider/EpicIntegration";
+import EhrIntegration from "./pages/provider/EhrIntegration";
 import DeployContract from "./pages/admin/DeployContract";
 import OrganizationInvites from "./pages/organization/OrganizationInvites";
 import AcceptInvite from "./pages/invites/AcceptInvite";
@@ -60,13 +60,14 @@ const App = () => (
                 }
               />
               <Route
-                path="/provider/epic"
+                path="/provider/ehr"
                 element={
                   <WalletProtectedRoute>
-                    <EpicIntegration />
+                    <EhrIntegration />
                   </WalletProtectedRoute>
                 }
               />
+              <Route path="/provider/epic" element={<Navigate to="/provider/ehr" replace />} />
               
               {/* Admin Routes */}
               <Route path="/admin" element={<Navigate to="/admin/organizations" replace />} />
