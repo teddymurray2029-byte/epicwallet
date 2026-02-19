@@ -28,6 +28,7 @@ const routeLabels: Record<string, string> = {
   activity: 'Activity',
   transactions: 'Transactions',
   epic: 'Epic Integration',
+  card: 'Virtual Card',
   organizations: 'Organizations',
   invites: 'Invites',
   deploy: 'Deploy Contract',
