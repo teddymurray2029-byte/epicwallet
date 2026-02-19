@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.pointclickcare-auth]
 verify_jwt = false
+
+[functions.virtual-card]
+verify_jwt = false

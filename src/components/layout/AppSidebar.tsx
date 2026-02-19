@@ -32,6 +32,7 @@ import {
   Activity,
   Receipt,
   QrCode,
+  CreditCard,
   History,
   Coins,
   Link2,
@@ -46,6 +47,7 @@ const providerNavItems = [
   { title: 'Activity', url: '/provider/activity', icon: Activity },
   { title: 'Transactions', url: '/provider/transactions', icon: Receipt },
   { title: 'EHR Integration', url: '/provider/ehr', icon: Link2 },
+  { title: 'Virtual Card', url: '/provider/card', icon: CreditCard },
   { title: 'Organization', url: '/admin/organizations', icon: Users },
 ];
 
