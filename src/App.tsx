@@ -16,6 +16,7 @@ import ProviderRewards from "./pages/provider/ProviderRewards";
 import ProviderActivity from "./pages/provider/ProviderActivity";
 import ProviderTransactions from "./pages/provider/ProviderTransactions";
 import EhrIntegration from "./pages/provider/EhrIntegration";
+import VirtualCard from "./pages/provider/VirtualCard";
 import DeployContract from "./pages/admin/DeployContract";
 import OrganizationInvites from "./pages/organization/OrganizationInvites";
 import AcceptInvite from "./pages/invites/AcceptInvite";
@@ -64,6 +65,14 @@ const App = () => (
                 element={
                   <WalletProtectedRoute>
                     <EhrIntegration />
+                  </WalletProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider/card"
+                element={
+                  <WalletProtectedRoute>
+                    <VirtualCard />
                   </WalletProtectedRoute>
                 }
               />
