@@ -27,19 +27,29 @@ serve(async (req) => {
     }
 
     // Production mode with Stripe Issuing
-    switch (action) {
-      case 'get':
-        return await handleGetCard(stripeKey, entity_id, supabase);
-      case 'create':
-        return await handleCreateCard(stripeKey, entity_id, wallet_address, supabase);
-      case 'convert':
-        return await handleConvert(stripeKey, entity_id, wallet_address, care_amount, supabase);
-      case 'freeze':
-        return await handleFreezeCard(stripeKey, card_id, true);
-      case 'unfreeze':
-        return await handleFreezeCard(stripeKey, card_id, false);
-      default:
-        return jsonResponse({ error: 'Invalid action' }, 400);
+    try {
+      switch (action) {
+        case 'get':
+          return await handleGetCard(stripeKey, entity_id, supabase);
+        case 'create':
+          return await handleCreateCard(stripeKey, entity_id, wallet_address, supabase);
+        case 'convert':
+          return await handleConvert(stripeKey, entity_id, wallet_address, care_amount, supabase);
+        case 'freeze':
+          return await handleFreezeCard(stripeKey, card_id, true);
+        case 'unfreeze':
+          return await handleFreezeCard(stripeKey, card_id, false);
+        default:
+          return jsonResponse({ error: 'Invalid action' }, 400);
+      }
+    } catch (stripeErr) {
+      // If Stripe Issuing isn't enabled, fall back to demo mode
+      const errMsg = String(stripeErr);
+      if (errMsg.includes('not set up to use Issuing') || errMsg.includes('Issuing')) {
+        console.warn('Stripe Issuing not enabled, falling back to demo mode:', errMsg);
+        return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase);
+      }
+      throw stripeErr;
     }
   } catch (err) {
     console.error('Virtual card error:', err);
