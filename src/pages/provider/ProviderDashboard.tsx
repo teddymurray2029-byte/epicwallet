@@ -4,6 +4,7 @@ import { WalletStatusCard } from '@/components/provider/WalletStatusCard';
 import { RewardsSummaryCard } from '@/components/provider/RewardsSummaryCard';
 import { RecentActivityFeed } from '@/components/provider/RecentActivityFeed';
 import { RewardsChart } from '@/components/provider/RewardsChart';
+import { EhrConnectCard } from '@/components/provider/EhrConnectCard';
 import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
 import { Card, CardContent } from '@/components/ui/card';
@@ -233,17 +234,20 @@ export default function ProviderDashboard() {
           <div className="animate-fade-in-up animate-stagger-1">
             <WalletStatusCard />
           </div>
-          <div className="md:col-span-1 lg:col-span-2 animate-fade-in-up animate-stagger-2">
+          <div className="animate-fade-in-up animate-stagger-2">
+            <EhrConnectCard />
+          </div>
+          <div className="md:col-span-2 lg:col-span-1 animate-fade-in-up animate-stagger-3">
             <RewardsSummaryCard />
           </div>
         </div>
 
         {/* Charts and Activity row */}
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="animate-fade-in-up animate-stagger-3">
+          <div className="animate-fade-in-up animate-stagger-4">
             <RewardsChart />
           </div>
-          <div className="animate-fade-in-up animate-stagger-4">
+          <div className="animate-fade-in-up animate-stagger-5">
             <RecentActivityFeed />
           </div>
         </div>
