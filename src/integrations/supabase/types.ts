@@ -120,6 +120,44 @@ export type Database = {
           },
         ]
       }
+      ehr_credentials: {
+        Row: {
+          client_id: string
+          client_secret: string
+          created_at: string | null
+          ehr_type: string
+          id: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          client_secret: string
+          created_at?: string | null
+          ehr_type: string
+          id?: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          client_secret?: string
+          created_at?: string | null
+          ehr_type?: string
+          id?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehr_credentials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ehr_integrations: {
         Row: {
           access_token: string | null

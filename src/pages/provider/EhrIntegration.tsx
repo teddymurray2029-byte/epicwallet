@@ -303,11 +303,10 @@ export default function EhrIntegration() {
             <AlertTitle>Epic Integration Not Yet Configured</AlertTitle>
             <AlertDescription className="space-y-2">
               <p>Your administrator hasn't set up Epic OAuth credentials yet.</p>
-              <ol className="list-decimal list-inside text-xs space-y-1 text-muted-foreground">
-                <li>Register an app at <a href="https://open.epic.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">open.epic.com</a></li>
-                <li>Choose "Backend System" app type with <code className="text-xs bg-muted px-1 rounded">system/*.read</code> scope</li>
-                <li>Add the Client ID and Client Secret to Lovable Cloud secrets</li>
-              </ol>
+              <p className="text-xs text-muted-foreground">
+                Ask your organization admin to enter Epic Client ID and Client Secret on the{' '}
+                <a href="/admin/organizations" className="text-primary underline">Organization Management</a> page.
+              </p>
             </AlertDescription>
           </Alert>
         )}
@@ -317,11 +316,10 @@ export default function EhrIntegration() {
             <AlertTitle>PointClickCare Integration Not Yet Configured</AlertTitle>
             <AlertDescription className="space-y-2">
               <p>Your administrator hasn't set up PointClickCare OAuth credentials yet.</p>
-              <ol className="list-decimal list-inside text-xs space-y-1 text-muted-foreground">
-                <li>Register at <a href="https://developer.pointclickcare.com/" target="_blank" rel="noopener noreferrer" className="text-primary underline">developer.pointclickcare.com</a></li>
-                <li>Create an OAuth 2.0 application</li>
-                <li>Add the PCC_CLIENT_ID and PCC_CLIENT_SECRET to Lovable Cloud secrets</li>
-              </ol>
+              <p className="text-xs text-muted-foreground">
+                Ask your organization admin to enter PCC Client ID and Client Secret on the{' '}
+                <a href="/admin/organizations" className="text-primary underline">Organization Management</a> page.
+              </p>
             </AlertDescription>
           </Alert>
         )}

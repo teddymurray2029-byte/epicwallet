@@ -13,14 +13,44 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const pccClientId = Deno.env.get('PCC_CLIENT_ID');
-    const pccClientSecret = Deno.env.get('PCC_CLIENT_SECRET');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const url = new URL(req.url);
 
+    const action = url.searchParams.get('action');
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    const entityId = url.searchParams.get('entity_id');
+
+    // Resolve credentials: check org-level ehr_credentials first, then env vars
+    let pccClientId = Deno.env.get('PCC_CLIENT_ID') || '';
+    let pccClientSecret = Deno.env.get('PCC_CLIENT_SECRET') || '';
+
+    if (entityId) {
+      const { data: providerEntity } = await supabase
+        .from('entities')
+        .select('organization_id')
+        .eq('id', entityId)
+        .maybeSingle();
+
+      const orgId = providerEntity?.organization_id || entityId;
+      if (orgId) {
+        const { data: creds } = await supabase
+          .from('ehr_credentials')
+          .select('client_id, client_secret')
+          .eq('organization_id', orgId)
+          .eq('ehr_type', 'pointclickcare')
+          .maybeSingle();
+
+        if (creds) {
+          pccClientId = creds.client_id;
+          pccClientSecret = creds.client_secret;
+        }
+      }
+    }
+
     const credentialsConfigured = !!(pccClientId && pccClientSecret);
 
-    if (!credentialsConfigured && url.searchParams.get('action') === 'authorize') {
+    if (!credentialsConfigured && action === 'authorize') {
       return new Response(
         JSON.stringify({ configured: false, message: 'PointClickCare OAuth credentials have not been configured by your administrator yet.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -34,10 +64,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    const action = url.searchParams.get('action');
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
-
     const redirectUri = `${supabaseUrl}/functions/v1/pointclickcare-auth`;
     const pccAuthorizeUrl = 'https://connect.pointclickcare.com/auth/authorize';
     const pccTokenUrl = 'https://connect.pointclickcare.com/auth/token';
@@ -48,7 +74,6 @@ Deno.serve(async (req) => {
 
     // ─── Flow 1: Initiate OAuth ───
     if (action === 'authorize') {
-      const entityId = url.searchParams.get('entity_id');
       if (!entityId) {
         return new Response(
           JSON.stringify({ error: 'entity_id is required' }),
@@ -129,12 +154,35 @@ Deno.serve(async (req) => {
         return Response.redirect(`${frontendBase}/provider/ehr?error=invalid_state`, 302);
       }
 
+      // Re-resolve credentials for the callback entity
+      let callbackClientId = pccClientId;
+      let callbackClientSecret = pccClientSecret;
+      const { data: callbackEntity } = await supabase
+        .from('entities')
+        .select('organization_id')
+        .eq('id', integration.entity_id)
+        .maybeSingle();
+
+      const callbackOrgId = callbackEntity?.organization_id || integration.entity_id;
+      if (callbackOrgId) {
+        const { data: callbackCreds } = await supabase
+          .from('ehr_credentials')
+          .select('client_id, client_secret')
+          .eq('organization_id', callbackOrgId)
+          .eq('ehr_type', 'pointclickcare')
+          .maybeSingle();
+        if (callbackCreds) {
+          callbackClientId = callbackCreds.client_id;
+          callbackClientSecret = callbackCreds.client_secret;
+        }
+      }
+
       const tokenBody = new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         redirect_uri: redirectUri,
-        client_id: pccClientId,
-        client_secret: pccClientSecret,
+        client_id: callbackClientId,
+        client_secret: callbackClientSecret,
       });
 
       const tokenRes = await fetch(pccTokenUrl, {
@@ -155,7 +203,6 @@ Deno.serve(async (req) => {
       const expiresIn = tokenData.expires_in || 3600;
       const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-      // Register FHIR Subscription for encounter notifications
       const webhookUrl = `${supabaseUrl}/functions/v1/epic-webhook`;
       let subscriptionId: string | null = null;
 
@@ -171,11 +218,7 @@ Deno.serve(async (req) => {
             status: 'requested',
             reason: 'CareCoin documentation event notifications',
             criteria: 'Encounter?status=finished',
-            channel: {
-              type: 'rest-hook',
-              endpoint: webhookUrl,
-              payload: 'application/json',
-            },
+            channel: { type: 'rest-hook', endpoint: webhookUrl, payload: 'application/json' },
           }),
         });
 
@@ -214,7 +257,6 @@ Deno.serve(async (req) => {
 
     // ─── Flow 3: Disconnect ───
     if (action === 'disconnect') {
-      const entityId = url.searchParams.get('entity_id');
       if (!entityId) {
         return new Response(
           JSON.stringify({ error: 'entity_id is required' }),

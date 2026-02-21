@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.virtual-card]
 verify_jwt = false
+
+[functions.manage-ehr-credentials]
+verify_jwt = false
