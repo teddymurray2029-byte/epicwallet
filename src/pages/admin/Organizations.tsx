@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
 import { toast } from '@/hooks/use-toast';
-import { Copy, Link2, Users, CheckCircle2 } from 'lucide-react';
+import { Copy, Link2, Users, CheckCircle2, Shield, Eye, EyeOff } from 'lucide-react';
 
 const INVITE_EXPIRY_DAYS = 7;
 
@@ -29,12 +29,41 @@ export default function Organizations() {
   const [epicError, setEpicError] = useState<string | null>(null);
   const [epicSaved, setEpicSaved] = useState(false);
 
+  // EHR Credentials state
+  const [ehrCreds, setEhrCreds] = useState<Record<string, { client_id: string; client_secret: string }>>({
+    epic: { client_id: '', client_secret: '' },
+    pointclickcare: { client_id: '', client_secret: '' },
+  });
+  const [ehrConfigured, setEhrConfigured] = useState<Record<string, boolean>>({ epic: false, pointclickcare: false });
+  const [ehrSaving, setEhrSaving] = useState<string | null>(null);
+  const [ehrSaved, setEhrSaved] = useState<string | null>(null);
+  const [showSecret, setShowSecret] = useState<Record<string, boolean>>({ epic: false, pointclickcare: false });
+
   const organizationId = entity?.entity_type === 'organization' ? entity.id : entity?.organization_id;
   const organizationLabel = entity?.display_name || 'Your organization';
   const isOrganizationOwner = entity?.entity_type === 'organization';
   const canGenerateInvite = Boolean(isConnected && organizationId && isOrganizationOwner);
 
   const epicMetadata = (entity?.metadata as Record<string, unknown>) || {};
+
+  // Fetch EHR credential status on mount
+  useEffect(() => {
+    if (!organizationId) return;
+    const fetchEhrStatus = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${organizationId}`
+        );
+        const data = await res.json();
+        if (data.configured) {
+          setEhrConfigured(data.configured);
+        }
+      } catch {
+        // silently fail
+      }
+    };
+    fetchEhrStatus();
+  }, [organizationId]);
   const epicUrlValue = epicApiUrl || (epicMetadata.epic_api_url as string) || '';
   const epicIdValue = epicOrganizationId || (epicMetadata.epic_organization_id as string) || '';
 
@@ -76,6 +105,40 @@ export default function Organizations() {
     setEpicSaved(true);
     toast({ title: 'Epic API attached', description: 'Epic API details have been saved to your organization.' });
     setTimeout(() => setEpicSaved(false), 3000);
+  };
+
+  const handleSaveEhrCredentials = async (ehrType: string) => {
+    if (!organizationId || !isOrganizationOwner) return;
+    const creds = ehrCreds[ehrType];
+    if (!creds.client_id.trim() || !creds.client_secret.trim()) {
+      toast({ title: 'Missing fields', description: 'Please provide both Client ID and Client Secret.', variant: 'destructive' });
+      return;
+    }
+    setEhrSaving(ehrType);
+    setEhrSaved(null);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${organizationId}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ehr_type: ehrType, client_id: creds.client_id.trim(), client_secret: creds.client_secret.trim() }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setEhrConfigured(prev => ({ ...prev, [ehrType]: true }));
+        setEhrSaved(ehrType);
+        setEhrCreds(prev => ({ ...prev, [ehrType]: { client_id: '', client_secret: '' } }));
+        toast({ title: 'Credentials saved', description: `${ehrType === 'epic' ? 'Epic' : 'PointClickCare'} OAuth credentials have been saved securely.` });
+        setTimeout(() => setEhrSaved(null), 3000);
+      } else {
+        toast({ title: 'Error', description: data.error || 'Failed to save credentials', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save credentials', variant: 'destructive' });
+    }
+    setEhrSaving(null);
   };
 
   return (
@@ -199,6 +262,85 @@ export default function Organizations() {
                   </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* EHR OAuth Credentials */}
+        {isConnected && entity && isOrganizationOwner && (
+          <Card className="animate-fade-in-up" style={{ animationDelay: '320ms' }}>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>EHR OAuth Credentials</CardTitle>
+                  <CardDescription>Enter your OAuth Client ID and Secret so providers can connect their EHR systems.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {(['epic', 'pointclickcare'] as const).map((ehrType) => {
+                const label = ehrType === 'epic' ? 'Epic' : 'PointClickCare';
+                const creds = ehrCreds[ehrType];
+                const configured = ehrConfigured[ehrType];
+                return (
+                  <div key={ehrType} className="space-y-3 rounded-lg border border-border/40 bg-muted/20 p-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold">{label}</h4>
+                      {configured && (
+                        <span className="flex items-center gap-1 text-xs text-[hsl(var(--care-green))]">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Configured
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Client ID</label>
+                        <Input
+                          placeholder={configured ? '••••••••' : `${label} Client ID`}
+                          value={creds.client_id}
+                          onChange={(e) => setEhrCreds(prev => ({ ...prev, [ehrType]: { ...prev[ehrType], client_id: e.target.value } }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Client Secret</label>
+                        <div className="relative">
+                          <Input
+                            type={showSecret[ehrType] ? 'text' : 'password'}
+                            placeholder={configured ? '••••••••' : `${label} Client Secret`}
+                            value={creds.client_secret}
+                            onChange={(e) => setEhrCreds(prev => ({ ...prev, [ehrType]: { ...prev[ehrType], client_secret: e.target.value } }))}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowSecret(prev => ({ ...prev, [ehrType]: !prev[ehrType] }))}
+                          >
+                            {showSecret[ehrType] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 justify-end">
+                      {ehrSaved === ehrType && (
+                        <span className="flex items-center gap-1 text-xs text-[hsl(var(--care-green))] animate-fade-in-up">
+                          <CheckCircle2 className="h-4 w-4" /> Saved
+                        </span>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={() => handleSaveEhrCredentials(ehrType)}
+                        loading={ehrSaving === ehrType}
+                        disabled={!creds.client_id.trim() || !creds.client_secret.trim()}
+                      >
+                        {configured ? `Update ${label}` : `Save ${label}`}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         )}

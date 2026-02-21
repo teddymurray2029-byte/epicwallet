@@ -13,15 +13,44 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const epicClientId = Deno.env.get('EPIC_CLIENT_ID');
-    const epicClientSecret = Deno.env.get('EPIC_CLIENT_SECRET');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const url = new URL(req.url);
 
+    const action = url.searchParams.get('action');
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    const entityId = url.searchParams.get('entity_id');
+
+    // Resolve credentials: check org-level ehr_credentials first, then env vars
+    let epicClientId = Deno.env.get('EPIC_CLIENT_ID') || '';
+    let epicClientSecret = Deno.env.get('EPIC_CLIENT_SECRET') || '';
+
+    if (entityId) {
+      const { data: providerEntity } = await supabase
+        .from('entities')
+        .select('organization_id')
+        .eq('id', entityId)
+        .maybeSingle();
+
+      const orgId = providerEntity?.organization_id || entityId;
+      if (orgId) {
+        const { data: creds } = await supabase
+          .from('ehr_credentials')
+          .select('client_id, client_secret')
+          .eq('organization_id', orgId)
+          .eq('ehr_type', 'epic')
+          .maybeSingle();
+
+        if (creds) {
+          epicClientId = creds.client_id;
+          epicClientSecret = creds.client_secret;
+        }
+      }
+    }
+
     const credentialsConfigured = !!(epicClientId && epicClientSecret);
 
-    // For authorize action, return a clear status instead of 500 when not configured
-    if (!credentialsConfigured && url.searchParams.get('action') === 'authorize') {
+    if (!credentialsConfigured && action === 'authorize') {
       return new Response(
         JSON.stringify({ configured: false, message: 'Epic OAuth credentials have not been configured by your administrator yet.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -35,22 +64,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    const action = url.searchParams.get('action');
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
-
     const redirectUri = `${supabaseUrl}/functions/v1/epic-auth`;
     const epicAuthorizeUrl = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize';
     const epicTokenUrl = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token';
     const epicFhirBase = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4';
 
-    // Determine the frontend origin for redirects
     const origin = req.headers.get('origin') || req.headers.get('referer');
     const frontendBase = origin ? new URL(origin).origin : supabaseUrl.replace('.supabase.co', '.lovable.app');
 
     // ─── Flow 1: Initiate OAuth ───
     if (action === 'authorize') {
-      const entityId = url.searchParams.get('entity_id');
       if (!entityId) {
         return new Response(
           JSON.stringify({ error: 'entity_id is required' }),
@@ -58,10 +81,8 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Generate random state token
       const stateToken = crypto.randomUUID();
 
-      // Upsert an integration row with the state token
       const { error: upsertError } = await supabase
         .from('ehr_integrations')
         .upsert(
@@ -76,7 +97,6 @@ Deno.serve(async (req) => {
         );
 
       if (upsertError) {
-        // If upsert fails (no unique constraint), try insert/update manually
         const { data: existing } = await supabase
           .from('ehr_integrations')
           .select('id')
@@ -107,7 +127,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Build Epic authorization URL
       const authUrl = new URL(epicAuthorizeUrl);
       authUrl.searchParams.set('response_type', 'code');
       authUrl.searchParams.set('client_id', epicClientId);
@@ -123,7 +142,6 @@ Deno.serve(async (req) => {
 
     // ─── Flow 2: OAuth Callback ───
     if (code && state) {
-      // Validate state token
       const { data: integration, error: findErr } = await supabase
         .from('ehr_integrations')
         .select('*')
@@ -136,13 +154,35 @@ Deno.serve(async (req) => {
         return Response.redirect(`${frontendBase}/provider/epic?error=invalid_state`, 302);
       }
 
-      // Exchange authorization code for tokens
+      // Re-resolve credentials for the callback entity
+      let callbackClientId = epicClientId;
+      let callbackClientSecret = epicClientSecret;
+      const { data: callbackEntity } = await supabase
+        .from('entities')
+        .select('organization_id')
+        .eq('id', integration.entity_id)
+        .maybeSingle();
+
+      const callbackOrgId = callbackEntity?.organization_id || integration.entity_id;
+      if (callbackOrgId) {
+        const { data: callbackCreds } = await supabase
+          .from('ehr_credentials')
+          .select('client_id, client_secret')
+          .eq('organization_id', callbackOrgId)
+          .eq('ehr_type', 'epic')
+          .maybeSingle();
+        if (callbackCreds) {
+          callbackClientId = callbackCreds.client_id;
+          callbackClientSecret = callbackCreds.client_secret;
+        }
+      }
+
       const tokenBody = new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         redirect_uri: redirectUri,
-        client_id: epicClientId,
-        client_secret: epicClientSecret,
+        client_id: callbackClientId,
+        client_secret: callbackClientSecret,
       });
 
       const tokenRes = await fetch(epicTokenUrl, {
@@ -163,7 +203,6 @@ Deno.serve(async (req) => {
       const expiresIn = tokenData.expires_in || 3600;
       const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-      // Register FHIR Subscription for encounter notifications
       const webhookUrl = `${supabaseUrl}/functions/v1/epic-webhook`;
       let subscriptionId: string | null = null;
 
@@ -179,11 +218,7 @@ Deno.serve(async (req) => {
             status: 'requested',
             reason: 'CareCoin documentation event notifications',
             criteria: 'Encounter?status=finished',
-            channel: {
-              type: 'rest-hook',
-              endpoint: webhookUrl,
-              payload: 'application/json',
-            },
+            channel: { type: 'rest-hook', endpoint: webhookUrl, payload: 'application/json' },
           }),
         });
 
@@ -198,7 +233,6 @@ Deno.serve(async (req) => {
         console.warn('FHIR Subscription error (non-fatal):', subErr);
       }
 
-      // Store tokens and update integration
       const { error: updateErr } = await supabase
         .from('ehr_integrations')
         .update({
@@ -207,7 +241,7 @@ Deno.serve(async (req) => {
           token_expires_at: tokenExpiresAt,
           subscription_id: subscriptionId,
           fhir_base_url: epicFhirBase,
-          auth_state: null, // Clear state token
+          auth_state: null,
           is_active: true,
         })
         .eq('id', integration.id);
@@ -223,7 +257,6 @@ Deno.serve(async (req) => {
 
     // ─── Flow 3: Disconnect ───
     if (action === 'disconnect') {
-      const entityId = url.searchParams.get('entity_id');
       if (!entityId) {
         return new Response(
           JSON.stringify({ error: 'entity_id is required' }),

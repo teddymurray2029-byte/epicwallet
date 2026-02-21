@@ -60,7 +60,7 @@ export function EhrConnectCard() {
       );
       const data = await res.json();
       if (data.configured === false) {
-        toast({ title: `${cfg.label} Not Configured`, description: 'Admin needs to set up OAuth credentials.', variant: 'destructive' });
+        toast({ title: `${cfg.label} Not Configured`, description: 'Ask your organization admin to add credentials on the Organization Management page.', variant: 'destructive' });
         setConnecting(null);
         return;
       }
