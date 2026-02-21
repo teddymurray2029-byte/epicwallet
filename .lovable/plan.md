@@ -1,40 +1,32 @@
 
 
-## Add Admin EHR Credentials Setup
+## Complete Admin EHR Credentials Setup
 
 ### Problem
-The "PointClickCare Not Configured" / "Epic Not Configured" alerts tell providers to ask their admin, but there is no admin screen to enter OAuth credentials. The secrets (`EPIC_CLIENT_ID`, `EPIC_CLIENT_SECRET`, `PCC_CLIENT_ID`, `PCC_CLIENT_SECRET`) currently can only be set through backend secret management, which admins don't have access to.
+The "Not Configured" alerts on the EHR Integration page tell providers to ask their admin, but there is no admin screen to enter OAuth credentials. Currently, `EPIC_CLIENT_ID`, `EPIC_CLIENT_SECRET`, `PCC_CLIENT_ID`, `PCC_CLIENT_SECRET` can only be set as backend secrets -- admins have no UI for this.
 
-### Solution
-Add an "EHR Credentials" section to the existing Admin Organizations page (`/admin/organizations`) where the organization owner can enter their Epic and PointClickCare OAuth Client ID and Client Secret. These values will be stored in a new secure backend table and read by the auth edge functions instead of relying on environment variables.
-
-### What Changes
+### What Will Change
 
 **1. New database table: `ehr_credentials`**
-- Columns: `id`, `organization_id`, `ehr_type` (epic/pointclickcare), `client_id`, `client_secret` (encrypted at rest), `created_at`, `updated_at`
-- Unique constraint on `(organization_id, ehr_type)`
-- RLS: only the organization owner can read/write their own credentials
+Stores OAuth Client ID and Client Secret per organization and EHR type, with RLS so only the organization owner can manage their own credentials.
 
-**2. New edge function: `manage-ehr-credentials`**
-- POST: Save/update credentials (organization owner only, validates entity ownership)
-- GET: Check if credentials exist for a given org (returns `{ configured: true/false }` without exposing secrets)
-- Stores the actual client_id and client_secret in the `ehr_credentials` table
+**2. New backend function: `manage-ehr-credentials`**
+- POST: Save/update credentials (org owner only)
+- GET: Check if credentials exist (returns configured true/false, never exposes secrets)
 
-**3. Update `epic-auth` and `pointclickcare-auth` edge functions**
-- Before checking environment variables, query `ehr_credentials` table for the entity's organization
-- Fall back to env vars (`EPIC_CLIENT_ID` etc.) if no row found in the table
-- This way both approaches work: admin UI credentials OR platform-level env var secrets
+**3. Update `epic-auth` and `pointclickcare-auth` functions**
+Before falling back to environment variables, look up credentials from `ehr_credentials` table for the provider's organization. This means both admin-entered credentials and platform-level secrets work.
 
-**4. Update Organizations page UI**
-- Add a new card below the existing "Epic API connection" card
+**4. Admin Organizations page gets an "EHR Credentials" card**
+Below the existing "Epic API connection" card:
 - Two sections: Epic OAuth and PointClickCare OAuth
-- Each has Client ID and Client Secret input fields (secret field masked)
-- "Save" button per EHR type
-- Green checkmark when credentials are saved
-- Only visible to organization owners
+- Each has Client ID + Client Secret fields (secret masked)
+- Save button per EHR type
+- Green checkmark when saved
+- Only editable by organization owners
 
-**5. Update the provider-facing alert**
-- Change the alert text from "Admin needs to set up OAuth credentials" to include a more helpful message like "Ask your organization admin to configure credentials on the Organization Management page"
+**5. Provider-facing alerts updated**
+Change "Admin needs to set up OAuth credentials" to direct providers to tell their admin to visit the Organization Management page.
 
 ### Technical Details
 
@@ -53,45 +45,60 @@ CREATE TABLE public.ehr_credentials (
 
 ALTER TABLE public.ehr_credentials ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Org owners can manage their EHR credentials"
-  ON public.ehr_credentials
-  FOR ALL
+-- RLS: org owners only
+CREATE POLICY "Org owners can manage EHR credentials"
+  ON public.ehr_credentials FOR ALL
   USING (
     organization_id IN (
       SELECT id FROM public.entities
       WHERE entity_type = 'organization'
-      AND wallet_address = (current_setting('request.jwt.claims', true)::json->>'sub')
+      AND wallet_address = (
+        SELECT wallet_address FROM public.entities
+        WHERE id = organization_id
+      )
     )
   );
 ```
 
-**Edge function credential lookup (added to epic-auth / pointclickcare-auth):**
+**Edge function credential lookup (added to epic-auth/pointclickcare-auth):**
 ```typescript
-// Look up org-level credentials first
-const { data: creds } = await supabase
-  .from('ehr_credentials')
-  .select('client_id, client_secret')
-  .eq('organization_id', entity.organization_id)
-  .eq('ehr_type', 'epic')
-  .maybeSingle();
+// Before using env vars, check org-level credentials
+const { data: providerEntity } = await supabase
+  .from('entities')
+  .select('organization_id')
+  .eq('id', entityId)
+  .single();
 
-const clientId = creds?.client_id || Deno.env.get('EPIC_CLIENT_ID');
-const clientSecret = creds?.client_secret || Deno.env.get('EPIC_CLIENT_SECRET');
+if (providerEntity?.organization_id) {
+  const { data: creds } = await supabase
+    .from('ehr_credentials')
+    .select('client_id, client_secret')
+    .eq('organization_id', providerEntity.organization_id)
+    .eq('ehr_type', 'epic') // or 'pointclickcare'
+    .maybeSingle();
+
+  if (creds) {
+    epicClientId = creds.client_id;
+    epicClientSecret = creds.client_secret;
+  }
+}
 ```
 
 **Files to create:**
 - `supabase/functions/manage-ehr-credentials/index.ts`
 
 **Files to modify:**
-- `src/pages/admin/Organizations.tsx` -- Add EHR credentials card
-- `supabase/functions/epic-auth/index.ts` -- Query ehr_credentials table as primary source
-- `supabase/functions/pointclickcare-auth/index.ts` -- Same change
-- `supabase/config.toml` -- Add manage-ehr-credentials function config
+- `src/pages/admin/Organizations.tsx` -- Add EHR credentials card with masked inputs
+- `supabase/functions/epic-auth/index.ts` -- Query ehr_credentials before env vars
+- `supabase/functions/pointclickcare-auth/index.ts` -- Same
+- `supabase/config.toml` -- Register manage-ehr-credentials function
+- `src/components/provider/EhrConnectCard.tsx` -- Update toast message to mention admin page
+- `src/pages/provider/EhrIntegration.tsx` -- Update alert text to reference Organization Management page
 
 ### User Experience
-- Organization admin navigates to Organization Management page
-- Scrolls to "EHR Credentials" section
-- Enters Client ID and Client Secret for Epic and/or PointClickCare
-- Clicks Save -- credentials are stored securely
-- Providers on the dashboard can now click "Connect Epic" or "Connect PCC" without seeing the "Not Configured" error
+1. Organization admin goes to Organization Management page
+2. Scrolls to "EHR Credentials" section
+3. Enters Client ID and Client Secret for Epic and/or PointClickCare
+4. Clicks Save -- credentials stored securely with RLS protection
+5. Providers can now click "Connect Epic" or "Connect PCC" without the "Not Configured" error
 
