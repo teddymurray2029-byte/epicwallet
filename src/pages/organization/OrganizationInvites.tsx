@@ -59,10 +59,12 @@ export default function OrganizationInvites() {
     return c;
   }, [inviteSummary]);
 
+  const orgId = entity?.organization_id ?? entity?.id;
+
   const fetchInvites = async () => {
-    if (!entity) return;
+    if (!entity || !orgId) return;
     setLoadingInvites(true);
-    const { data, error } = await (supabase.from('organization_invites' as any).select('*').eq('organization_id', entity.id).order('created_at', { ascending: false }) as any);
+    const { data, error } = await (supabase.from('organization_invites' as any).select('*').eq('organization_id', orgId).order('created_at', { ascending: false }) as any);
     if (error) {
       console.error('Error loading invites:', error);
       toast({ title: 'Failed to load invites', description: error.message, variant: 'destructive' });
@@ -78,7 +80,7 @@ export default function OrganizationInvites() {
     if (!entity?.id) return;
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${orgId}&wallet_address=${entity.wallet_address}`,
         { headers: { 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
       );
       const data = await res.json();
@@ -117,7 +119,7 @@ export default function OrganizationInvites() {
     setCreatingInvite(true);
     const token = crypto.randomUUID().replace(/-/g, '');
     const expiresAt = new Date(Date.now() + parsedDays * 24 * 60 * 60 * 1000).toISOString();
-    const { error } = await (supabase.from('organization_invites' as any).insert({ organization_id: entity.id, token, created_by: entity.id, expires_at: expiresAt }) as any);
+    const { error } = await (supabase.from('organization_invites' as any).insert({ organization_id: orgId, token, created_by: entity.id, expires_at: expiresAt }) as any);
     if (error) {
       console.error('Error creating invite:', error);
       toast({ title: 'Invite creation failed', description: error.message, variant: 'destructive' });
@@ -152,7 +154,7 @@ export default function OrganizationInvites() {
     setEhrSaved(null);
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${orgId}&wallet_address=${entity.wallet_address}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
@@ -180,7 +182,7 @@ export default function OrganizationInvites() {
     setEhrDeleting(ehrType);
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}&ehr_type=${ehrType}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${orgId}&wallet_address=${entity.wallet_address}&ehr_type=${ehrType}`,
         { method: 'DELETE', headers: { 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
       );
       const data = await res.json();
