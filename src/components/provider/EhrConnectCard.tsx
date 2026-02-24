@@ -115,7 +115,7 @@ export function EhrConnectCard() {
   }
 
   return (
-    <Card className="shimmer-border bg-gradient-to-br from-card via-card to-primary/5">
+    <Card className="shimmer-border bg-gradient-to-br from-card via-card to-primary/5 card-hover-lift">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">

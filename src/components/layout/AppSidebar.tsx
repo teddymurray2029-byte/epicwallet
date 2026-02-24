@@ -92,7 +92,7 @@ export function AppSidebar() {
       <SidebarHeader className="border-b border-sidebar-border/60 bg-gradient-to-b from-sidebar-accent/30 to-transparent">
         <div className="flex items-center gap-3 px-2 py-3">
           {/* Professional SVG logo mark */}
-          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(var(--care-teal))] via-[hsl(var(--care-blue))] to-[hsl(var(--care-green))] text-white shadow-[0_2px_8px_hsl(180_45%_35%/0.3)]">
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(var(--care-teal))] via-[hsl(var(--care-blue))] to-[hsl(var(--care-green))] text-white shadow-[0_2px_8px_hsl(180_45%_35%/0.3)] transition-transform duration-200 hover:scale-105">
             <svg viewBox="0 0 32 32" fill="none" className="h-6 w-6">
               <text x="3" y="23" fontFamily="Inter, sans-serif" fontSize="16" fontWeight="700" fill="white">CC</text>
             </svg>
@@ -134,10 +134,10 @@ export function AppSidebar() {
                         <NavLink
                           to={item.url}
                           end={item.url === '/provider' || item.url === '/patient' || item.url === '/admin'}
-                          className={`flex items-center gap-3 transition-all duration-200 hover:bg-sidebar-accent hover:translate-x-0.5 ${
-                            isActive ? 'bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-[hsl(var(--sidebar-primary))]' : ''
+                          className={`flex items-center gap-3 transition-all duration-200 hover:bg-sidebar-accent hover:translate-x-0.5 rounded-md ${
+                            isActive ? 'bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-[hsl(var(--sidebar-primary))] rounded-l-none' : ''
                           }`}
-                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium rounded-md"
                           data-tutorial={dataTutorial}
                         >
                           <item.icon className={`h-4 w-4 transition-colors ${isActive ? 'text-sidebar-primary' : ''}`} />
@@ -169,16 +169,19 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/60 bg-gradient-to-t from-sidebar-accent/20 to-transparent">
-        <div className="px-2 py-3">
+        <div className="px-2 py-3 space-y-2">
           {!collapsed && (
-            <div className="flex items-center gap-2 text-xs text-sidebar-foreground/60">
-              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-[hsl(var(--care-green))] animate-pulse-ring' : 'bg-muted-foreground'}`} />
-              <span>
-                {isConnected && address
-                  ? truncateAddress(address)
-                  : 'Not Connected'}
-              </span>
-            </div>
+            <>
+              <div className="flex items-center gap-2 text-xs text-sidebar-foreground/60">
+                <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-[hsl(var(--care-green))] animate-pulse-ring' : 'bg-muted-foreground'}`} />
+                <span>
+                  {isConnected && address
+                    ? truncateAddress(address)
+                    : 'Not Connected'}
+                </span>
+              </div>
+              <p className="text-[10px] text-sidebar-foreground/30 tracking-wider">v0.1.0 · Testnet</p>
+            </>
           )}
           {collapsed && (
             <Tooltip>

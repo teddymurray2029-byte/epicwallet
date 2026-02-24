@@ -36,7 +36,7 @@ export function RewardsChart() {
   }
 
   return (
-    <Card className={`card-shadow border-border/40 bg-gradient-to-br from-card via-card to-primary/5 transition-all duration-300 hover:card-shadow-hover`}>
+    <Card className={`card-shadow border-border/40 bg-gradient-to-br from-card via-card to-primary/5 card-hover-lift`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -64,11 +64,11 @@ export function RewardsChart() {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="h-64 flex items-center justify-center">
-            <Skeleton className="h-full w-full" />
+          <div className="h-72 flex items-center justify-center">
+            <Skeleton className="h-full w-full rounded-xl" />
           </div>
         ) : chartData.length > 0 ? (
-          <div className="h-64">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               {chartType === 'bar' ? (
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>

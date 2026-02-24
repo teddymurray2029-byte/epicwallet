@@ -175,7 +175,27 @@
 
   .glass-card {
     @apply bg-card/60 backdrop-blur-xl border border-border/30;
-    box-shadow: var(--shadow-card), inset 0 1px 0 0 hsl(0 0% 100% / 0.05);
+    box-shadow: var(--shadow-card), inset 0 1px 0 0 hsl(0 0% 100% / 0.05), inset 0 0 40px 0 hsl(var(--care-teal) / 0.02);
+  }
+
+  /* Consistent card hover lift */
+  .card-hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)];
+  }
+
+  /* Branded loading card */
+  .loading-card {
+    @apply glass-card rounded-xl p-8 flex flex-col items-center gap-4;
+  }
+
+  /* Animated mesh background */
+  .bg-mesh-animated {
+    background-image:
+      radial-gradient(at 15% 25%, hsl(var(--care-teal) / 0.06) 0%, transparent 55%),
+      radial-gradient(at 85% 75%, hsl(var(--care-green) / 0.04) 0%, transparent 55%),
+      radial-gradient(at 50% 10%, hsl(var(--care-blue) / 0.03) 0%, transparent 50%);
+    background-size: 200% 200%;
+    animation: gradient-shift 12s ease infinite;
   }
 
   /* Gradient text for branding */
@@ -281,10 +301,15 @@
 
   /* Interactive card hover */
   .card-interactive {
-    @apply transition-all duration-200 hover:-translate-y-1 hover:shadow-lg;
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
     &:hover {
       border-color: hsl(var(--care-teal) / 0.3);
     }
+  }
+
+  /* Activity row hover accent */
+  .activity-row {
+    @apply transition-all duration-200 hover:bg-muted/40 hover:border-l-2 hover:border-l-[hsl(var(--care-teal)/0.5)] hover:pl-3;
   }
 
   /* Skeleton shimmer loading */

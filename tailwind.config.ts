@@ -141,6 +141,7 @@ export default {
       backgroundImage: {
         "hero-gradient": "linear-gradient(135deg, hsl(var(--care-teal) / 0.08), hsl(var(--care-green) / 0.05), hsl(var(--care-blue) / 0.08))",
         "card-mesh": "radial-gradient(at 20% 30%, hsl(var(--care-teal) / 0.06) 0%, transparent 50%), radial-gradient(at 80% 70%, hsl(var(--care-green) / 0.04) 0%, transparent 50%)",
+        "mesh-gradient": "radial-gradient(at 15% 25%, hsl(var(--care-teal) / 0.06) 0%, transparent 55%), radial-gradient(at 85% 75%, hsl(var(--care-green) / 0.04) 0%, transparent 55%), radial-gradient(at 50% 10%, hsl(var(--care-blue) / 0.03) 0%, transparent 50%)",
       },
       backgroundSize: {
         "shimmer": "300% 100%",
