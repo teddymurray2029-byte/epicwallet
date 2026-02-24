@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
       }
 
       console.log('Epic OAuth flow completed for integration:', integration.id);
-      return Response.redirect(`${frontendBase}/provider/epic?connected=true`, 302);
+      return Response.redirect(`${frontendBase}/provider/ehr?connected=epic`, 302);
     }
 
     // ─── Flow 3: Disconnect ───

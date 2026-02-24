@@ -66,7 +66,7 @@ export default function EhrIntegration() {
 
   // Handle OAuth callback params
   useEffect(() => {
-    if (searchParams.get('connected') === 'true' || searchParams.get('connected') === 'epic') {
+    if (searchParams.get('connected') === 'epic') {
       toast({ title: 'Connected!', description: 'Epic EHR is now connected and receiving notifications.' });
       setSearchParams({}, { replace: true });
     }
