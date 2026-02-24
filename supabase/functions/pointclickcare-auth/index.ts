@@ -1,11 +1,73 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+const ALLOWED_ORIGINS = [
+  'https://carewallet.lovable.app',
+  'https://id-preview--63f64bab-d4cb-4037-bbce-9b1e2546fa52.lovable.app',
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  };
+}
+
+function redactWallet(w: string | null | undefined): string {
+  if (!w) return '[none]';
+  return w.length > 10 ? `${w.slice(0, 6)}…${w.slice(-4)}` : '[short]';
+}
+
+async function getEncryptionKey(): Promise<CryptoKey | null> {
+  const hexKey = Deno.env.get('ENCRYPTION_KEY');
+  if (!hexKey) return null;
+  const keyBytes = new Uint8Array(hexKey.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
+  return crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+async function encrypt(plaintext: string): Promise<string> {
+  const key = await getEncryptionKey();
+  if (!key) return plaintext;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+  const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
+  combined.set(iv);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decrypt(ciphertextB64: string): Promise<string> {
+  const key = await getEncryptionKey();
+  if (!key) return ciphertextB64;
+  try {
+    const combined = Uint8Array.from(atob(ciphertextB64), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+    const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+    return new TextDecoder().decode(plaintext);
+  } catch {
+    return ciphertextB64;
+  }
+}
+
+async function auditLog(supabase: any, action: string, resourceType: string, details: Record<string, unknown> = {}, req?: Request, wallet?: string) {
+  try {
+    await supabase.from('audit_logs').insert({
+      action,
+      resource_type: resourceType,
+      actor_wallet: wallet ? redactWallet(wallet) : null,
+      ip_address: req?.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+      user_agent: req?.headers.get('user-agent')?.slice(0, 200) || null,
+      details,
+    });
+  } catch { /* non-fatal */ }
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -21,7 +83,6 @@ Deno.serve(async (req) => {
     const state = url.searchParams.get('state');
     const entityId = url.searchParams.get('entity_id');
 
-    // Resolve credentials: check org-level ehr_credentials first, then env vars
     let pccClientId = Deno.env.get('PCC_CLIENT_ID') || '';
     let pccClientSecret = Deno.env.get('PCC_CLIENT_SECRET') || '';
 
@@ -43,7 +104,7 @@ Deno.serve(async (req) => {
 
         if (creds) {
           pccClientId = creds.client_id;
-          pccClientSecret = creds.client_secret;
+          pccClientSecret = await decrypt(creds.client_secret);
         }
       }
     }
@@ -118,7 +179,6 @@ Deno.serve(async (req) => {
             is_active: false,
           });
           if (insertErr) {
-            console.error('Failed to store state token:', insertErr);
             return new Response(
               JSON.stringify({ error: 'Failed to initiate OAuth flow' }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -126,6 +186,8 @@ Deno.serve(async (req) => {
           }
         }
       }
+
+      await auditLog(supabase, 'pcc_oauth_initiated', 'ehr_integrations', { entity_id: entityId }, req);
 
       const authUrl = new URL(pccAuthorizeUrl);
       authUrl.searchParams.set('response_type', 'code');
@@ -150,11 +212,9 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (findErr || !integration) {
-        console.error('Invalid state token:', state);
         return Response.redirect(`${frontendBase}/provider/ehr?error=invalid_state`, 302);
       }
 
-      // Re-resolve credentials for the callback entity
       let callbackClientId = pccClientId;
       let callbackClientSecret = pccClientSecret;
       const { data: callbackEntity } = await supabase
@@ -173,7 +233,7 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (callbackCreds) {
           callbackClientId = callbackCreds.client_id;
-          callbackClientSecret = callbackCreds.client_secret;
+          callbackClientSecret = await decrypt(callbackCreds.client_secret);
         }
       }
 
@@ -192,8 +252,7 @@ Deno.serve(async (req) => {
       });
 
       if (!tokenRes.ok) {
-        const errText = await tokenRes.text();
-        console.error('Token exchange failed:', errText);
+        await auditLog(supabase, 'pcc_token_exchange_failed', 'ehr_integrations', { entity_id: integration.entity_id }, req);
         return Response.redirect(`${frontendBase}/provider/ehr?error=token_exchange_failed`, 302);
       }
 
@@ -202,6 +261,9 @@ Deno.serve(async (req) => {
       const refreshToken = tokenData.refresh_token || null;
       const expiresIn = tokenData.expires_in || 3600;
       const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+      const encryptedAccessToken = await encrypt(accessToken);
+      const encryptedRefreshToken = refreshToken ? await encrypt(refreshToken) : null;
 
       const webhookUrl = `${supabaseUrl}/functions/v1/epic-webhook`;
       let subscriptionId: string | null = null;
@@ -225,19 +287,14 @@ Deno.serve(async (req) => {
         if (subscriptionRes.ok) {
           const subData = await subscriptionRes.json();
           subscriptionId = subData.id || null;
-          console.log('PCC FHIR Subscription registered:', subscriptionId);
-        } else {
-          console.warn('PCC FHIR Subscription registration failed:', await subscriptionRes.text());
         }
-      } catch (subErr) {
-        console.warn('PCC FHIR Subscription error (non-fatal):', subErr);
-      }
+      } catch { /* non-fatal */ }
 
       const { error: updateErr } = await supabase
         .from('ehr_integrations')
         .update({
-          access_token: accessToken,
-          refresh_token: refreshToken,
+          access_token: encryptedAccessToken,
+          refresh_token: encryptedRefreshToken,
           token_expires_at: tokenExpiresAt,
           subscription_id: subscriptionId,
           fhir_base_url: pccFhirBase,
@@ -247,11 +304,10 @@ Deno.serve(async (req) => {
         .eq('id', integration.id);
 
       if (updateErr) {
-        console.error('Failed to store tokens:', updateErr);
         return Response.redirect(`${frontendBase}/provider/ehr?error=storage_failed`, 302);
       }
 
-      console.log('PointClickCare OAuth flow completed for integration:', integration.id);
+      await auditLog(supabase, 'pcc_oauth_completed', 'ehr_integrations', { entity_id: integration.entity_id }, req);
       return Response.redirect(`${frontendBase}/provider/ehr?connected=pcc`, 302);
     }
 
@@ -277,6 +333,8 @@ Deno.serve(async (req) => {
         );
       }
 
+      await auditLog(supabase, 'pcc_disconnected', 'ehr_integrations', { entity_id: entityId }, req);
+
       return new Response(
         JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -284,14 +342,14 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: 'Invalid request. Use ?action=authorize or provide code+state callback params.' }),
+      JSON.stringify({ error: 'Invalid request.' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
-    console.error('pointclickcare-auth error:', error);
+    console.error('pointclickcare-auth error');
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } },
     );
   }
 });

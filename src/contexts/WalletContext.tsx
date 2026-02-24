@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { useAccount, useDisconnect, useReconnect } from 'wagmi';
 import { supabase } from '@/integrations/supabase/client';
 import { useOnChainBalance } from '@/hooks/useOnChainBalance';
+import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
 
 export type EntityType = 'provider' | 'patient' | 'organization' | 'admin';
 
@@ -61,7 +62,16 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { address, isConnected, isConnecting, isReconnecting } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+
+  const handleDisconnect = useCallback(() => {
+    wagmiDisconnect();
+    setEntity(null);
+    setEarnedBalance(0);
+  }, [wagmiDisconnect]);
+
+  // HIPAA: 15-minute inactivity auto-logoff
+  useInactivityTimeout(handleDisconnect, isConnected);
   const { isPending: isReconnectPending } = useReconnect();
   
   const [entity, setEntity] = useState<Entity | null>(null);
@@ -216,7 +226,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     isContractDeployed,
     chainName,
     totalBalance: earnedBalance + onChainBalance,
-    disconnect,
+    disconnect: handleDisconnect,
     refreshEntity,
     registerEntity,
     createOrganization,

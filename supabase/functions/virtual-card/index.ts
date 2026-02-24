@@ -1,12 +1,40 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+const ALLOWED_ORIGINS = [
+  'https://carewallet.lovable.app',
+  'https://id-preview--63f64bab-d4cb-4037-bbce-9b1e2546fa52.lovable.app',
+];
 
-serve(async (req) => {
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  };
+}
+
+function redactWallet(w: string | null | undefined): string {
+  if (!w) return '[none]';
+  return w.length > 10 ? `${w.slice(0, 6)}…${w.slice(-4)}` : '[short]';
+}
+
+async function auditLog(supabase: any, action: string, resourceType: string, details: Record<string, unknown> = {}, req?: Request, wallet?: string) {
+  try {
+    await supabase.from('audit_logs').insert({
+      action,
+      resource_type: resourceType,
+      actor_wallet: wallet ? redactWallet(wallet) : null,
+      ip_address: req?.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+      user_agent: req?.headers.get('user-agent')?.slice(0, 200) || null,
+      details,
+    });
+  } catch { /* non-fatal */ }
+}
+
+Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -20,64 +48,60 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Check if Stripe Issuing is configured
     if (!stripeKey) {
-      // Return demo/mock data when Stripe Issuing isn't configured yet
-      return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase);
+      return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);
     }
 
-    // Production mode with Stripe Issuing
     try {
       switch (action) {
         case 'get':
-          return await handleGetCard(stripeKey, entity_id, supabase);
+          return await handleGetCard(stripeKey, entity_id, supabase, corsHeaders);
         case 'create':
-          return await handleCreateCard(stripeKey, entity_id, wallet_address, supabase);
+          await auditLog(supabase, 'virtual_card_created', 'virtual_card', { entity_id }, req, wallet_address);
+          return await handleCreateCard(stripeKey, entity_id, wallet_address, supabase, corsHeaders);
         case 'convert':
-          return await handleConvert(stripeKey, entity_id, wallet_address, care_amount, supabase);
+          await auditLog(supabase, 'care_to_usd_conversion', 'virtual_card', { entity_id, care_amount }, req, wallet_address);
+          return await handleConvert(stripeKey, entity_id, wallet_address, care_amount, supabase, corsHeaders);
         case 'freeze':
-          return await handleFreezeCard(stripeKey, card_id, true);
+          await auditLog(supabase, 'card_frozen', 'virtual_card', { card_id }, req, wallet_address);
+          return await handleFreezeCard(stripeKey, card_id, true, corsHeaders);
         case 'unfreeze':
-          return await handleFreezeCard(stripeKey, card_id, false);
+          await auditLog(supabase, 'card_unfrozen', 'virtual_card', { card_id }, req, wallet_address);
+          return await handleFreezeCard(stripeKey, card_id, false, corsHeaders);
         default:
-          return jsonResponse({ error: 'Invalid action' }, 400);
+          return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
       }
     } catch (stripeErr) {
-      // If Stripe Issuing isn't enabled, fall back to demo mode
       const errMsg = String(stripeErr);
       if (errMsg.includes('not set up to use Issuing') || errMsg.includes('Issuing')) {
-        console.warn('Stripe Issuing not enabled, falling back to demo mode:', errMsg);
-        return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase);
+        return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);
       }
       throw stripeErr;
     }
   } catch (err) {
-    console.error('Virtual card error:', err);
-    return jsonResponse({ error: 'Internal server error' }, 500);
+    console.error('Virtual card error');
+    return jsonResponse({ error: 'Internal server error' }, 500, getCorsHeaders(req));
   }
 });
 
-// Demo mode when Stripe isn't configured — returns simulated card data
 async function handleDemoMode(
   action: string,
   entity_id: string,
   wallet_address: string,
   care_amount: number | undefined,
-  supabase: any
+  supabase: any,
+  req: Request,
+  corsHeaders: Record<string, string>,
 ) {
   switch (action) {
     case 'get': {
-      // Check if we have a "demo card" stored in system_settings
       const { data } = await supabase
         .from('system_settings')
         .select('value')
         .eq('key', `virtual_card_${entity_id}`)
         .maybeSingle();
 
-      if (data?.value) {
-        return jsonResponse({ card: data.value });
-      }
-      return jsonResponse({ card: null });
+      return jsonResponse({ card: data?.value || null }, 200, corsHeaders);
     }
 
     case 'create': {
@@ -97,19 +121,19 @@ async function handleDemoMode(
         value: demoCard,
       }, { onConflict: 'key' });
 
-      return jsonResponse({ card: demoCard });
+      await auditLog(supabase, 'demo_card_created', 'virtual_card', { entity_id }, req, wallet_address);
+      return jsonResponse({ card: demoCard }, 200, corsHeaders);
     }
 
     case 'convert': {
       if (!care_amount || care_amount <= 0) {
-        return jsonResponse({ error: 'Invalid amount' }, 400);
+        return jsonResponse({ error: 'Invalid amount' }, 400, corsHeaders);
       }
 
-      const usdRate = 0.01; // 1 CARE = $0.01
-      const fee = 0.01; // 1% network fee
+      const usdRate = 0.01;
+      const fee = 0.01;
       const usdAmount = care_amount * usdRate * (1 - fee);
 
-      // Update demo card balance
       const { data } = await supabase
         .from('system_settings')
         .select('value')
@@ -117,7 +141,7 @@ async function handleDemoMode(
         .maybeSingle();
 
       if (!data?.value) {
-        return jsonResponse({ error: 'No card found' }, 400);
+        return jsonResponse({ error: 'No card found' }, 400, corsHeaders);
       }
 
       const updatedCard = {
@@ -136,7 +160,7 @@ async function handleDemoMode(
         usdc_amount: care_amount * usdRate,
         usd_loaded: usdAmount,
         new_balance: updatedCard.usd_balance,
-      });
+      }, 200, corsHeaders);
     }
 
     case 'freeze':
@@ -155,17 +179,15 @@ async function handleDemoMode(
         }, { onConflict: 'key' });
       }
 
-      return jsonResponse({ success: true });
+      return jsonResponse({ success: true }, 200, corsHeaders);
     }
 
     default:
-      return jsonResponse({ error: 'Invalid action' }, 400);
+      return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
   }
 }
 
-// Production Stripe Issuing handlers
-async function handleGetCard(stripeKey: string, entity_id: string, supabase: any) {
-  // Look up cardholder by entity metadata
+async function handleGetCard(stripeKey: string, entity_id: string, supabase: any, corsHeaders: Record<string, string>) {
   const { data: settings } = await supabase
     .from('system_settings')
     .select('value')
@@ -173,7 +195,7 @@ async function handleGetCard(stripeKey: string, entity_id: string, supabase: any
     .maybeSingle();
 
   if (!settings?.value?.card_id) {
-    return jsonResponse({ card: null });
+    return jsonResponse({ card: null }, 200, corsHeaders);
   }
 
   const card = await stripeRequest(stripeKey, `issuing/cards/${settings.value.card_id}`, 'GET');
@@ -189,11 +211,10 @@ async function handleGetCard(stripeKey: string, entity_id: string, supabase: any
       spending_limit: card.spending_controls?.spending_limits?.[0]?.amount || 500000,
       usd_balance: settings.value.usd_balance || 0,
     },
-  });
+  }, 200, corsHeaders);
 }
 
-async function handleCreateCard(stripeKey: string, entity_id: string, wallet_address: string, supabase: any) {
-  // Get entity info for cardholder creation
+async function handleCreateCard(stripeKey: string, entity_id: string, wallet_address: string, supabase: any, corsHeaders: Record<string, string>) {
   const { data: entity } = await supabase
     .from('entities')
     .select('*')
@@ -201,40 +222,29 @@ async function handleCreateCard(stripeKey: string, entity_id: string, wallet_add
     .single();
 
   if (!entity) {
-    return jsonResponse({ error: 'Entity not found' }, 404);
+    return jsonResponse({ error: 'Entity not found' }, 404, corsHeaders);
   }
 
-  // Create Stripe cardholder
   const cardholder = await stripeRequest(stripeKey, 'issuing/cardholders', 'POST', {
     type: 'individual',
-    name: entity.display_name || `Provider ${wallet_address.slice(0, 8)}`,
+    name: entity.display_name || `Provider ${redactWallet(wallet_address)}`,
     email: `${wallet_address.toLowerCase()}@carecoin.app`,
     status: 'active',
     billing: {
-      address: {
-        line1: '1 CareCoin Way',
-        city: 'San Francisco',
-        state: 'CA',
-        postal_code: '94111',
-        country: 'US',
-      },
+      address: { line1: '1 CareCoin Way', city: 'San Francisco', state: 'CA', postal_code: '94111', country: 'US' },
     },
-    metadata: { entity_id, wallet_address },
+    metadata: { entity_id, wallet_address: redactWallet(wallet_address) },
   });
 
-  // Create virtual card
   const card = await stripeRequest(stripeKey, 'issuing/cards', 'POST', {
     cardholder: cardholder.id,
     currency: 'usd',
     type: 'virtual',
     status: 'active',
-    spending_controls: {
-      spending_limits: [{ amount: 500000, interval: 'monthly' }],
-    },
-    metadata: { entity_id, wallet_address },
+    spending_controls: { spending_limits: [{ amount: 500000, interval: 'monthly' }] },
+    metadata: { entity_id },
   });
 
-  // Store mapping
   await supabase.from('system_settings').upsert({
     key: `stripe_card_${entity_id}`,
     value: { card_id: card.id, cardholder_id: cardholder.id, usd_balance: 0 },
@@ -251,20 +261,18 @@ async function handleCreateCard(stripeKey: string, entity_id: string, wallet_add
       spending_limit: 5000,
       usd_balance: 0,
     },
-  });
+  }, 200, corsHeaders);
 }
 
-async function handleConvert(stripeKey: string, entity_id: string, wallet_address: string, care_amount: number, supabase: any) {
+async function handleConvert(stripeKey: string, entity_id: string, wallet_address: string, care_amount: number, supabase: any, corsHeaders: Record<string, string>) {
   if (!care_amount || care_amount <= 0) {
-    return jsonResponse({ error: 'Invalid amount' }, 400);
+    return jsonResponse({ error: 'Invalid amount' }, 400, corsHeaders);
   }
 
   const usdRate = 0.01;
   const fee = 0.01;
   const usdAmount = care_amount * usdRate * (1 - fee);
-  const usdCents = Math.round(usdAmount * 100);
 
-  // Get card info
   const { data: settings } = await supabase
     .from('system_settings')
     .select('value')
@@ -272,12 +280,8 @@ async function handleConvert(stripeKey: string, entity_id: string, wallet_addres
     .maybeSingle();
 
   if (!settings?.value?.card_id) {
-    return jsonResponse({ error: 'No card found' }, 400);
+    return jsonResponse({ error: 'No card found' }, 400, corsHeaders);
   }
-
-  // In production: here you would call a DEX or liquidity pool to swap CARE → USDC
-  // Then use Stripe Treasury to fund the card from the USDC→USD proceeds
-  // For now, update the tracked balance
 
   const newBalance = (settings.value.usd_balance || 0) + usdAmount;
 
@@ -292,23 +296,20 @@ async function handleConvert(stripeKey: string, entity_id: string, wallet_addres
     usdc_amount: care_amount * usdRate,
     usd_loaded: usdAmount,
     new_balance: newBalance,
-  });
+  }, 200, corsHeaders);
 }
 
-async function handleFreezeCard(stripeKey: string, card_id: string, freeze: boolean) {
+async function handleFreezeCard(stripeKey: string, card_id: string, freeze: boolean, corsHeaders: Record<string, string>) {
   const card = await stripeRequest(stripeKey, `issuing/cards/${card_id}`, 'POST', {
     status: freeze ? 'inactive' : 'active',
   });
 
-  return jsonResponse({ success: true, status: card.status });
+  return jsonResponse({ success: true, status: card.status }, 200, corsHeaders);
 }
 
-// Stripe API helper
 async function stripeRequest(secretKey: string, endpoint: string, method: string, body?: any) {
   const url = `https://api.stripe.com/v1/${endpoint}`;
-  const headers: Record<string, string> = {
-    'Authorization': `Bearer ${secretKey}`,
-  };
+  const headers: Record<string, string> = { 'Authorization': `Bearer ${secretKey}` };
 
   let bodyStr: string | undefined;
   if (body && method === 'POST') {
@@ -320,7 +321,7 @@ async function stripeRequest(secretKey: string, endpoint: string, method: string
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(`Stripe error [${res.status}]: ${JSON.stringify(data)}`);
+    throw new Error(`Stripe error [${res.status}]`);
   }
 
   return data;
@@ -339,7 +340,7 @@ function flattenToFormData(obj: any, prefix = ''): string {
   return parts.join('&');
 }
 
-function jsonResponse(data: any, status = 200) {
+function jsonResponse(data: any, status = 200, corsHeaders: Record<string, string>) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,10 +1,37 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { crypto } from 'https://deno.land/std@0.177.0/crypto/mod.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-epic-signature, x-pcc-signature, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+const ALLOWED_ORIGINS = [
+  'https://carewallet.lovable.app',
+  'https://id-preview--63f64bab-d4cb-4037-bbce-9b1e2546fa52.lovable.app',
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-epic-signature, x-pcc-signature, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  };
+}
+
+function redactWallet(w: string | null | undefined): string {
+  if (!w) return '[none]';
+  return w.length > 10 ? `${w.slice(0, 6)}…${w.slice(-4)}` : '[short]';
+}
+
+async function auditLog(supabase: any, action: string, resourceType: string, details: Record<string, unknown> = {}, req?: Request, wallet?: string) {
+  try {
+    await supabase.from('audit_logs').insert({
+      action,
+      resource_type: resourceType,
+      actor_wallet: wallet ? redactWallet(wallet) : null,
+      ip_address: req?.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+      user_agent: req?.headers.get('user-agent')?.slice(0, 200) || null,
+      details,
+    });
+  } catch { /* non-fatal */ }
+}
 
 // Map EHR event types to our documentation event types
 const EPIC_EVENT_MAP: Record<string, string> = {
@@ -20,26 +47,15 @@ const EPIC_EVENT_MAP: Record<string, string> = {
   'followup.completed': 'follow_up_completed',
 };
 
-const PCC_EVENT_MAP: Record<string, string> = {
-  'encounter.complete': 'encounter_note',
-  'medication.reconciliation': 'medication_reconciliation',
-  'discharge.summary': 'discharge_summary',
-  'problem.update': 'problem_list_update',
-  'order.verified': 'orders_verified',
-  'preventive.care': 'preventive_care',
-  'coding.finalized': 'coding_finalized',
-  'intake.completed': 'intake_completed',
-  'consent.signed': 'consent_signed',
-  'followup.completed': 'follow_up_completed',
-};
+const PCC_EVENT_MAP: Record<string, string> = { ...EPIC_EVENT_MAP };
 
 interface EhrEvent {
   eventType: string;
   timestamp: string;
-  source?: 'epic' | 'pointclickcare'; // Detected from header or payload
+  source?: 'epic' | 'pointclickcare';
   providerNPI?: string;
   providerWallet?: string;
-  patientId?: string; // Hashed/anonymized patient ID
+  patientId?: string;
   organizationId?: string;
   metadata?: Record<string, unknown>;
 }
@@ -65,7 +81,8 @@ const parseTimestamp = (timestamp?: string) => {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -75,14 +92,13 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Detect source EHR from header
     const pccSignatureHeader = req.headers.get('x-pcc-signature') ?? '';
     const epicSignatureHeader = req.headers.get('x-epic-signature') ?? '';
     const signatureHeader = epicSignatureHeader || pccSignatureHeader;
 
     if (!signatureHeader) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Missing signature header (x-epic-signature or x-pcc-signature)' }),
+        JSON.stringify({ success: false, error: 'Missing signature header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
@@ -98,14 +114,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Determine the source EHR system
     const sourceEhr: 'epic' | 'pointclickcare' = pccSignatureHeader ? 'pointclickcare' : payload.source === 'pointclickcare' ? 'pointclickcare' : 'epic';
-    console.log('Received EHR event:', payload.eventType, 'from', sourceEhr);
 
-    // Validate required fields
     if (!payload.eventType || !payload.providerWallet) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Missing required fields: eventType and providerWallet' }),
+        JSON.stringify({ success: false, error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -127,18 +140,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Map EHR event type to our internal event type
     const eventMap = sourceEhr === 'pointclickcare' ? PCC_EVENT_MAP : EPIC_EVENT_MAP;
     const eventType = eventMap[payload.eventType];
     if (!eventType) {
-      console.log('Unknown event type from', sourceEhr, ':', payload.eventType);
       return new Response(
-        JSON.stringify({ success: false, error: `Unknown event type: ${payload.eventType}` }),
+        JSON.stringify({ success: false, error: 'Unknown event type' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Find the provider entity by wallet address
     const { data: provider, error: providerError } = await supabase
       .from('entities')
       .select('id, wallet_address, organization_id')
@@ -146,7 +156,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (providerError || !provider) {
-      console.error('Provider not found:', payload.providerWallet);
       return new Response(
         JSON.stringify({ success: false, error: 'Provider wallet not registered' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -183,13 +192,14 @@ Deno.serve(async (req) => {
     );
 
     if (!signatureValid) {
+      await auditLog(supabase, 'webhook_invalid_signature', 'ehr_webhook', { source: sourceEhr }, req, normalizedWallet);
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid signature' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    // Generate event hash (for deduplication and attestation)
+    // Generate event hash for deduplication
     const eventData = JSON.stringify({
       eventType: payload.eventType,
       timestamp: new Date(eventTimestampMs).toISOString(),
@@ -200,7 +210,6 @@ Deno.serve(async (req) => {
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const eventHash = toHex(hashBuffer);
 
-    // Check for duplicate events
     const { data: existingEvent } = await supabase
       .from('documentation_events')
       .select('id')
@@ -208,14 +217,12 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existingEvent) {
-      console.log('Duplicate event detected:', eventHash);
       return new Response(
         JSON.stringify({ success: true, message: 'Event already processed', eventId: existingEvent.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create documentation event
     const { data: docEvent, error: docError } = await supabase
       .from('documentation_events')
       .insert({
@@ -230,16 +237,15 @@ Deno.serve(async (req) => {
       .single();
 
     if (docError) {
-      console.error('Error creating documentation event:', docError);
       return new Response(
         JSON.stringify({ success: false, error: 'Failed to create documentation event' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Created documentation event:', docEvent.id);
+    await auditLog(supabase, 'ehr_event_processed', 'documentation_events', { event_id: docEvent.id, source: sourceEhr, event_type: eventType }, req, normalizedWallet);
 
-    // Get reward policy for this event type
+    // Get reward policy
     const { data: policy } = await supabase
       .from('reward_policies')
       .select('*')
@@ -248,18 +254,13 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!policy) {
-      console.log('No active reward policy for event type:', eventType);
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Event recorded, no reward policy active',
-          eventId: docEvent.id 
-        }),
+        JSON.stringify({ success: true, message: 'Event recorded, no reward policy active', eventId: docEvent.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get network fee configuration
+    // Network fee
     const { data: networkFeeSetting } = await supabase
       .from('system_settings')
       .select('value')
@@ -268,8 +269,6 @@ Deno.serve(async (req) => {
 
     const networkFee = networkFeeSetting?.value as { wallet_address: string; percentage: number } | null;
     const networkFeePercent = networkFee?.percentage || 0;
-
-    // Calculate network fee and remaining reward
     const networkFeeAmount = (policy.base_reward * networkFeePercent) / 100;
     const remainingReward = policy.base_reward - networkFeeAmount;
 
@@ -279,39 +278,31 @@ Deno.serve(async (req) => {
     if (organizationId) {
       const { data: organizationEntity } = await supabase
         .from('entities')
-        .select('id, creator_wallet_address, metadata')
+        .select('id, metadata')
         .eq('id', organizationId)
         .maybeSingle();
 
       const metadata = organizationEntity?.metadata as Record<string, unknown> | null;
-      const metadataWallet = typeof metadata?.creator_wallet_address === 'string'
-        ? metadata.creator_wallet_address
-        : typeof metadata?.owner_wallet_address === 'string'
-          ? metadata.owner_wallet_address
-          : typeof metadata?.org_creator_wallet_address === 'string'
-            ? metadata.org_creator_wallet_address
-            : null;
-
-      orgCreatorWallet = organizationEntity?.creator_wallet_address || metadataWallet || null;
+      orgCreatorWallet =
+        (typeof metadata?.creator_wallet_address === 'string' ? metadata.creator_wallet_address : null) ||
+        (typeof metadata?.owner_wallet_address === 'string' ? metadata.owner_wallet_address : null) ||
+        (typeof metadata?.org_creator_wallet_address === 'string' ? metadata.org_creator_wallet_address : null);
     }
 
-    // Create attestation (pending - will be confirmed when signed on-chain)
+    // Create attestation
     const { data: attestation, error: attError } = await supabase
       .from('attestations')
       .insert({
         event_id: docEvent.id,
         oracle_key_id: (await supabase.from('oracle_keys').select('id').eq('is_active', true).limit(1).single()).data?.id,
-        signature: 'pending', // Will be replaced with actual signature
+        signature: 'pending',
         status: 'pending',
       })
       .select()
       .single();
 
-    if (attError) {
-      console.error('Error creating attestation:', attError);
-      // Event was still created, just no attestation
-    } else {
-      // Create network fee ledger entry (split treasury fee: 25% org creator, 75% treasury)
+    if (!attError && attestation) {
+      // Network fee distribution
       if (networkFee && networkFeeAmount > 0) {
         let orgCreatorBonus = (networkFeeAmount * 25) / 100;
         let treasuryAmount = networkFeeAmount - orgCreatorBonus;
@@ -332,9 +323,7 @@ Deno.serve(async (req) => {
               status: 'confirmed',
               confirmed_at: new Date().toISOString(),
             });
-            console.log('Created org creator bonus:', orgCreatorBonus, 'CARE for', orgCreatorWallet);
           } else {
-            console.warn('Org creator wallet entity not found:', orgCreatorWallet);
             orgCreatorBonus = 0;
             treasuryAmount = networkFeeAmount;
           }
@@ -358,18 +347,14 @@ Deno.serve(async (req) => {
             status: 'confirmed',
             confirmed_at: new Date().toISOString(),
           });
-          console.log('Created network fee:', treasuryAmount, 'CARE for treasury');
-        } else {
-          console.warn('Network fee wallet entity not found:', networkFee.wallet_address);
         }
       }
 
-      // Calculate stakeholder rewards from remaining amount (after network fee)
+      // Stakeholder rewards
       const providerReward = (remainingReward * policy.provider_split) / 100;
       const organizationReward = (remainingReward * policy.organization_split) / 100;
       const patientReward = (remainingReward * policy.patient_split) / 100;
 
-      // Create reward ledger entry for provider
       await supabase.from('rewards_ledger').insert({
         attestation_id: attestation.id,
         recipient_id: provider.id,
@@ -378,9 +363,7 @@ Deno.serve(async (req) => {
         status: 'confirmed',
         confirmed_at: new Date().toISOString(),
       });
-      console.log('Created reward:', providerReward, 'CARE for provider');
 
-      // Create reward ledger entry for organization
       if (organizationReward > 0 && provider.organization_id) {
         await supabase.from('rewards_ledger').insert({
           attestation_id: attestation.id,
@@ -390,10 +373,8 @@ Deno.serve(async (req) => {
           status: 'confirmed',
           confirmed_at: new Date().toISOString(),
         });
-        console.log('Created reward:', organizationReward, 'CARE for organization');
       }
 
-      // Create reward ledger entry for patient (if patient entity exists)
       if (patientReward > 0 && payload.patientId) {
         const { data: patientEntity } = await supabase
           .from('entities')
@@ -410,16 +391,10 @@ Deno.serve(async (req) => {
             status: 'confirmed',
             confirmed_at: new Date().toISOString(),
           });
-          console.log('Created reward:', patientReward, 'CARE for patient');
-        } else {
-          console.warn('Patient entity not found for:', payload.patientId, '- patient reward skipped');
         }
       }
-
-      console.log('Total distribution - Provider:', providerReward, 'Org:', organizationReward, 'Patient:', patientReward, 'Network fee:', networkFeeAmount);
     }
 
-    // Calculate rewards for response
     const providerRewardForResponse = (remainingReward * policy.provider_split) / 100;
     const orgRewardForResponse = (remainingReward * policy.organization_split) / 100;
     const patientRewardForResponse = (remainingReward * policy.patient_split) / 100;
@@ -440,10 +415,10 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error processing EHR webhook:', error);
+    console.error('Webhook processing error');
     return new Response(
       JSON.stringify({ success: false, error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });
