@@ -78,6 +78,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [entityLoading, setEntityLoading] = useState(false);
   const [earnedBalance, setEarnedBalance] = useState(0);
   const [earnedBalanceLoading, setEarnedBalanceLoading] = useState(false);
+  const [isOrgOwner, setIsOrgOwner] = useState(false);
   
   // On-chain balance from blockchain
   const { 
@@ -135,6 +136,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchEntity();
+  }, [address]);
+
+  // Check if wallet owns any organization
+  useEffect(() => {
+    if (!address) { setIsOrgOwner(false); return; }
+    supabase
+      .from('entities')
+      .select('id')
+      .eq('entity_type', 'organization')
+      .filter('metadata->>owner_wallet_address', 'eq', address.toLowerCase())
+      .limit(1)
+      .then(({ data }) => setIsOrgOwner(!!data?.length));
   }, [address]);
 
   const refreshEntity = async () => {
@@ -217,8 +230,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     entityLoading,
     isProvider: entity?.entity_type === 'provider' || entity?.entity_type === 'admin',
     isPatient: entity?.entity_type === 'patient',
-    isOrganization: entity?.entity_type === 'organization' || (Array.isArray((entity?.metadata as any)?.roles) && ((entity?.metadata as any)?.roles as string[]).includes('organization')),
-    isAdmin: entity?.entity_type === 'admin' || (Array.isArray((entity?.metadata as any)?.roles) && ((entity?.metadata as any)?.roles as string[]).includes('admin')),
+    isOrganization: isOrgOwner || entity?.entity_type === 'organization' || (Array.isArray((entity?.metadata as any)?.roles) && ((entity?.metadata as any)?.roles as string[]).includes('organization')),
+    isAdmin: isOrgOwner || entity?.entity_type === 'admin' || (Array.isArray((entity?.metadata as any)?.roles) && ((entity?.metadata as any)?.roles as string[]).includes('admin')),
     earnedBalance,
     earnedBalanceLoading,
     onChainBalance,

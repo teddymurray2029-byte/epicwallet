@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
       }
     } catch (stripeErr) {
       const errMsg = String(stripeErr);
-      if (errMsg.includes('not set up to use Issuing') || errMsg.includes('Issuing')) {
+      if (errMsg.includes('Issuing') || errMsg.includes('[403]') || errMsg.includes('[404]') || errMsg.includes('capability') || errMsg.includes('not set up')) {
         return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);
       }
       throw stripeErr;
@@ -321,7 +321,8 @@ async function stripeRequest(secretKey: string, endpoint: string, method: string
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(`Stripe error [${res.status}]`);
+    const errBody = data?.error?.message || JSON.stringify(data);
+    throw new Error(`Stripe error [${res.status}]: ${errBody}`);
   }
 
   return data;

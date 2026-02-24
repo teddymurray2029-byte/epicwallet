@@ -78,7 +78,8 @@ export default function OrganizationInvites() {
     if (!entity?.id) return;
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}`
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}`,
+        { headers: { 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
       );
       const data = await res.json();
       if (data.configured) {
@@ -154,7 +155,7 @@ export default function OrganizationInvites() {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
           body: JSON.stringify({ ehr_type: ehrType, client_id: creds.client_id.trim(), client_secret: creds.client_secret.trim() }),
         }
       );
@@ -180,7 +181,7 @@ export default function OrganizationInvites() {
     try {
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}&ehr_type=${ehrType}`,
-        { method: 'DELETE' }
+        { method: 'DELETE', headers: { 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
       );
       const data = await res.json();
       if (data.success) {

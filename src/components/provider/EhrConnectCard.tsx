@@ -56,18 +56,19 @@ export function EhrConnectCard() {
     const cfg = EHR_CONFIG[type];
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${cfg.authFunction}?action=authorize&entity_id=${entity.id}`
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${cfg.authFunction}?action=authorize&entity_id=${entity.id}`,
+        { headers: { 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
       );
-      const data = await res.json();
-      if (data.configured === false) {
+      const respData = await res.json();
+      if (respData.configured === false) {
         toast({ title: `${cfg.label} Not Configured`, description: 'Ask your organization admin to add credentials on the Organization Management page.', variant: 'destructive' });
         setConnecting(null);
         return;
       }
-      if (data.authorize_url) {
-        window.location.href = data.authorize_url;
+      if (respData.authorize_url) {
+        window.location.href = respData.authorize_url;
       } else {
-        toast({ title: 'Error', description: data.error || 'Failed to connect', variant: 'destructive' });
+        toast({ title: 'Error', description: respData.error || 'Failed to connect', variant: 'destructive' });
         setConnecting(null);
       }
     } catch {
