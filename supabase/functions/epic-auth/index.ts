@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
 
       if (findErr || !integration) {
         console.error('Invalid state token:', state);
-        return Response.redirect(`${frontendBase}/provider/epic?error=invalid_state`, 302);
+        return Response.redirect(`${frontendBase}/provider/ehr?error=invalid_state`, 302);
       }
 
       // Re-resolve credentials for the callback entity
@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
       if (!tokenRes.ok) {
         const errText = await tokenRes.text();
         console.error('Token exchange failed:', errText);
-        return Response.redirect(`${frontendBase}/provider/epic?error=token_exchange_failed`, 302);
+        return Response.redirect(`${frontendBase}/provider/ehr?error=token_exchange_failed`, 302);
       }
 
       const tokenData = await tokenRes.json();
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
 
       if (updateErr) {
         console.error('Failed to store tokens:', updateErr);
-        return Response.redirect(`${frontendBase}/provider/epic?error=storage_failed`, 302);
+        return Response.redirect(`${frontendBase}/provider/ehr?error=storage_failed`, 302);
       }
 
       console.log('Epic OAuth flow completed for integration:', integration.id);

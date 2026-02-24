@@ -18,6 +18,7 @@ import ProviderTransactions from "./pages/provider/ProviderTransactions";
 import EhrIntegration from "./pages/provider/EhrIntegration";
 import VirtualCard from "./pages/provider/VirtualCard";
 import DeployContract from "./pages/admin/DeployContract";
+import InviteAcceptLegacy from "./pages/InviteAccept";
 import OrganizationInvites from "./pages/organization/OrganizationInvites";
 import AcceptInvite from "./pages/invites/AcceptInvite";
 
@@ -84,6 +85,7 @@ const App = () => (
               <Route path="/admin/organizations" element={<OrganizationInvites />} />
 
               {/* Invite Routes */}
+              <Route path="/invites/accept" element={<AcceptInvite />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
               
               {/* Catch-all */}

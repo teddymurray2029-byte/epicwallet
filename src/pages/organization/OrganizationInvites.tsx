@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Copy, Link2, RefreshCw, XCircle, Shield, CheckCircle2, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Copy, Link2, RefreshCw, XCircle, Shield, CheckCircle2, Eye, EyeOff, Trash2, Loader2 } from 'lucide-react';
 
 interface OrganizationInvite {
   id: string;
@@ -303,7 +303,7 @@ export default function OrganizationInvites() {
           </CardHeader>
           <CardContent>
             {loadingInvites ? (
-              <div className="text-sm text-muted-foreground">Loading invites...</div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading invites...</div>
             ) : inviteSummary.length === 0 ? (
               <div className="text-sm text-muted-foreground">No invites created yet.</div>
             ) : (
