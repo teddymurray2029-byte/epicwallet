@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
+import { HipaaNotice } from './HipaaNotice';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -100,6 +101,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               {children}
             </div>
           </main>
+
+          {/* HIPAA compliance footer */}
+          <HipaaNotice />
         </div>
       </div>
     </SidebarProvider>
