@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
 
     const { data: org, error: orgError } = await supabase
       .from('entities')
-      .select('id, entity_type, wallet_address')
+      .select('id, entity_type, wallet_address, metadata')
       .eq('id', organizationId)
       .eq('entity_type', 'organization')
       .maybeSingle();
@@ -110,7 +110,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (org.wallet_address.toLowerCase() !== walletAddress.toLowerCase()) {
+    // Check ownership: either the org's wallet_address matches, or the caller is the owner via metadata
+    const ownerWallet = (org.metadata as any)?.owner_wallet_address?.toLowerCase();
+    const isOwner = org.wallet_address.toLowerCase() === walletAddress.toLowerCase() ||
+                    (ownerWallet && ownerWallet === walletAddress.toLowerCase());
+
+    if (!isOwner) {
       await auditLog(supabase, 'unauthorized_credential_access', 'ehr_credentials', { organization_id: organizationId }, req, walletAddress);
       return new Response(
         JSON.stringify({ error: 'Unauthorized: wallet does not own this organization' }),
