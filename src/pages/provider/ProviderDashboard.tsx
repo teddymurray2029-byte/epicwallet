@@ -111,7 +111,7 @@ export default function ProviderDashboard() {
           </Card>
 
           {/* Feature highlights */}
-          <div className="grid grid-cols-3 gap-4 mt-8 max-w-md w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 max-w-md w-full">
             {[
               { icon: Coins, label: 'Earn Rewards', desc: 'CARE tokens for documentation' },
               { icon: Activity, label: 'Track Activity', desc: 'Real-time event monitoring' },

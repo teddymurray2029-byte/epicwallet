@@ -23,12 +23,7 @@ import {
 } from '@/components/ui/tooltip';
 import {
   LayoutDashboard,
-  FileText,
   Wallet,
-  TrendingUp,
-  Settings,
-  Shield,
-  Users,
   Activity,
   Receipt,
   QrCode,
@@ -37,6 +32,7 @@ import {
   Coins,
   Link2,
   Rocket,
+  Users,
 } from 'lucide-react';
 
 // Provider navigation items
@@ -63,10 +59,6 @@ const adminNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Organizations', url: '/admin/organizations', icon: Users },
   { title: 'Deploy Contract', url: '/admin/deploy', icon: Rocket },
-  { title: 'Policies', url: '/admin/policies', icon: FileText },
-  { title: 'Oracle Keys', url: '/admin/oracles', icon: Shield },
-  { title: 'Monitoring', url: '/admin/monitoring', icon: TrendingUp },
-  { title: 'Settings', url: '/admin/settings', icon: Settings },
 ];
 
 export function AppSidebar() {
