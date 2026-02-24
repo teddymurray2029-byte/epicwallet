@@ -17,10 +17,41 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
 
     const organizationId = url.searchParams.get('organization_id');
+    const walletAddress = url.searchParams.get('wallet_address');
+
     if (!organizationId) {
       return new Response(
         JSON.stringify({ error: 'organization_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Authorization: verify caller's wallet owns the organization
+    if (!walletAddress) {
+      return new Response(
+        JSON.stringify({ error: 'wallet_address is required for authorization' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    const { data: org, error: orgError } = await supabase
+      .from('entities')
+      .select('id, entity_type, wallet_address')
+      .eq('id', organizationId)
+      .eq('entity_type', 'organization')
+      .maybeSingle();
+
+    if (orgError || !org) {
+      return new Response(
+        JSON.stringify({ error: 'Organization not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    if (org.wallet_address.toLowerCase() !== walletAddress.toLowerCase()) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: wallet does not own this organization' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -70,22 +101,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Verify the organization exists and is an organization entity
-      const { data: org, error: orgError } = await supabase
-        .from('entities')
-        .select('id, entity_type')
-        .eq('id', organizationId)
-        .eq('entity_type', 'organization')
-        .maybeSingle();
-
-      if (orgError || !org) {
-        return new Response(
-          JSON.stringify({ error: 'Organization not found' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-
-      // Upsert credentials
       const { error: upsertError } = await supabase
         .from('ehr_credentials')
         .upsert(
@@ -102,6 +117,36 @@ Deno.serve(async (req) => {
         console.error('Failed to save credentials:', upsertError);
         return new Response(
           JSON.stringify({ error: 'Failed to save credentials' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // DELETE: Remove credentials
+    if (req.method === 'DELETE') {
+      const ehrType = url.searchParams.get('ehr_type');
+      if (!ehrType || !['epic', 'pointclickcare'].includes(ehrType)) {
+        return new Response(
+          JSON.stringify({ error: 'ehr_type query parameter is required (epic or pointclickcare)' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      const { error: deleteError } = await supabase
+        .from('ehr_credentials')
+        .delete()
+        .eq('organization_id', organizationId)
+        .eq('ehr_type', ehrType);
+
+      if (deleteError) {
+        console.error('Failed to delete credentials:', deleteError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to delete credentials' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }

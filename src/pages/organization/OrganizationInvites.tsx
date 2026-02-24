@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Copy, Link2, RefreshCw, XCircle } from 'lucide-react';
+import { Copy, Link2, RefreshCw, XCircle, Shield, CheckCircle2, Eye, EyeOff, Trash2 } from 'lucide-react';
 
 interface OrganizationInvite {
   id: string;
@@ -30,6 +30,17 @@ export default function OrganizationInvites() {
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [expiryDays, setExpiryDays] = useState(String(DEFAULT_EXPIRY_DAYS));
   const [latestInviteLink, setLatestInviteLink] = useState<string | null>(null);
+
+  // EHR Credentials state
+  const [ehrCreds, setEhrCreds] = useState<Record<string, { client_id: string; client_secret: string }>>({
+    epic: { client_id: '', client_secret: '' },
+    pointclickcare: { client_id: '', client_secret: '' },
+  });
+  const [ehrConfigured, setEhrConfigured] = useState<Record<string, boolean>>({ epic: false, pointclickcare: false });
+  const [ehrSaving, setEhrSaving] = useState<string | null>(null);
+  const [ehrSaved, setEhrSaved] = useState<string | null>(null);
+  const [ehrDeleting, setEhrDeleting] = useState<string | null>(null);
+  const [showSecret, setShowSecret] = useState<Record<string, boolean>>({ epic: false, pointclickcare: false });
 
   const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
 
@@ -62,8 +73,27 @@ export default function OrganizationInvites() {
     setLoadingInvites(false);
   };
 
+  // Fetch EHR credential status
+  const fetchEhrStatus = async () => {
+    if (!entity?.id) return;
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}`
+      );
+      const data = await res.json();
+      if (data.configured) {
+        setEhrConfigured(data.configured);
+      }
+    } catch {
+      // silently fail
+    }
+  };
+
   useEffect(() => {
-    if (entity && isOrganization) { fetchInvites(); }
+    if (entity && isOrganization) {
+      fetchInvites();
+      fetchEhrStatus();
+    }
   }, [entity, isOrganization]);
 
   const handleCopy = async (link: string) => {
@@ -108,6 +138,61 @@ export default function OrganizationInvites() {
     }
     toast({ title: 'Invite revoked' });
     await fetchInvites();
+  };
+
+  const handleSaveEhrCredentials = async (ehrType: string) => {
+    if (!entity?.id) return;
+    const creds = ehrCreds[ehrType];
+    if (!creds.client_id.trim() || !creds.client_secret.trim()) {
+      toast({ title: 'Missing fields', description: 'Please provide both Client ID and Client Secret.', variant: 'destructive' });
+      return;
+    }
+    setEhrSaving(ehrType);
+    setEhrSaved(null);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ehr_type: ehrType, client_id: creds.client_id.trim(), client_secret: creds.client_secret.trim() }),
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setEhrConfigured(prev => ({ ...prev, [ehrType]: true }));
+        setEhrSaved(ehrType);
+        setEhrCreds(prev => ({ ...prev, [ehrType]: { client_id: '', client_secret: '' } }));
+        toast({ title: 'Credentials saved', description: `${ehrType === 'epic' ? 'Epic' : 'PointClickCare'} OAuth credentials have been saved securely.` });
+        setTimeout(() => setEhrSaved(null), 3000);
+      } else {
+        toast({ title: 'Error', description: data.error || 'Failed to save credentials', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to save credentials', variant: 'destructive' });
+    }
+    setEhrSaving(null);
+  };
+
+  const handleDeleteEhrCredentials = async (ehrType: string) => {
+    if (!entity?.id) return;
+    setEhrDeleting(ehrType);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-ehr-credentials?organization_id=${entity.id}&wallet_address=${entity.wallet_address}&ehr_type=${ehrType}`,
+        { method: 'DELETE' }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setEhrConfigured(prev => ({ ...prev, [ehrType]: false }));
+        toast({ title: 'Credentials removed', description: `${ehrType === 'epic' ? 'Epic' : 'PointClickCare'} credentials have been removed.` });
+      } else {
+        toast({ title: 'Error', description: data.error || 'Failed to remove credentials', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to remove credentials', variant: 'destructive' });
+    }
+    setEhrDeleting(null);
   };
 
   if (isConnecting) {
@@ -161,9 +246,9 @@ export default function OrganizationInvites() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="animate-fade-in-up">
-          <h1 className="page-header inline-block">Organization Invites</h1>
+          <h1 className="page-header inline-block">Organization Management</h1>
           <p className="text-muted-foreground">
-            Generate secure links to onboard new providers, patients, and admins into your organization.
+            Manage invites and EHR credentials for your organization.
           </p>
         </div>
 
@@ -260,6 +345,94 @@ export default function OrganizationInvites() {
                 })}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* EHR OAuth Credentials */}
+        <Card className="animate-fade-in-up" style={{ animationDelay: '240ms' }}>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Shield className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>EHR OAuth Credentials</CardTitle>
+                <CardDescription>Enter your OAuth Client ID and Secret so providers can connect their EHR systems.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {(['epic', 'pointclickcare'] as const).map((ehrType) => {
+              const label = ehrType === 'epic' ? 'Epic' : 'PointClickCare';
+              const creds = ehrCreds[ehrType];
+              const configured = ehrConfigured[ehrType];
+              return (
+                <div key={ehrType} className="space-y-3 rounded-lg border border-border/40 bg-muted/20 p-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold">{label}</h4>
+                    {configured && (
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 text-xs text-[hsl(var(--care-green))]">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Configured
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive h-7 px-2"
+                          onClick={() => handleDeleteEhrCredentials(ehrType)}
+                          loading={ehrDeleting === ehrType}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Client ID</label>
+                      <Input
+                        placeholder={configured ? '••••••••' : `${label} Client ID`}
+                        value={creds.client_id}
+                        onChange={(e) => setEhrCreds(prev => ({ ...prev, [ehrType]: { ...prev[ehrType], client_id: e.target.value } }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Client Secret</label>
+                      <div className="relative">
+                        <Input
+                          type={showSecret[ehrType] ? 'text' : 'password'}
+                          placeholder={configured ? '••••••••' : `${label} Client Secret`}
+                          value={creds.client_secret}
+                          onChange={(e) => setEhrCreds(prev => ({ ...prev, [ehrType]: { ...prev[ehrType], client_secret: e.target.value } }))}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setShowSecret(prev => ({ ...prev, [ehrType]: !prev[ehrType] }))}
+                        >
+                          {showSecret[ehrType] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 justify-end">
+                    {ehrSaved === ehrType && (
+                      <span className="flex items-center gap-1 text-xs text-[hsl(var(--care-green))] animate-fade-in-up">
+                        <CheckCircle2 className="h-4 w-4" /> Saved
+                      </span>
+                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => handleSaveEhrCredentials(ehrType)}
+                      loading={ehrSaving === ehrType}
+                      disabled={!creds.client_id.trim() || !creds.client_secret.trim()}
+                    >
+                      {configured ? `Update ${label}` : `Save ${label}`}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       </div>

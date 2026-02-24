@@ -36,7 +36,6 @@ import {
   History,
   Coins,
   Link2,
-  UserPlus,
   Rocket,
 } from 'lucide-react';
 
@@ -63,7 +62,6 @@ const patientNavItems = [
 const adminNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Organizations', url: '/admin/organizations', icon: Users },
-  { title: 'Invites', url: '/organization/invites', icon: UserPlus },
   { title: 'Deploy Contract', url: '/admin/deploy', icon: Rocket },
   { title: 'Policies', url: '/admin/policies', icon: FileText },
   { title: 'Oracle Keys', url: '/admin/oracles', icon: Shield },
