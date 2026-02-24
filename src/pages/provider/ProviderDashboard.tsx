@@ -9,7 +9,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wallet, Shield, Coins, UserPlus, TrendingUp, Activity, Users } from 'lucide-react';
+import { Wallet, Shield, Coins, UserPlus, TrendingUp, Activity, Users, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -59,7 +59,17 @@ export default function ProviderDashboard() {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="animate-pulse text-muted-foreground">Connecting wallet...</div>
+          <div className="loading-card max-w-xs w-full animate-scale-pop">
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[hsl(var(--care-teal))] via-[hsl(var(--care-blue))] to-[hsl(var(--care-green))] text-white shadow-[var(--shadow-glow-teal)]">
+              <svg viewBox="0 0 32 32" fill="none" className="h-7 w-7">
+                <text x="3" y="23" fontFamily="Inter, sans-serif" fontSize="16" fontWeight="700" fill="white">CC</text>
+              </svg>
+            </div>
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-sm font-medium text-muted-foreground">Connecting wallet...</span>
+            </div>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -88,7 +98,7 @@ export default function ProviderDashboard() {
   if (!isConnected) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 sm:px-6">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 sm:px-6 bg-mesh-animated rounded-2xl">
           <Card className="max-w-md w-full shimmer-border bg-gradient-to-br from-background via-background to-primary/10 shadow-[var(--shadow-elevated)]">
             <CardContent className="pt-8 pb-8 text-center space-y-6">
               <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 ring-1 ring-primary/30 shadow-[var(--shadow-glow-teal)] flex items-center justify-center" style={{ animation: 'float 3s ease-in-out infinite' }}>
@@ -102,7 +112,7 @@ export default function ProviderDashboard() {
               </div>
               <div className="flex flex-col gap-4">
                 <ConnectWalletButton />
-                <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center animate-fade-in-up" style={{ animationDelay: '300ms' }}>
                   <Shield className="h-3 w-3 text-primary" />
                   <span>Your wallet is your identity. No email or password needed.</span>
                 </div>
@@ -119,10 +129,10 @@ export default function ProviderDashboard() {
             ].map((feat, i) => (
               <div
                 key={feat.label}
-                className="flex flex-col items-center text-center p-3 rounded-lg border border-border/40 bg-card/50 backdrop-blur-sm"
+                className="flex flex-col items-center text-center p-4 rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm card-hover-lift"
                 style={{ animation: `fade-in-up 0.4s ease-out ${(i + 1) * 100}ms both` }}
               >
-                <feat.icon className="h-5 w-5 text-primary mb-2" />
+                <feat.icon className="h-6 w-6 text-primary mb-2" />
                 <p className="text-xs font-medium">{feat.label}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">{feat.desc}</p>
               </div>
@@ -177,9 +187,9 @@ export default function ProviderDashboard() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">or</span>
-                  <div className="h-px flex-1 bg-border" />
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">or</span>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
                 </div>
 
                 <div className="space-y-2 p-4 rounded-lg border border-border/40 bg-muted/20">
@@ -221,10 +231,11 @@ export default function ProviderDashboard() {
       <div className="space-y-6">
         {/* Welcome banner */}
         <div className="animate-fade-in-up">
-          <h1 className="page-header inline-block">
+          <h1 className="page-header inline-block text-3xl sm:text-4xl tracking-tighter">
             {entity?.display_name ? `Welcome back, ${entity.display_name}` : 'Provider Dashboard'}
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <div className="mt-1.5 h-1 w-16 rounded-full bg-gradient-to-r from-[hsl(var(--care-teal))] to-[hsl(var(--care-green))] opacity-60" />
+          <p className="text-muted-foreground mt-2">
             Track your healthcare documentation rewards and CARE token earnings
           </p>
         </div>

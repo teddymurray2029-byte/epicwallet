@@ -38,7 +38,7 @@ export function RecentActivityFeed() {
   }
 
   return (
-    <Card className={`card-shadow border-border/40 bg-gradient-to-br from-card via-card to-muted/30 transition-all duration-300 hover:card-shadow-hover`}>
+    <Card className={`card-shadow border-border/40 bg-gradient-to-br from-card via-card to-muted/30 card-hover-lift`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -65,8 +65,8 @@ export function RecentActivityFeed() {
             {activities.map((activity, index) => (
               <div
                 key={activity.id}
-                className={`flex items-center justify-between py-3 border-b border-border/30 last:border-0 hover:bg-muted/40 rounded-lg px-2 -mx-2 transition-all duration-200 ${
-                  index % 2 === 0 ? 'bg-muted/10' : ''
+                className={`flex items-center justify-between py-3 border-b border-border/30 last:border-0 activity-row rounded-lg px-2 -mx-2 ${
+                  index % 2 === 0 ? 'bg-muted/8' : ''
                 }`}
                 style={{ animation: `fade-in-up 0.4s ease-out ${index * 60}ms both` }}
               >
@@ -94,10 +94,12 @@ export function RecentActivityFeed() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <Activity className="h-10 w-10 mx-auto text-muted-foreground/40 mb-2" />
-            <p className="text-sm text-muted-foreground">No activity yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Start documenting to see your rewards here</p>
+          <div className="text-center py-10">
+            <div className="mx-auto w-14 h-14 rounded-full bg-muted/40 flex items-center justify-center mb-3">
+              <Activity className="h-7 w-7 text-muted-foreground/30" />
+            </div>
+            <p className="text-sm font-medium text-muted-foreground">No activity yet</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Start documenting to see your rewards here</p>
           </div>
         )}
       </CardContent>

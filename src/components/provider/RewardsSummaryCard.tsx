@@ -25,7 +25,7 @@ export function RewardsSummaryCard() {
   ];
 
   return (
-    <Card className={`card-glow-green border-border/40 bg-gradient-to-br from-card via-card to-accent/5 transition-all duration-300 hover:card-shadow-hover`}>
+    <Card className={`card-glow-green border-border/40 bg-gradient-to-br from-card via-card to-accent/5 card-hover-lift`}>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">Rewards Summary</CardTitle>
