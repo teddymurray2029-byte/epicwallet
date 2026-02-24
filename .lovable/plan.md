@@ -1,86 +1,168 @@
 
 
-## Improve CareCoin: Fix Remaining Issues and Polish
+# HIPAA Compliance Hardening Plan
 
-After a thorough audit, here are the remaining issues and improvements to make the app production-ready.
-
----
-
-### 1. Broken Invite Accept Route
-
-**Problem:** Invite links are generated as `/invites/accept?token=abc123`, but `App.tsx` only defines `/invite/:token` -- there is no `/invites/accept` route. Every invite link currently 404s.
-
-**Fix:** Add a route for `/invites/accept` in App.tsx pointing to AcceptInvite, and keep the old `/invite/:token` route for backward compatibility.
+This plan addresses the key technical safeguards required by the HIPAA Security Rule and Privacy Rule for your CareCoin healthcare application. HIPAA compliance involves both technical controls (what we can implement in code) and administrative/organizational policies (which you'll need to handle separately, like Business Associate Agreements with vendors).
 
 ---
 
-### 2. Dead Sidebar Links (Admin Nav)
+## What We Will Implement
 
-**Problem:** The admin sidebar lists "Policies" (`/admin/policies`), "Oracle Keys" (`/admin/oracles`), "Monitoring" (`/admin/monitoring`), and "Settings" (`/admin/settings`) -- none of these routes exist. They all 404.
+### 1. Audit Logging Table and Edge Function
 
-**Fix:** Remove the dead links from `AppSidebar.tsx` admin nav. Only keep "Dashboard", "Organizations", and "Deploy Contract" which have actual pages.
+Create an `audit_logs` table to track all access to sensitive data (EHR integrations, patient-related events, credential changes). HIPAA requires maintaining audit trails of who accessed what and when.
+
+- **New table**: `audit_logs` with columns for `action`, `actor_wallet`, `resource_type`, `resource_id`, `ip_address`, `user_agent`, `timestamp`, `details`
+- **RLS**: Only admins can read audit logs; insert allowed via service role from edge functions
+- **Edge function updates**: Add audit log entries in `epic-auth`, `pointclickcare-auth`, `epic-webhook`, `manage-ehr-credentials`, and `virtual-card` for key actions (OAuth initiated, tokens exchanged, credentials saved/deleted, webhook events processed)
+
+### 2. Automatic Session Timeout (Frontend)
+
+HIPAA requires automatic logoff after a period of inactivity.
+
+- Add an **inactivity timer** (15 minutes) to `WalletContext.tsx` that disconnects the wallet and clears sensitive state
+- Show a warning toast 2 minutes before timeout
+
+### 3. Sanitize Console Logging in Edge Functions
+
+Remove or redact all `console.log` and `console.warn` statements that could leak PHI or sensitive tokens. Currently, edge functions log:
+- Wallet addresses alongside event types
+- OAuth state tokens and integration IDs
+- Full error details that could contain patient data
+
+Changes across all edge functions:
+- Remove payload details from log messages
+- Redact wallet addresses to show only first 6 and last 4 characters
+- Never log access tokens, refresh tokens, or client secrets
+- Log only event IDs and generic status messages
+
+### 4. Tighten Overly Permissive RLS Policies
+
+The linter found 6 policies using `true` for INSERT/UPDATE/DELETE. These need restricting:
+
+| Table | Current Policy | Fix |
+|-------|---------------|-----|
+| `outreach_contacts` | INSERT/UPDATE/DELETE all use `true` | Restrict to admin role only |
+| `outreach_calls` | INSERT/UPDATE use `true` | Restrict to admin role only |
+| `entities` | INSERT uses `true` (for self-registration) | Keep but add rate-limiting check |
+| `organization_invites` | UPDATE uses weak check | Tighten to creator-only + token match |
+
+### 5. Restrict CORS Headers
+
+All edge functions currently use `Access-Control-Allow-Origin: '*'`. For HIPAA, restrict to your known domains:
+- `https://carewallet.lovable.app`
+- The preview URL
+
+### 6. Encrypt Sensitive Fields at Rest
+
+EHR credentials (`client_secret`), OAuth tokens (`access_token`, `refresh_token`), and webhook secrets are stored in plaintext. Add application-level encryption:
+
+- Create a utility in edge functions to encrypt/decrypt using an `ENCRYPTION_KEY` secret (AES-256-GCM)
+- Update `epic-auth`, `pointclickcare-auth`, and `manage-ehr-credentials` to encrypt tokens before storing and decrypt when reading
+- Add a new `ENCRYPTION_KEY` secret (you'll be prompted to set it)
+
+### 7. Add Security Headers to Frontend
+
+Add a `_headers` file in `/public` to set:
+- `Strict-Transport-Security` (force HTTPS)
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Content-Security-Policy` (restrict script sources)
+- `Cache-Control: no-store` on sensitive pages
+
+### 8. Add HIPAA Compliance Banner/Notice
+
+Add a small compliance notice component in the dashboard footer indicating the system handles data in accordance with HIPAA requirements and displaying a link to your privacy policy.
 
 ---
 
-### 3. Orphaned EpicIntegration Page
+## What You Will Need to Handle Separately (Non-Code)
 
-**Problem:** `src/pages/provider/EpicIntegration.tsx` is a standalone Epic-only integration page that duplicates `EhrIntegration.tsx`. It's still imported in App.tsx but only used as a redirect target (`/provider/epic` -> `/provider/ehr`). The file is dead code.
+These are organizational requirements Lovable cannot implement but are critical for HIPAA:
 
-**Fix:** Delete `EpicIntegration.tsx`. The redirect in App.tsx already handles `/provider/epic` -> `/provider/ehr`.
-
----
-
-### 4. Epic Auth Error Redirects Still Point to `/provider/epic`
-
-**Problem:** In `epic-auth/index.ts`, error redirects on lines 154, 197, 251 still go to `/provider/epic?error=...`. This redirects to `/provider/ehr` via the alias but loses the `?error=` query parameter in the process.
-
-**Fix:** Change all error redirects in `epic-auth/index.ts` from `/provider/epic?error=...` to `/provider/ehr?error=...`.
+- **Business Associate Agreement (BAA)** with your cloud infrastructure provider
+- **Risk Assessment** documentation
+- **Breach Notification procedures**
+- **Workforce training** on PHI handling
+- **Privacy Policy** document linked from the app
 
 ---
 
-### 5. Missing `/invites/accept` Route in App.tsx
+## Technical Details
 
-**Problem:** The invite link format uses `/invites/accept?token=...` but the route definition is `/invite/:token`.
+### New Database Migration
 
-**Fix:** Add a proper route: `<Route path="/invites/accept" element={<AcceptInvite />} />`.
+```sql
+-- Audit logs table
+CREATE TABLE public.audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  action text NOT NULL,
+  actor_wallet text,
+  actor_entity_id uuid,
+  resource_type text NOT NULL,
+  resource_id text,
+  ip_address text,
+  user_agent text,
+  details jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
----
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
-### 6. Mobile Responsiveness Polish
+-- Only admins can view audit logs
+CREATE POLICY "Admins can view audit logs"
+  ON public.audit_logs FOR SELECT
+  USING (has_role(auth.uid(), 'admin'::app_role));
 
-**Problem:** Several pages have layout issues on small screens:
-- Organization Management: grid layout doesn't stack cleanly
-- EHR credential forms: inputs get cramped on mobile
-- Provider Dashboard feature highlights: 3-column grid doesn't collapse
+-- Service role inserts (no public insert)
+CREATE POLICY "Service role can insert audit logs"
+  ON public.audit_logs FOR INSERT
+  WITH CHECK (false);
 
-**Fix:** Adjust grid breakpoints (e.g., `grid-cols-1 sm:grid-cols-3` instead of `grid-cols-3`) for better mobile stacking.
+-- Tighten outreach tables
+DROP POLICY IF EXISTS "Anyone can insert outreach contacts" ON public.outreach_contacts;
+DROP POLICY IF EXISTS "Anyone can update outreach contacts" ON public.outreach_contacts;
+DROP POLICY IF EXISTS "Anyone can delete outreach contacts" ON public.outreach_contacts;
 
----
+CREATE POLICY "Admins can insert outreach contacts"
+  ON public.outreach_contacts FOR INSERT
+  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
-### 7. Loading State Consistency
+CREATE POLICY "Admins can update outreach contacts"
+  ON public.outreach_contacts FOR UPDATE
+  USING (has_role(auth.uid(), 'admin'::app_role));
 
-**Problem:** Some pages show plain text "Loading..." while others use the Loader2 spinner. Inconsistent UX.
+CREATE POLICY "Admins can delete outreach contacts"
+  ON public.outreach_contacts FOR DELETE
+  USING (has_role(auth.uid(), 'admin'::app_role));
 
-**Fix:** Standardize all loading states to use the animated spinner pattern already established on most pages.
+DROP POLICY IF EXISTS "Anyone can insert outreach calls" ON public.outreach_calls;
+DROP POLICY IF EXISTS "Anyone can update outreach calls" ON public.outreach_calls;
 
----
+CREATE POLICY "Admins can insert outreach calls"
+  ON public.outreach_calls FOR INSERT
+  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
-### Summary of Changes
+CREATE POLICY "Admins can update outreach calls"
+  ON public.outreach_calls FOR UPDATE
+  USING (has_role(auth.uid(), 'admin'::app_role));
+```
 
-| # | File | Change |
-|---|------|--------|
-| 1 | `src/App.tsx` | Add `/invites/accept` route |
-| 2 | `src/components/layout/AppSidebar.tsx` | Remove dead admin nav links (Policies, Oracle Keys, Monitoring, Settings) |
-| 3 | `src/pages/provider/EpicIntegration.tsx` | Delete orphaned file |
-| 4 | `supabase/functions/epic-auth/index.ts` | Fix error redirects from `/provider/epic` to `/provider/ehr` |
-| 5 | `src/pages/provider/ProviderDashboard.tsx` | Fix 3-col feature grid to collapse on mobile |
-| 6 | `src/pages/organization/OrganizationInvites.tsx` | Standardize loading states to use Loader2 spinner |
+### Files to Create
+- `public/_headers` -- security headers
+- `src/hooks/useInactivityTimeout.ts` -- session timeout hook
+- `src/components/layout/HipaaNotice.tsx` -- compliance footer
 
-### Implementation Order
+### Files to Modify
+- `supabase/functions/epic-webhook/index.ts` -- sanitize logs, add audit logging, restrict CORS
+- `supabase/functions/epic-auth/index.ts` -- sanitize logs, add audit logging, restrict CORS, encrypt tokens
+- `supabase/functions/pointclickcare-auth/index.ts` -- same as above
+- `supabase/functions/manage-ehr-credentials/index.ts` -- sanitize logs, add audit logging, restrict CORS, encrypt secrets
+- `supabase/functions/virtual-card/index.ts` -- sanitize logs, restrict CORS
+- `src/contexts/WalletContext.tsx` -- integrate inactivity timeout
+- `src/components/layout/DashboardLayout.tsx` -- add HIPAA notice
+- `src/App.tsx` -- no changes needed
 
-1. Fix the invite route (most critical -- invite links are fully broken)
-2. Remove dead sidebar links (prevents user confusion)
-3. Delete orphaned EpicIntegration page
-4. Fix Epic error redirects
-5. Polish mobile responsiveness and loading states
+### New Secret Required
+- `ENCRYPTION_KEY` -- a 32-byte hex string for AES-256-GCM encryption of sensitive fields
 
