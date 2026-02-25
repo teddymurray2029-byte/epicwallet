@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useChainId, useWaitForTransactionReceipt } from 'wagmi';
+import { useChainId, useWaitForTransactionReceipt, useWalletClient } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
 import { parseEther, type Hash, encodeDeployData } from 'viem';
 import { useWallet } from '@/contexts/WalletContext';
@@ -44,6 +44,7 @@ const steps = [
 export default function DeployContract() {
   const { address, isConnected, isConnecting } = useWallet();
   const chainId = useChainId();
+  const { data: walletClient } = useWalletClient();
   
   const [step, setStep] = useState<DeploymentStep>('idle');
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
@@ -89,29 +90,51 @@ export default function DeployContract() {
   }, [txHash, isWaitingReceipt]);
 
   const handleDeploy = async () => {
-    const ethereum = (window as any).ethereum;
-    if (!ethereum) { toast.error('No wallet detected. Please open this page in your wallet browser.'); return; }
-    
-    // Verify wallet connection directly via provider to avoid stale React state
-    let deployAddress = address;
-    if (!deployAddress) {
+    const ethereum = (window as any).ethereum as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined;
+
+    // Prefer connected sources from wagmi, then injected provider as fallback
+    let deployAddress = address ?? walletClient?.account?.address;
+
+    if (!deployAddress && ethereum) {
       try {
         const accounts = await ethereum.request({ method: 'eth_accounts' }) as string[];
         if (accounts?.length > 0) {
           deployAddress = accounts[0];
         }
-      } catch { /* ignore */ }
+      } catch {
+        // ignore and continue to unified connection error below
+      }
     }
-    
-    if (!deployAddress) { toast.error('Please connect your wallet first'); return; }
+
+    if (!deployAddress) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!ethereum && !walletClient) {
+      toast.error('No wallet transport found. Reconnect your wallet and try again.');
+      return;
+    }
+
     if (!isCorrectNetwork) { toast.error('Please switch to Polygon Mainnet or Amoy Testnet first'); return; }
     setError(null);
     setStep('confirming');
+
     try {
       const supplyWei = initialSupply ? parseEther(initialSupply) : DEFAULT_INITIAL_SUPPLY;
       toast.info('Please confirm the transaction in your wallet...');
       const deployData = encodeDeployData({ abi: CARE_COIN_ABI, bytecode: CARE_COIN_BYTECODE, args: [TREASURY_ADDRESS, supplyWei] });
-      const hash = await ethereum.request({ method: 'eth_sendTransaction', params: [{ from: deployAddress, data: deployData }] }) as Hash;
+
+      let hash: Hash;
+      if (ethereum) {
+        hash = await ethereum.request({ method: 'eth_sendTransaction', params: [{ from: deployAddress, data: deployData }] }) as Hash;
+      } else {
+        hash = await walletClient!.request({
+          method: 'eth_sendTransaction',
+          params: [{ from: deployAddress as `0x${string}`, data: deployData }],
+        }) as Hash;
+      }
+
       setTxHash(hash);
       toast.info('Transaction submitted! Waiting for confirmation...');
     } catch (err: any) {
