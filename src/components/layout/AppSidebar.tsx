@@ -33,6 +33,7 @@ import {
   Link2,
   Rocket,
   Users,
+  BookOpen,
 } from 'lucide-react';
 
 // Provider navigation items
@@ -44,6 +45,7 @@ const providerNavItems = [
   { title: 'EHR Integration', url: '/provider/ehr', icon: Link2 },
   { title: 'Virtual Card', url: '/provider/card', icon: CreditCard },
   { title: 'Organization', url: '/admin/organizations', icon: Users },
+  { title: 'Tutorial', url: '/tutorial', icon: BookOpen },
 ];
 
 // Patient navigation items
