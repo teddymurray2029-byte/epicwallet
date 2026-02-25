@@ -163,9 +163,9 @@ export default function Tutorial() {
             </ul>
           </TutorialStep>
 
-          <TutorialStep number={7} id="step-7" icon={Rocket} title="Deploy CareCoin Contract (Admin)" linkTo="/admin/deploy" linkLabel="Deploy Contract">
+          <TutorialStep number={7} id="step-7" icon={Rocket} title="Deploy CareWallet Contract (Admin)" linkTo="/admin/deploy" linkLabel="Deploy Contract">
             <p className="text-sm text-muted-foreground">
-              Organization admins can deploy the CareCoin smart contract on-chain. This is only needed once per network deployment.
+              Organization admins can deploy the CareWallet smart contract on-chain. This is only needed once per network deployment.
             </p>
           </TutorialStep>
         </section>

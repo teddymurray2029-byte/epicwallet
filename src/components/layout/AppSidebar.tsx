@@ -114,7 +114,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-lg font-bold text-sidebar-foreground">
-                CareCoin
+                CareWallet
               </span>
               <span className="text-xs font-medium tracking-wide text-sidebar-foreground/60">
                 Healthcare Rewards

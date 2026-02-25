@@ -12,9 +12,9 @@ export const config = createConfig({
     walletConnect({
       projectId: WALLETCONNECT_PROJECT_ID,
       metadata: {
-        name: 'CareCoin',
+        name: 'CareWallet',
         description: 'Healthcare Rewards Platform',
-        url: typeof window !== 'undefined' ? window.location.origin : 'https://carecoin.app',
+        url: typeof window !== 'undefined' ? window.location.origin : 'https://carewallet.lovable.app',
         icons: ['https://avatars.githubusercontent.com/u/37784886'],
       },
       showQrModal: true,
