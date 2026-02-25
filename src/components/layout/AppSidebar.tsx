@@ -70,7 +70,18 @@ export function AppSidebar() {
   const truncateAddress = (addr: string) => `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 
   // Determine which nav items to show based on entity type
+  // Admins who are also providers see everything
   const getNavItems = () => {
+    if (isAdmin && isProvider) {
+      // Merge provider + admin items, avoiding duplicate Dashboard
+      const combined = [...providerNavItems];
+      adminNavItems.forEach((item) => {
+        if (!combined.some((p) => p.url === item.url)) {
+          combined.push(item);
+        }
+      });
+      return combined;
+    }
     if (isAdmin) return adminNavItems;
     if (isProvider) return providerNavItems;
     if (isPatient) return patientNavItems;
