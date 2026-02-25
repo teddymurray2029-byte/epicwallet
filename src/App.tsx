@@ -15,13 +15,19 @@ import ProviderDashboard from "./pages/provider/ProviderDashboard";
 import ProviderRewards from "./pages/provider/ProviderRewards";
 import ProviderActivity from "./pages/provider/ProviderActivity";
 import ProviderTransactions from "./pages/provider/ProviderTransactions";
+import ProviderInvoice from "./pages/provider/ProviderInvoice";
 import EhrIntegration from "./pages/provider/EhrIntegration";
 import VirtualCard from "./pages/provider/VirtualCard";
 import DeployContract from "./pages/admin/DeployContract";
+import AuditLogs from "./pages/admin/AuditLogs";
 import InviteAcceptLegacy from "./pages/InviteAccept";
 import OrganizationInvites from "./pages/organization/OrganizationInvites";
 import AcceptInvite from "./pages/invites/AcceptInvite";
 import Tutorial from "./pages/Tutorial";
+import PatientDashboard from "./pages/patient/PatientDashboard";
+import PatientRewards from "./pages/patient/PatientRewards";
+import PatientHistory from "./pages/patient/PatientHistory";
+import PatientPay from "./pages/patient/PatientPay";
 
 const queryClient = new QueryClient();
 
@@ -79,11 +85,26 @@ const App = () => (
                 }
               />
               <Route path="/provider/epic" element={<Navigate to="/provider/ehr" replace />} />
+              <Route
+                path="/provider/invoice"
+                element={
+                  <WalletProtectedRoute>
+                    <ProviderInvoice />
+                  </WalletProtectedRoute>
+                }
+              />
               
+              {/* Patient Routes */}
+              <Route path="/patient" element={<PatientDashboard />} />
+              <Route path="/patient/rewards" element={<PatientRewards />} />
+              <Route path="/patient/pay" element={<PatientPay />} />
+              <Route path="/patient/history" element={<PatientHistory />} />
+
               {/* Admin Routes */}
               <Route path="/admin" element={<Navigate to="/admin/organizations" replace />} />
               <Route path="/admin/deploy" element={<DeployContract />} />
               <Route path="/admin/organizations" element={<OrganizationInvites />} />
+              <Route path="/admin/audit-logs" element={<AuditLogs />} />
 
               {/* Invite Routes */}
               <Route path="/invites/accept" element={<AcceptInvite />} />

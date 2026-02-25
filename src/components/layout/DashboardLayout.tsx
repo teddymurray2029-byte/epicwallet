@@ -28,6 +28,7 @@ const routeLabels: Record<string, string> = {
   rewards: 'Rewards',
   activity: 'Activity',
   transactions: 'Transactions',
+  invoice: 'Generate Invoice',
   epic: 'Epic Integration',
   card: 'Virtual Card',
   organizations: 'Organizations',
@@ -38,6 +39,10 @@ const routeLabels: Record<string, string> = {
   oracles: 'Oracle Keys',
   monitoring: 'Monitoring',
   settings: 'Settings',
+  pay: 'Pay Invoice',
+  history: 'History',
+  'audit-logs': 'Audit Logs',
+  ehr: 'EHR Integration',
 };
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
