@@ -64,7 +64,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <header className="sticky top-0 z-40 bg-card/70 shadow-[var(--shadow-card)] backdrop-blur-2xl backdrop-saturate-150">
             <div className="flex h-16 items-center justify-between px-4 md:px-6">
               <div className="flex items-center gap-3 sm:gap-4">
-                <SidebarTrigger className="md:hidden" />
+                <SidebarTrigger />
+                {/* Mobile page title */}
+                {breadcrumbs.length > 0 && (
+                  <span className="sm:hidden text-sm font-medium text-foreground truncate max-w-[180px]">
+                    {breadcrumbs[breadcrumbs.length - 1].label}
+                  </span>
+                )}
                 {breadcrumbs.length > 0 && (
                   <Breadcrumb className="hidden sm:block">
                     <BreadcrumbList>
@@ -96,7 +102,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </header>
 
           {/* Main content */}
-          <main className="flex-1 p-4 md:p-6 lg:p-8 relative">
+          <main className="flex-1 p-4 md:p-6 lg:p-8 relative" key={location.pathname}>
             <div className="h-full animate-fade-in-up">
               {children}
             </div>

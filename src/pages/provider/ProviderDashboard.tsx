@@ -231,11 +231,11 @@ export default function ProviderDashboard() {
       <div className="space-y-6">
         {/* Welcome banner */}
         <div className="animate-fade-in-up">
-          <h1 className="page-header inline-block text-3xl sm:text-4xl tracking-tighter">
+          <h1 className="page-header inline-block text-3xl sm:text-4xl tracking-tight">
             {entity?.display_name ? `Welcome back, ${entity.display_name}` : 'Provider Dashboard'}
           </h1>
-          <div className="mt-1.5 h-1 w-16 rounded-full bg-gradient-to-r from-[hsl(var(--care-teal))] to-[hsl(var(--care-green))] opacity-60" />
-          <p className="text-muted-foreground mt-2">
+          <div className="mt-1.5 h-1 rounded-full bg-gradient-to-r from-[hsl(var(--care-teal))] to-[hsl(var(--care-green))] opacity-60 animate-[scale-in_0.6s_ease-out_0.3s_both] origin-left w-16" />
+          <p className="text-muted-foreground mt-3">
             Track your healthcare documentation rewards and CARE token earnings
           </p>
         </div>

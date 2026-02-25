@@ -145,7 +145,7 @@ export function AppSidebar() {
                         <NavLink
                           to={item.url}
                           end={item.url === '/provider' || item.url === '/patient' || item.url === '/admin'}
-                          className={`flex items-center gap-3 transition-all duration-200 hover:bg-sidebar-accent hover:translate-x-0.5 rounded-md ${
+                          className={`flex items-center gap-3 transition-all duration-200 hover:bg-sidebar-accent hover:translate-x-0.5 rounded-md focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none ${
                             isActive ? 'bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-[hsl(var(--sidebar-primary))] rounded-l-none' : ''
                           }`}
                           activeClassName="bg-sidebar-accent text-sidebar-primary font-medium rounded-md"

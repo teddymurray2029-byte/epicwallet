@@ -144,7 +144,7 @@ export function EhrConnectCard() {
               loading={connecting === 'epic'}
             >
               <Activity className="mr-1.5 h-4 w-4" />
-              Connect Epic
+              {connecting === 'epic' ? 'Connecting…' : 'Connect Epic'}
             </Button>
           )}
           {!status.pointclickcare && (
@@ -156,7 +156,7 @@ export function EhrConnectCard() {
               loading={connecting === 'pointclickcare'}
             >
               <Activity className="mr-1.5 h-4 w-4" />
-              Connect PCC
+              {connecting === 'pointclickcare' ? 'Connecting…' : 'Connect PCC'}
             </Button>
           )}
         </div>

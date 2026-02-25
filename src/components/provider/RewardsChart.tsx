@@ -67,7 +67,17 @@ export function RewardsChart() {
           <div className="h-72 flex items-center justify-center">
             <Skeleton className="h-full w-full rounded-xl" />
           </div>
-        ) : chartData.length > 0 ? (
+        ) : chartData.length === 0 ? (
+          <div className="h-72 flex flex-col items-center justify-center gap-3 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
+              <BarChart3 className="h-6 w-6 text-muted-foreground/60" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">No rewards data yet</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Connect your EHR to start earning CARE tokens</p>
+            </div>
+          </div>
+        ) : (
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               {chartType === 'bar' ? (
@@ -130,7 +140,7 @@ export function RewardsChart() {
               )}
             </ResponsiveContainer>
           </div>
-        ) : null}
+        )}
       </CardContent>
     </Card>
   );
