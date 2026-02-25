@@ -188,7 +188,7 @@ export default function VirtualCard() {
                   <div className="relative z-10 flex flex-col justify-between h-full">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-xs uppercase tracking-widest opacity-80">CareCoin</p>
+                        <p className="text-xs uppercase tracking-widest opacity-80">CareWallet</p>
                         <p className="text-sm font-medium opacity-90">Virtual Card</p>
                       </div>
                       <div className="flex items-center gap-2">

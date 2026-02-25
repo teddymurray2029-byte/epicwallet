@@ -60,7 +60,7 @@ export default function ProviderRewards() {
       <div className="space-y-6">
         <div className="animate-fade-in-up">
           <h1 className="page-header inline-block">Rewards</h1>
-          <p className="text-muted-foreground">Track your CareCoin earnings from healthcare documentation</p>
+          <p className="text-muted-foreground">Track your CareWallet earnings from healthcare documentation</p>
         </div>
 
         {/* Current Balance Hero */}

@@ -292,7 +292,7 @@ export default function EhrIntegration() {
         <div className="animate-fade-in-up">
           <h1 className="page-header inline-block">EHR Integration</h1>
           <p className="text-muted-foreground">
-            Connect your EHR system to automatically earn CareCoin rewards for documentation events.
+            Connect your EHR system to automatically earn CareWallet rewards for documentation events.
           </p>
         </div>
 

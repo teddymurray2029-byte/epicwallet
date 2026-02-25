@@ -124,7 +124,7 @@ export default function DeployContract() {
     if (isConfirmed && receipt?.contractAddress) {
       setDeployedAddress(receipt.contractAddress);
       setStep('success');
-      toast.success('CareCoin deployed successfully!');
+      toast.success('CareWallet contract deployed successfully!');
     }
   }, [isConfirmed, receipt]);
 
@@ -205,7 +205,7 @@ export default function DeployContract() {
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2 animate-fade-in-up">
-          <h1 className="text-3xl font-bold page-header inline-block">Deploy CareCoin</h1>
+          <h1 className="text-3xl font-bold page-header inline-block">Deploy CareWallet</h1>
           <p className="text-muted-foreground">Deploy the CARE token contract directly from your browser</p>
         </div>
 
@@ -263,7 +263,7 @@ export default function DeployContract() {
           <Card className="animate-fade-in-up" style={{ animationDelay: '240ms' }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" />Deployment Configuration</CardTitle>
-              <CardDescription>Configure the initial parameters for CareCoin</CardDescription>
+              <CardDescription>Configure the initial parameters for CareWallet</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -292,7 +292,7 @@ export default function DeployContract() {
               </div>
               <Button onClick={handleDeploy} variant="gradient" className="w-full" size="lg">
                 <Rocket className="h-4 w-4 mr-2" />
-                Deploy CareCoin
+                Deploy CareWallet
               </Button>
             </CardContent>
           </Card>

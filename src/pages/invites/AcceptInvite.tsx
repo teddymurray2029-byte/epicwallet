@@ -26,7 +26,7 @@ export default function AcceptInvite() {
 
   const handleAcceptInvite = async () => {
     if (!token) { setError('Invite token is missing. Please check your invite link.'); return; }
-    if (!entity) { setError('You must be registered in CareCoin before accepting an invite.'); return; }
+    if (!entity) { setError('You must be registered in CareWallet before accepting an invite.'); return; }
     if (entity.organization_id) { setError('Your account is already linked to an organization.'); return; }
     if (entity.entity_type === 'organization') { setError('Organization accounts cannot accept invites.'); return; }
 
@@ -82,7 +82,7 @@ export default function AcceptInvite() {
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[hsl(var(--care-teal))] to-[hsl(var(--care-green))] shadow-[var(--shadow-glow-teal)] mb-3">
             <Coins className="h-7 w-7 text-white" />
           </div>
-          <h2 className="text-lg font-bold text-gradient">CareCoin</h2>
+          <h2 className="text-lg font-bold text-gradient">CareWallet</h2>
         </div>
 
         <Card className="shimmer-border shadow-[var(--shadow-elevated)]">

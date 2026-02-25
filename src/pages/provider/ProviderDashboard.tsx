@@ -107,7 +107,7 @@ export default function ProviderDashboard() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-gradient-hero">Connect Your Wallet</h2>
                 <p className="text-muted-foreground">
-                  Connect your wallet to access the CareCoin Provider Dashboard and view your healthcare documentation rewards.
+                  Connect your wallet to access the CareWallet Provider Dashboard and view your healthcare documentation rewards.
                 </p>
               </div>
               <div className="flex flex-col gap-4">
