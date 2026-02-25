@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useChainId, useWaitForTransactionReceipt, useWalletClient } from 'wagmi';
+import { useChainId, useWaitForTransactionReceipt, useWalletClient, useAccount } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
 import { parseEther, type Hash, encodeDeployData } from 'viem';
 import { useWallet } from '@/contexts/WalletContext';
@@ -45,6 +45,7 @@ export default function DeployContract() {
   const { address, isConnected, isConnecting } = useWallet();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
+  const { connector } = useAccount();
   
   const [step, setStep] = useState<DeploymentStep>('idle');
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
@@ -90,28 +91,42 @@ export default function DeployContract() {
   }, [txHash, isWaitingReceipt]);
 
   const handleDeploy = async () => {
-    const ethereum = (window as any).ethereum as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined;
+    type Eip1193Provider = {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+    };
 
-    // Prefer connected sources from wagmi, then injected provider as fallback
+    const injectedProvider = (window as any).ethereum as Eip1193Provider | undefined;
+    const connectorProvider = typeof (connector as any)?.getProvider === 'function'
+      ? await (connector as any).getProvider().catch(() => undefined) as Eip1193Provider | undefined
+      : undefined;
+    const transport = injectedProvider ?? connectorProvider;
+
     let deployAddress = address ?? walletClient?.account?.address;
 
-    if (!deployAddress && ethereum) {
+    if (!deployAddress && transport) {
       try {
-        const accounts = await ethereum.request({ method: 'eth_accounts' }) as string[];
-        if (accounts?.length > 0) {
-          deployAddress = accounts[0];
+        const existingAccounts = await transport.request({ method: 'eth_accounts' }) as string[];
+        if (existingAccounts?.length > 0) {
+          deployAddress = existingAccounts[0];
+        }
+
+        if (!deployAddress) {
+          const requestedAccounts = await transport.request({ method: 'eth_requestAccounts' }) as string[];
+          if (requestedAccounts?.length > 0) {
+            deployAddress = requestedAccounts[0];
+          }
         }
       } catch {
-        // ignore and continue to unified connection error below
+        // ignore and show unified error below
       }
     }
 
     if (!deployAddress) {
-      toast.error('Please connect your wallet first');
+      toast.error('Please reconnect your wallet and try again.');
       return;
     }
 
-    if (!ethereum && !walletClient) {
+    if (!transport && !walletClient) {
       toast.error('No wallet transport found. Reconnect your wallet and try again.');
       return;
     }
@@ -125,15 +140,9 @@ export default function DeployContract() {
       toast.info('Please confirm the transaction in your wallet...');
       const deployData = encodeDeployData({ abi: CARE_COIN_ABI, bytecode: CARE_COIN_BYTECODE, args: [TREASURY_ADDRESS, supplyWei] });
 
-      let hash: Hash;
-      if (ethereum) {
-        hash = await ethereum.request({ method: 'eth_sendTransaction', params: [{ from: deployAddress, data: deployData }] }) as Hash;
-      } else {
-        hash = await walletClient!.request({
-          method: 'eth_sendTransaction',
-          params: [{ from: deployAddress as `0x${string}`, data: deployData }],
-        }) as Hash;
-      }
+      const hash = transport
+        ? await transport.request({ method: 'eth_sendTransaction', params: [{ from: deployAddress, data: deployData }] }) as Hash
+        : await walletClient!.request({ method: 'eth_sendTransaction', params: [{ from: deployAddress as `0x${string}`, data: deployData }] }) as Hash;
 
       setTxHash(hash);
       toast.info('Transaction submitted! Waiting for confirmation...');
