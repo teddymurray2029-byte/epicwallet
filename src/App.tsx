@@ -21,6 +21,7 @@ import DeployContract from "./pages/admin/DeployContract";
 import InviteAcceptLegacy from "./pages/InviteAccept";
 import OrganizationInvites from "./pages/organization/OrganizationInvites";
 import AcceptInvite from "./pages/invites/AcceptInvite";
+import Tutorial from "./pages/Tutorial";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +89,9 @@ const App = () => (
               <Route path="/invites/accept" element={<AcceptInvite />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
               
+              {/* Tutorial */}
+              <Route path="/tutorial" element={<Tutorial />} />
+
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
             </Routes>
