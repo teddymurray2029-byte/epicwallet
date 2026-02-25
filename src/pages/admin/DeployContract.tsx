@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useChainId, useWaitForTransactionReceipt } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
-import { parseEther, createWalletClient, custom, type Hash, encodeDeployData } from 'viem';
+import { parseEther, type Hash, encodeDeployData } from 'viem';
 import { useWallet } from '@/contexts/WalletContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,18 +89,29 @@ export default function DeployContract() {
   }, [txHash, isWaitingReceipt]);
 
   const handleDeploy = async () => {
-    if (!isConnected || !address) { toast.error('Please connect your wallet first'); return; }
     const ethereum = (window as any).ethereum;
-    if (!ethereum) { toast.error('No wallet detected'); return; }
+    if (!ethereum) { toast.error('No wallet detected. Please open this page in your wallet browser.'); return; }
+    
+    // Verify wallet connection directly via provider to avoid stale React state
+    let deployAddress = address;
+    if (!deployAddress) {
+      try {
+        const accounts = await ethereum.request({ method: 'eth_accounts' }) as string[];
+        if (accounts?.length > 0) {
+          deployAddress = accounts[0];
+        }
+      } catch { /* ignore */ }
+    }
+    
+    if (!deployAddress) { toast.error('Please connect your wallet first'); return; }
     if (!isCorrectNetwork) { toast.error('Please switch to Polygon Mainnet or Amoy Testnet first'); return; }
     setError(null);
     setStep('confirming');
     try {
       const supplyWei = initialSupply ? parseEther(initialSupply) : DEFAULT_INITIAL_SUPPLY;
-      const walletClient = createWalletClient({ account: address as `0x${string}`, chain: chainId === polygonAmoy.id ? polygonAmoy : polygon, transport: custom(ethereum) });
       toast.info('Please confirm the transaction in your wallet...');
       const deployData = encodeDeployData({ abi: CARE_COIN_ABI, bytecode: CARE_COIN_BYTECODE, args: [TREASURY_ADDRESS, supplyWei] });
-      const hash = await ethereum.request({ method: 'eth_sendTransaction', params: [{ from: address, data: deployData }] }) as Hash;
+      const hash = await ethereum.request({ method: 'eth_sendTransaction', params: [{ from: deployAddress, data: deployData }] }) as Hash;
       setTxHash(hash);
       toast.info('Transaction submitted! Waiting for confirmation...');
     } catch (err: any) {
