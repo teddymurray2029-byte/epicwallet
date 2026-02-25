@@ -34,6 +34,8 @@ import {
   Rocket,
   Users,
   BookOpen,
+  Shield,
+  FileBarChart,
 } from 'lucide-react';
 
 // Provider navigation items
@@ -42,6 +44,7 @@ const providerNavItems = [
   { title: 'Rewards', url: '/provider/rewards', icon: Coins },
   { title: 'Activity', url: '/provider/activity', icon: Activity },
   { title: 'Transactions', url: '/provider/transactions', icon: Receipt },
+  { title: 'Generate Invoice', url: '/provider/invoice', icon: QrCode },
   { title: 'EHR Integration', url: '/provider/ehr', icon: Link2 },
   { title: 'Virtual Card', url: '/provider/card', icon: CreditCard },
   { title: 'Organization', url: '/admin/organizations', icon: Users },
@@ -60,6 +63,7 @@ const patientNavItems = [
 const adminNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Organizations', url: '/admin/organizations', icon: Users },
+  { title: 'Audit Logs', url: '/admin/audit-logs', icon: Shield },
   { title: 'Deploy Contract', url: '/admin/deploy', icon: Rocket },
 ];
 
