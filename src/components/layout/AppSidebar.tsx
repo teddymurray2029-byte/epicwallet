@@ -140,7 +140,7 @@ export function AppSidebar() {
                     undefined;
 
                   const linkContent = (
-                    <SidebarMenuItem key={item.title}>
+                    <SidebarMenuItem key={item.url}>
                       <SidebarMenuButton asChild>
                         <NavLink
                           to={item.url}
