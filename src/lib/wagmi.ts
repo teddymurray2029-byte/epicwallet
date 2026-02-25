@@ -22,7 +22,7 @@ export const config = createConfig({
   ],
   transports: {
     [polygon.id]: http('https://polygon-rpc.com'),
-    [polygonAmoy.id]: http('https://rpc-amoy.polygon.technology'),
+    [polygonAmoy.id]: http('https://rpc.ankr.com/polygon_amoy'),
   },
   // Enable storage for connection persistence and auto-reconnect
   storage: createStorage({ storage: typeof window !== 'undefined' ? window.localStorage : undefined }),
