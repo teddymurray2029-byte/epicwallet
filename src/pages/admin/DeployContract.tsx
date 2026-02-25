@@ -67,7 +67,7 @@ export default function DeployContract() {
     const ethereum = (window as any).ethereum;
     if (!ethereum) { toast.error('No wallet detected'); return; }
     const chainConfig = targetChainId === polygonAmoy.id 
-      ? { chainId: `0x${polygonAmoy.id.toString(16)}`, chainName: 'Polygon Amoy Testnet', nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 }, rpcUrls: ['https://rpc-amoy.polygon.technology'], blockExplorerUrls: ['https://amoy.polygonscan.com'] }
+      ? { chainId: `0x${polygonAmoy.id.toString(16)}`, chainName: 'Polygon Amoy Testnet', nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 }, rpcUrls: ['https://rpc.ankr.com/polygon_amoy'], blockExplorerUrls: ['https://amoy.polygonscan.com'] }
       : { chainId: `0x${polygon.id.toString(16)}`, chainName: 'Polygon Mainnet', nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 }, rpcUrls: ['https://polygon-rpc.com'], blockExplorerUrls: ['https://polygonscan.com'] };
     try {
       await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainConfig.chainId }] });
