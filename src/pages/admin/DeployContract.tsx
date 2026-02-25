@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useChainId, useWaitForTransactionReceipt, useWalletClient, useAccount } from 'wagmi';
+import { useChainId, useWaitForTransactionReceipt, useWalletClient, useAccount, useSwitchChain } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
 import { parseEther, type Hash, encodeDeployData } from 'viem';
 import { useWallet } from '@/contexts/WalletContext';
@@ -46,6 +46,7 @@ export default function DeployContract() {
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
   const { connector } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
   
   const [step, setStep] = useState<DeploymentStep>('idle');
   const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
@@ -64,17 +65,58 @@ export default function DeployContract() {
   const currentStepIndex = steps.findIndex(s => s.key === step);
 
   const handleSwitchNetwork = async (targetChainId: number) => {
-    const ethereum = (window as any).ethereum;
-    if (!ethereum) { toast.error('No wallet detected'); return; }
-    const chainConfig = targetChainId === polygonAmoy.id 
-      ? { chainId: `0x${polygonAmoy.id.toString(16)}`, chainName: 'Polygon Amoy Testnet', nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 }, rpcUrls: ['https://rpc.ankr.com/polygon_amoy'], blockExplorerUrls: ['https://amoy.polygonscan.com'] }
-      : { chainId: `0x${polygon.id.toString(16)}`, chainName: 'Polygon Mainnet', nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 }, rpcUrls: ['https://polygon-rpc.com'], blockExplorerUrls: ['https://polygonscan.com'] };
+    type Eip1193Provider = {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+    };
+
+    const chainConfig = targetChainId === polygonAmoy.id
+      ? {
+          chainId: `0x${polygonAmoy.id.toString(16)}`,
+          chainName: 'Polygon Amoy Testnet',
+          nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
+          rpcUrls: ['https://rpc.ankr.com/polygon_amoy'],
+          blockExplorerUrls: ['https://amoy.polygonscan.com'],
+        }
+      : {
+          chainId: `0x${polygon.id.toString(16)}`,
+          chainName: 'Polygon Mainnet',
+          nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
+          rpcUrls: ['https://polygon-rpc.com'],
+          blockExplorerUrls: ['https://polygonscan.com'],
+        };
+
     try {
-      await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainConfig.chainId }] });
+      await switchChainAsync({ chainId: targetChainId });
+      return;
+    } catch {
+      // Fallback to direct provider request for wallets/connectors with delayed wagmi sync
+    }
+
+    const injectedProvider = (window as any).ethereum as Eip1193Provider | undefined;
+    const connectorProvider = typeof (connector as any)?.getProvider === 'function'
+      ? await (connector as any).getProvider().catch(() => undefined) as Eip1193Provider | undefined
+      : undefined;
+    const transport = connectorProvider ?? injectedProvider;
+
+    if (!transport) {
+      toast.error('No wallet transport found. Reconnect your wallet and try again.');
+      return;
+    }
+
+    try {
+      await transport.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainConfig.chainId }] });
     } catch (switchError: any) {
-      if (switchError.code === 4902) {
-        try { await ethereum.request({ method: 'wallet_addEthereumChain', params: [chainConfig] }); } catch { toast.error('Failed to add network.'); }
-      } else { toast.error('Failed to switch network.'); }
+      if (switchError?.code === 4902) {
+        try {
+          await transport.request({ method: 'wallet_addEthereumChain', params: [chainConfig] });
+        } catch (addError: any) {
+          toast.error(addError?.message || 'Failed to add network.');
+        }
+      } else if (switchError?.code === 4001) {
+        toast.error('Network switch was rejected in wallet.');
+      } else {
+        toast.error(switchError?.message || 'Failed to switch network.');
+      }
     }
   };
 
