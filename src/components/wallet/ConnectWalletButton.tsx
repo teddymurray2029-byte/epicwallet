@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Wallet, ChevronDown, LogOut, Copy, ExternalLink, Check, Smartphone, Loader2 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
+import { toast } from '@/hooks/use-toast';
 
 export function ConnectWalletButton() {
   const { connectors, connect, isPending } = useConnect();
@@ -36,6 +37,7 @@ export function ConnectWalletButton() {
     if (address) {
       await navigator.clipboard.writeText(address);
       setCopied(true);
+      toast({ title: 'Address Copied', description: 'Wallet address copied to clipboard.' });
       setTimeout(() => setCopied(false), 2000);
     }
   };
