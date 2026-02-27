@@ -18,6 +18,7 @@ import ProviderTransactions from "./pages/provider/ProviderTransactions";
 import ProviderInvoice from "./pages/provider/ProviderInvoice";
 import EhrIntegration from "./pages/provider/EhrIntegration";
 import VirtualCard from "./pages/provider/VirtualCard";
+import FiatOfframp from "./pages/provider/FiatOfframp";
 import DeployContract from "./pages/admin/DeployContract";
 import AuditLogs from "./pages/admin/AuditLogs";
 import OrganizationAnalytics from "./pages/admin/OrganizationAnalytics";
@@ -83,6 +84,14 @@ const App = () => (
                 element={
                   <WalletProtectedRoute>
                     <VirtualCard />
+                  </WalletProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider/offramp"
+                element={
+                  <WalletProtectedRoute>
+                    <FiatOfframp />
                   </WalletProtectedRoute>
                 }
               />
