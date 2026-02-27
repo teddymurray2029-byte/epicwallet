@@ -20,6 +20,8 @@ import EhrIntegration from "./pages/provider/EhrIntegration";
 import VirtualCard from "./pages/provider/VirtualCard";
 import DeployContract from "./pages/admin/DeployContract";
 import AuditLogs from "./pages/admin/AuditLogs";
+import OrganizationAnalytics from "./pages/admin/OrganizationAnalytics";
+import RewardsLeaderboard from "./pages/provider/RewardsLeaderboard";
 import InviteAcceptLegacy from "./pages/InviteAccept";
 import OrganizationInvites from "./pages/organization/OrganizationInvites";
 import AcceptInvite from "./pages/invites/AcceptInvite";
@@ -84,6 +86,7 @@ const App = () => (
                   </WalletProtectedRoute>
                 }
               />
+              <Route path="/provider/leaderboard" element={<RewardsLeaderboard />} />
               <Route path="/provider/epic" element={<Navigate to="/provider/ehr" replace />} />
               <Route
                 path="/provider/invoice"
@@ -105,6 +108,7 @@ const App = () => (
               <Route path="/admin/deploy" element={<DeployContract />} />
               <Route path="/admin/organizations" element={<OrganizationInvites />} />
               <Route path="/admin/audit-logs" element={<AuditLogs />} />
+              <Route path="/admin/analytics" element={<OrganizationAnalytics />} />
 
               {/* Invite Routes */}
               <Route path="/invites/accept" element={<AcceptInvite />} />
