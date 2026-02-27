@@ -38,6 +38,7 @@ import {
   FileBarChart,
   Trophy,
   BarChart3,
+  Banknote,
 } from 'lucide-react';
 
 // Provider navigation items
@@ -49,6 +50,7 @@ const providerNavItems = [
   { title: 'Generate Invoice', url: '/provider/invoice', icon: QrCode },
   { title: 'EHR Integration', url: '/provider/ehr', icon: Link2 },
   { title: 'Virtual Card', url: '/provider/card', icon: CreditCard },
+  { title: 'Cash Out', url: '/provider/offramp', icon: Banknote },
   { title: 'Leaderboard', url: '/provider/leaderboard', icon: Trophy },
   { title: 'Organization', url: '/admin/organizations', icon: Users },
   { title: 'Tutorial', url: '/tutorial', icon: BookOpen },

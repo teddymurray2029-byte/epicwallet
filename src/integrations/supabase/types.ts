@@ -101,6 +101,39 @@ export type Database = {
         }
         Relationships: []
       }
+      card_transactions: {
+        Row: {
+          card_id: string | null
+          care_amount: number
+          created_at: string
+          entity_id: string
+          fee_amount: number
+          id: string
+          status: string
+          usd_amount: number
+        }
+        Insert: {
+          card_id?: string | null
+          care_amount: number
+          created_at?: string
+          entity_id: string
+          fee_amount?: number
+          id?: string
+          status?: string
+          usd_amount: number
+        }
+        Update: {
+          card_id?: string | null
+          care_amount?: number
+          created_at?: string
+          entity_id?: string
+          fee_amount?: number
+          id?: string
+          status?: string
+          usd_amount?: number
+        }
+        Relationships: []
+      }
       documentation_events: {
         Row: {
           created_at: string

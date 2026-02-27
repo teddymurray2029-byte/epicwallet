@@ -21,6 +21,7 @@ import {
   Wallet,
   RefreshCw,
 } from 'lucide-react';
+import { CardActivityTable } from '@/components/provider/CardActivityTable';
 
 interface VirtualCardData {
   id: string;
@@ -396,6 +397,9 @@ export default function VirtualCard() {
             </Card>
           </div>
         </div>
+
+        {/* Card Activity */}
+        {entity?.id && <CardActivityTable entityId={entity.id} />}
 
         {/* How it Works */}
         <Card>

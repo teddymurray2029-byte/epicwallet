@@ -29,6 +29,34 @@ async function auditLog(supabase: any, action: string, resourceType: string, det
   } catch { /* non-fatal */ }
 }
 
+const DAILY_LIMIT_CARE = 50000;
+
+async function checkDailyLimit(supabase: any, entity_id: string, care_amount: number): Promise<{ allowed: boolean; remaining: number }> {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const { data } = await supabase
+    .from('card_transactions')
+    .select('care_amount')
+    .eq('entity_id', entity_id)
+    .gte('created_at', todayStart.toISOString());
+
+  const usedToday = (data || []).reduce((sum: number, r: any) => sum + Number(r.care_amount), 0);
+  const remaining = DAILY_LIMIT_CARE - usedToday;
+  return { allowed: care_amount <= remaining, remaining };
+}
+
+async function insertCardTransaction(supabase: any, entity_id: string, card_id: string | null, care_amount: number, usd_amount: number, fee_amount: number) {
+  await supabase.from('card_transactions').insert({
+    entity_id,
+    card_id,
+    care_amount,
+    usd_amount,
+    fee_amount,
+    status: 'completed',
+  });
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -65,6 +93,8 @@ Deno.serve(async (req) => {
         case 'unfreeze':
           await auditLog(supabase, 'card_unfrozen', 'virtual_card', { card_id }, req, wallet_address);
           return await handleFreezeCard(stripeKey, card_id, false, corsHeaders);
+        case 'history':
+          return await handleHistory(entity_id, supabase, corsHeaders);
         default:
           return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
       }
@@ -80,6 +110,20 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Internal server error' }, 500, getCorsHeaders(req));
   }
 });
+
+async function handleHistory(entity_id: string, supabase: any, corsHeaders: Record<string, string>) {
+  const { data, error } = await supabase
+    .from('card_transactions')
+    .select('*')
+    .eq('entity_id', entity_id)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    return jsonResponse({ error: 'Failed to fetch history' }, 500, corsHeaders);
+  }
+  return jsonResponse({ transactions: data || [] }, 200, corsHeaders);
+}
 
 async function handleDemoMode(
   action: string,
@@ -127,8 +171,14 @@ async function handleDemoMode(
         return jsonResponse({ error: 'Invalid amount' }, 400, corsHeaders);
       }
 
+      const limit = await checkDailyLimit(supabase, entity_id, care_amount);
+      if (!limit.allowed) {
+        return jsonResponse({ error: `Daily limit exceeded. Remaining: ${limit.remaining.toLocaleString()} CARE` }, 400, corsHeaders);
+      }
+
       const usdRate = 0.01;
       const fee = 0.01;
+      const feeAmount = care_amount * usdRate * fee;
       const usdAmount = care_amount * usdRate * (1 - fee);
 
       const { data } = await supabase
@@ -150,6 +200,8 @@ async function handleDemoMode(
         key: `virtual_card_${entity_id}`,
         value: updatedCard,
       }, { onConflict: 'key' });
+
+      await insertCardTransaction(supabase, entity_id, data.value.id || null, care_amount, usdAmount, feeAmount);
 
       return jsonResponse({
         success: true,
@@ -178,6 +230,9 @@ async function handleDemoMode(
 
       return jsonResponse({ success: true }, 200, corsHeaders);
     }
+
+    case 'history':
+      return await handleHistory(entity_id, supabase, corsHeaders);
 
     default:
       return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
@@ -266,8 +321,14 @@ async function handleConvert(stripeKey: string, entity_id: string, wallet_addres
     return jsonResponse({ error: 'Invalid amount' }, 400, corsHeaders);
   }
 
+  const limit = await checkDailyLimit(supabase, entity_id, care_amount);
+  if (!limit.allowed) {
+    return jsonResponse({ error: `Daily limit exceeded. Remaining: ${limit.remaining.toLocaleString()} CARE` }, 400, corsHeaders);
+  }
+
   const usdRate = 0.01;
   const fee = 0.01;
+  const feeAmount = care_amount * usdRate * fee;
   const usdAmount = care_amount * usdRate * (1 - fee);
 
   const { data: settings } = await supabase
@@ -286,6 +347,8 @@ async function handleConvert(stripeKey: string, entity_id: string, wallet_addres
     key: `stripe_card_${entity_id}`,
     value: { ...settings.value, usd_balance: newBalance },
   }, { onConflict: 'key' });
+
+  await insertCardTransaction(supabase, entity_id, settings.value.card_id, care_amount, usdAmount, feeAmount);
 
   return jsonResponse({
     success: true,

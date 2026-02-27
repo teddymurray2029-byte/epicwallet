@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTransactionHistory } from '@/hooks/useRewardsData';
-import { History, Search, ArrowDownLeft, ExternalLink, Copy } from 'lucide-react';
+import { History, Search, ArrowDownLeft, ExternalLink, Copy, FileDown } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 
@@ -43,6 +44,24 @@ export default function PatientHistory() {
   };
 
   const truncateHash = (hash: string | null) => !hash ? '—' : `${hash.slice(0, 10)}...${hash.slice(-8)}`;
+
+  const downloadReceipt = async (rewardId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-receipt', {
+        body: { reward_id: rewardId },
+      });
+      if (error) throw error;
+      const blob = new Blob([data], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CareWallet-Receipt-${rewardId.slice(0, 8).toUpperCase()}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to download receipt' });
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -92,7 +111,14 @@ export default function PatientHistory() {
                         )}
                       </div>
                     </div>
-                    <p className="font-bold text-[hsl(var(--care-teal))] text-lg pl-11 sm:pl-0">+{tx.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE</p>
+                    <div className="flex items-center gap-3 pl-11 sm:pl-0">
+                      <p className="font-bold text-[hsl(var(--care-teal))] text-lg">+{tx.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE</p>
+                      {tx.status === 'confirmed' && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => downloadReceipt(tx.id)} title="Download receipt">
+                          <FileDown className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
