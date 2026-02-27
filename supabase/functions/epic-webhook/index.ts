@@ -60,7 +60,7 @@ interface EhrEvent {
   metadata?: Record<string, unknown>;
 }
 
-const MAX_EVENT_AGE_MS = 5 * 60 * 1000;
+const MAX_EVENT_AGE_MS = 2 * 60 * 1000; // 2-minute window to mitigate replay attacks
 
 const timingSafeEqual = (a: Uint8Array, b: Uint8Array) => {
   if (a.length !== b.length) return false;
