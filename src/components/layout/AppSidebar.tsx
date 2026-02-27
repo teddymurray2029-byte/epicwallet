@@ -81,11 +81,8 @@ export function AppSidebar() {
 
   const truncateAddress = (addr: string) => `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 
-  // Determine which nav items to show based on entity type
-  // Admins who are also providers see everything
   const getNavItems = () => {
     if (isAdmin && isProvider) {
-      // Merge provider + admin items, avoiding duplicate Dashboard
       const combined = [...providerNavItems];
       adminNavItems.forEach((item) => {
         if (!combined.some((p) => p.url === item.url)) {
@@ -112,21 +109,20 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border/60 bg-gradient-to-b from-sidebar-accent/30 to-transparent">
-        <div className="flex items-center gap-3 px-2 py-3">
-          {/* Professional SVG logo mark */}
-          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(var(--care-teal))] via-[hsl(var(--care-blue))] to-[hsl(var(--care-green))] text-white shadow-[0_2px_8px_hsl(180_45%_35%/0.3)] transition-transform duration-200 hover:scale-105">
-            <svg viewBox="0 0 32 32" fill="none" className="h-6 w-6">
+      <SidebarHeader className="border-b border-sidebar-border/40">
+        <div className="flex items-center gap-3 px-3 py-4">
+          {/* Logo mark */}
+          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(var(--care-teal))] to-[hsl(var(--care-green))] text-white shadow-[var(--shadow-glow-teal)] transition-transform duration-200 hover:scale-105">
+            <svg viewBox="0 0 32 32" fill="none" className="h-5 w-5">
               <text x="3" y="23" fontFamily="Inter, sans-serif" fontSize="16" fontWeight="700" fill="white">CC</text>
             </svg>
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/10 to-transparent" />
           </div>
           {!collapsed && (
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-sidebar-foreground">
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-bold text-sidebar-foreground tracking-tight">
                 CareWallet
               </span>
-              <span className="text-xs font-medium tracking-wide text-sidebar-foreground/60">
+              <span className="text-[10px] font-medium tracking-widest uppercase text-sidebar-foreground/40">
                 Healthcare Rewards
               </span>
             </div>
@@ -134,9 +130,13 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent data-tutorial="sidebar-nav">
+      <SidebarContent data-tutorial="sidebar-nav" className="py-2">
         <SidebarGroup>
-          {!collapsed && <SidebarGroupLabel>{groupLabel}</SidebarGroupLabel>}
+          {!collapsed && (
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 px-3 mb-1">
+              {groupLabel}
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               <TooltipProvider delayDuration={0}>
@@ -157,13 +157,15 @@ export function AppSidebar() {
                         <NavLink
                           to={item.url}
                           end={item.url === '/provider' || item.url === '/patient' || item.url === '/admin'}
-                          className={`flex items-center gap-3 transition-all duration-200 hover:bg-sidebar-accent hover:translate-x-0.5 rounded-md focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none ${
-                            isActive ? 'bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-[hsl(var(--sidebar-primary))] rounded-l-none' : ''
+                          className={`group/nav flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150 hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none ${
+                            isActive
+                              ? 'bg-sidebar-accent text-sidebar-primary font-medium shadow-[inset_3px_0_0_0_hsl(var(--sidebar-primary))]'
+                              : 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
                           }`}
-                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium rounded-md"
+                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                           data-tutorial={dataTutorial}
                         >
-                          <item.icon className={`h-4 w-4 transition-colors ${isActive ? 'text-sidebar-primary' : ''}`} />
+                          <item.icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? 'text-sidebar-primary' : 'text-sidebar-foreground/50 group-hover/nav:text-sidebar-foreground/80'}`} />
                           {!collapsed && <span>{item.title}</span>}
                         </NavLink>
                       </SidebarMenuButton>
@@ -191,25 +193,25 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/60 bg-gradient-to-t from-sidebar-accent/20 to-transparent">
-        <div className="px-2 py-3 space-y-2">
+      <SidebarFooter className="border-t border-sidebar-border/40">
+        <div className="px-3 py-3 space-y-1.5">
           {!collapsed && (
             <>
-              <div className="flex items-center gap-2 text-xs text-sidebar-foreground/60">
-                <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-[hsl(var(--care-green))] animate-pulse-ring' : 'bg-muted-foreground'}`} />
-                <span>
+              <div className="flex items-center gap-2 text-xs text-sidebar-foreground/50">
+                <div className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-[hsl(var(--care-green))] animate-pulse-ring' : 'bg-muted-foreground/50'}`} />
+                <span className="font-mono text-[11px]">
                   {isConnected && address
                     ? truncateAddress(address)
                     : 'Not Connected'}
                 </span>
               </div>
-              <p className="text-[10px] text-sidebar-foreground/30 tracking-wider">v0.1.0 · Testnet</p>
+              <p className="text-[10px] text-sidebar-foreground/25 tracking-wider font-mono">v0.1.0 · Testnet</p>
             </>
           )}
           {collapsed && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className={`mx-auto h-2 w-2 rounded-full cursor-default ${isConnected ? 'bg-[hsl(var(--care-green))] animate-pulse-ring' : 'bg-muted-foreground'}`} />
+                <div className={`mx-auto h-1.5 w-1.5 rounded-full cursor-default ${isConnected ? 'bg-[hsl(var(--care-green))] animate-pulse-ring' : 'bg-muted-foreground/50'}`} />
               </TooltipTrigger>
               <TooltipContent side="right" className="text-xs">
                 {isConnected && address ? truncateAddress(address) : 'Not Connected'}
