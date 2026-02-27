@@ -36,6 +36,8 @@ import {
   BookOpen,
   Shield,
   FileBarChart,
+  Trophy,
+  BarChart3,
 } from 'lucide-react';
 
 // Provider navigation items
@@ -47,6 +49,7 @@ const providerNavItems = [
   { title: 'Generate Invoice', url: '/provider/invoice', icon: QrCode },
   { title: 'EHR Integration', url: '/provider/ehr', icon: Link2 },
   { title: 'Virtual Card', url: '/provider/card', icon: CreditCard },
+  { title: 'Leaderboard', url: '/provider/leaderboard', icon: Trophy },
   { title: 'Organization', url: '/admin/organizations', icon: Users },
   { title: 'Tutorial', url: '/tutorial', icon: BookOpen },
 ];
@@ -63,6 +66,7 @@ const patientNavItems = [
 const adminNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Organizations', url: '/admin/organizations', icon: Users },
+  { title: 'Analytics', url: '/admin/analytics', icon: BarChart3 },
   { title: 'Audit Logs', url: '/admin/audit-logs', icon: Shield },
   { title: 'Deploy Contract', url: '/admin/deploy', icon: Rocket },
 ];
