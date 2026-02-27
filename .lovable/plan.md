@@ -1,84 +1,110 @@
 
 
-# Add a "How to Use CareWallet" Tutorial Page
+# Plan: Virtual Card Issuance, Fiat Off-Ramp, and Transaction Receipt PDFs
 
 ## Overview
-Create a dedicated `/tutorial` page that serves as a comprehensive, visually appealing guide for new and existing users. The page will walk users through every major feature of the CareWallet app with step-by-step instructions, illustrations using existing Lucide icons, and direct links to the relevant pages.
 
-## Page Structure
+Three financial features to complete the CARE-to-fiat pipeline: hardening the virtual card flow, adding a standalone fiat off-ramp page, and generating downloadable PDF receipts for transactions.
 
-The tutorial page will be a single scrollable page with these sections:
+---
 
-### 1. Hero Section
-- Title: "Getting Started with CareWallet"
-- Subtitle explaining the app's purpose (earn CARE tokens for clinical documentation)
-- A "Quick Start" summary of the 4 key steps as icon cards
+## 1. Harden Virtual Card Issuance
 
-### 2. Step-by-Step Sections
+**Current state:** The `/provider/card` page and `virtual-card` edge function exist with both Stripe Issuing and a demo fallback. The demo mode works but lacks transaction history tracking and conversion limits.
 
-**Step 1 -- Connect Your Wallet**
-- What MetaMask / WalletConnect is
-- How to install MetaMask (link)
-- Click "Connect MetaMask" in the header
-- Supported networks: Polygon, Polygon Amoy
+**Changes:**
 
-**Step 2 -- Register as a Provider**
-- After connecting, the dashboard prompts registration
-- Choose an existing organization or create a new one
-- Click "Register as Provider"
+- **New DB table `card_transactions`**: Track every conversion (CARE to USD) and card load event with columns: `id`, `entity_id`, `card_id`, `care_amount`, `usd_amount`, `fee_amount`, `status`, `created_at`. This gives an auditable history of all card-related financial activity.
+- **Update `virtual-card` edge function**: After each successful conversion (both demo and Stripe modes), insert a row into `card_transactions`. Add a new `history` action that returns recent card transactions for the entity.
+- **Update VirtualCard.tsx UI**: Add a "Recent Card Activity" section below the conversion panel showing the last 10 card loads with date, CARE amount, USD received, and fee paid.
+- **Add daily conversion limits**: Enforce a max of 50,000 CARE per day per entity in the edge function, checking against `card_transactions` for the current day.
 
-**Step 3 -- Join or Manage an Organization**
-- Organization admins: create invite links, manage EHR credentials
-- Providers: accept invite links to join
-- Link to `/admin/organizations`
+---
 
-**Step 4 -- Connect Your EHR (Epic / PointClickCare)**
-- Navigate to EHR Integration page
-- Click "Connect" for your EHR system
-- Authorize via OAuth flow
-- Link to `/provider/ehr`
+## 2. Fiat Off-Ramp Page
 
-**Step 5 -- Earn and Track Rewards**
-- Documentation events automatically earn CARE tokens
-- View rewards breakdown on the Rewards page
-- Monitor activity on the Activity page
-- Links to `/provider/rewards` and `/provider/activity`
+**Current state:** The virtual card is the only way to spend CARE. There is no direct bank withdrawal / cash-out option.
 
-**Step 6 -- Virtual Visa Card**
-- Create a virtual Visa card
-- Convert CARE tokens to USD
-- Spend anywhere Visa is accepted
-- Link to `/provider/card`
+**Changes:**
 
-**Step 7 -- Deploy CareCoin Contract (Admin)**
-- For admins deploying the on-chain contract
-- Link to `/admin/deploy`
+- **New page `src/pages/provider/FiatOfframp.tsx`** at route `/provider/offramp`:
+  - Shows the user's current CARE balance (on-chain + earned).
+  - A conversion form: enter CARE amount, see estimated USD after the 1% fee.
+  - Two off-ramp options displayed as selectable cards:
+    1. **Load Virtual Card** -- redirects to `/provider/card`.
+    2. **Bank Transfer (Coming Soon)** -- disabled card with "notify me" button (stores interest in `system_settings`).
+  - Conversion rate display and fee breakdown (same as virtual card page).
+- **Add sidebar nav item**: Add "Cash Out" with a `Banknote` icon between "Virtual Card" and "Leaderboard" in the provider nav.
+- **Add route** in `App.tsx`.
 
-### 3. FAQ / Tips Section
-- "What if I lose access to my wallet?"
-- "How are reward amounts determined?"
-- "Is my data HIPAA-compliant?" (reference the HIPAA notice and 15-min timeout)
+---
+
+## 3. Transaction Receipt PDFs
+
+**Current state:** The Transactions page (`/provider/transactions`) has CSV export but no individual receipt download.
+
+**Changes:**
+
+- **New edge function `generate-receipt`**: Accepts a `reward_id`, fetches the reward ledger entry + attestation + documentation event data, and generates a PDF receipt using a simple HTML-to-PDF approach via Deno. The PDF includes:
+  - CareWallet header/logo text
+  - Receipt number (reward ID truncated)
+  - Date, amount, status, recipient type
+  - Transaction hash (if confirmed)
+  - Event type and attestation details
+  - Fee breakdown (if conversion)
+  - Footer: "This receipt is generated for record-keeping purposes."
+- **Update ProviderTransactions.tsx**: Add a download icon button on each confirmed transaction row that calls `supabase.functions.invoke('generate-receipt', { body: { reward_id } })` and triggers a browser download of the returned PDF blob.
+- **Update PatientHistory.tsx**: Same download button for patient transaction rows.
+
+---
 
 ## Technical Details
 
-### Files to Create
-| File | Purpose |
-|------|---------|
-| `src/pages/Tutorial.tsx` | Main tutorial page component |
+### Database Migration
 
-### Files to Modify
-| File | Change |
+```text
+CREATE TABLE public.card_transactions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  entity_id uuid NOT NULL,
+  card_id text,
+  care_amount numeric NOT NULL,
+  usd_amount numeric NOT NULL,
+  fee_amount numeric NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'completed',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.card_transactions ENABLE ROW LEVEL SECURITY;
+
+-- Anyone can view their own card transactions (matched via entities table)
+CREATE POLICY "Users can view own card transactions"
+  ON public.card_transactions FOR SELECT
+  USING (entity_id IN (SELECT id FROM public.entities));
+
+-- Service role inserts (from edge function)
+CREATE POLICY "Service role can insert card transactions"
+  ON public.card_transactions FOR INSERT
+  WITH CHECK (false);
+```
+
+### Edge Function: generate-receipt
+
+- Uses Deno's built-in capabilities to create a simple PDF by rendering an HTML template and converting it.
+- Falls back to returning an HTML receipt if PDF generation proves complex, which the browser can print-to-PDF.
+- Endpoint returns `Content-Type: application/pdf` (or `text/html` fallback) with `Content-Disposition: attachment`.
+
+### File Changes Summary
+
+| File | Action |
 |------|--------|
-| `src/App.tsx` | Add `/tutorial` route |
-| `src/components/layout/AppSidebar.tsx` | Add "Tutorial" link to sidebar navigation (using `BookOpen` icon) |
-
-### Implementation Notes
-- Uses `DashboardLayout` for consistent navigation
-- No authentication required -- accessible to all visitors
-- Uses existing UI components: `Card`, `Badge`, `Button`, `Separator`
-- Each section card has a numbered step badge, icon, description, and a "Go to page" link button
-- Responsive grid layout: single column on mobile, two columns on larger screens for the FAQ
-- Smooth scroll anchors so sidebar or internal links can jump to specific sections
-- Re-uses the existing design language (gradients, glass cards, care-teal/care-green accents)
-- No new dependencies needed
+| `card_transactions` table | Create (migration) |
+| `supabase/functions/virtual-card/index.ts` | Edit -- add `history` action, insert into `card_transactions` on convert |
+| `supabase/functions/generate-receipt/index.ts` | Create -- PDF receipt generator |
+| `supabase/config.toml` | Edit -- add `generate-receipt` function config |
+| `src/pages/provider/VirtualCard.tsx` | Edit -- add card transaction history section |
+| `src/pages/provider/FiatOfframp.tsx` | Create -- off-ramp page |
+| `src/pages/provider/ProviderTransactions.tsx` | Edit -- add per-row receipt download button |
+| `src/pages/patient/PatientHistory.tsx` | Edit -- add per-row receipt download button |
+| `src/components/layout/AppSidebar.tsx` | Edit -- add "Cash Out" nav item |
+| `src/App.tsx` | Edit -- add `/provider/offramp` route |
 
