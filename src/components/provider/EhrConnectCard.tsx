@@ -32,8 +32,8 @@ export function EhrConnectCard() {
   const fetchStatus = async () => {
     if (!entity?.id) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('ehr_integrations')
+    const { data } = await (supabase as any)
+      .from('ehr_integration_status')
       .select('integration_type, is_active')
       .eq('entity_id', entity.id)
       .in('integration_type', ['epic', 'pointclickcare']);

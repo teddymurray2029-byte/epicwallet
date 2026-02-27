@@ -649,7 +649,44 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      ehr_integration_status: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          fhir_base_url: string | null
+          id: string | null
+          integration_type: string | null
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          fhir_base_url?: string | null
+          id?: string | null
+          integration_type?: string | null
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          fhir_base_url?: string | null
+          id?: string | null
+          integration_type?: string | null
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehr_integrations_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_entity_by_wallet: {

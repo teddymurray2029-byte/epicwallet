@@ -67,11 +67,29 @@ Deno.serve(async (req) => {
   try {
     const { action, entity_id, wallet_address, care_amount, card_id } = await req.json();
 
+    if (!entity_id || typeof entity_id !== 'string') {
+      return jsonResponse({ error: 'entity_id is required' }, 400, corsHeaders);
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Verify wallet ownership: entity must belong to the claimed wallet
+    if (wallet_address && action !== 'history' && action !== 'get') {
+      const { data: entityRecord } = await supabase
+        .from('entities')
+        .select('wallet_address')
+        .eq('id', entity_id)
+        .single();
+
+      if (!entityRecord || entityRecord.wallet_address !== wallet_address.toLowerCase()) {
+        await auditLog(supabase, 'unauthorized_card_access', 'virtual_card', { entity_id, claimed_wallet: redactWallet(wallet_address) }, req, wallet_address);
+        return jsonResponse({ error: 'Unauthorized: wallet does not match entity' }, 403, corsHeaders);
+      }
+    }
 
     if (!stripeKey) {
       return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);

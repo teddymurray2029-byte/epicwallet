@@ -105,8 +105,8 @@ export default function EhrIntegration() {
   const fetchIntegrations = async () => {
     if (!entity?.id) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('ehr_integrations')
+    const { data, error } = await (supabase as any)
+      .from('ehr_integration_status')
       .select('*')
       .eq('entity_id', entity.id)
       .in('integration_type', ['epic', 'pointclickcare']);
