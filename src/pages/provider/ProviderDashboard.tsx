@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProviderSetupTutorial } from '@/components/tutorial/ProviderSetupTutorial';
-import { ChartingNotifications } from '@/components/provider/ChartingNotifications';
+
 
 interface OrganizationOption {
   id: string;
@@ -228,7 +228,7 @@ export default function ProviderDashboard() {
 
   return (
     <DashboardLayout>
-      <ChartingNotifications />
+      
       <ProviderSetupTutorial />
       <div className="space-y-6">
         {/* Welcome banner */}
