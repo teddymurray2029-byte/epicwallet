@@ -3,146 +3,139 @@
 @tailwind utilities;
 
 /* CareCoin Healthcare Design System
-   Corporate/Healthcare aesthetic with medical blues, greens, and professional grays
-   All colors in HSL format
+   Dark-mode-focused premium aesthetic with deep surfaces, vibrant accents,
+   and layered depth. All colors in HSL format.
 */
 
 @layer base {
   :root {
-    /* Core backgrounds */
+    /* Core backgrounds - Light mode */
     --background: 210 20% 98%;
     --foreground: 215 25% 15%;
 
-    /* Card surfaces */
     --card: 0 0% 100%;
     --card-foreground: 215 25% 15%;
 
-    /* Popover/dropdown */
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 15%;
 
-    /* Primary - Healthcare Teal */
-    --primary: 180 45% 35%;
+    --primary: 174 60% 40%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Soft medical gray-blue */
     --secondary: 210 15% 93%;
     --secondary-foreground: 215 25% 25%;
 
-    /* Muted elements */
     --muted: 210 15% 95%;
     --muted-foreground: 215 15% 45%;
 
-    /* Accent - Healthcare green for success/positive */
     --accent: 160 50% 40%;
     --accent-foreground: 0 0% 100%;
 
-    /* Destructive */
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders and inputs */
     --border: 210 20% 88%;
     --input: 210 20% 88%;
-    --ring: 180 45% 35%;
+    --ring: 174 60% 40%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
-    /* Elevation shadows */
     --shadow-card: 0 1px 3px 0 hsl(215 25% 15% / 0.04), 0 1px 2px -1px hsl(215 25% 15% / 0.04);
-    --shadow-card-hover: 0 4px 12px -2px hsl(215 25% 15% / 0.08), 0 2px 6px -2px hsl(215 25% 15% / 0.06);
-    --shadow-elevated: 0 8px 24px -4px hsl(215 25% 15% / 0.1), 0 4px 8px -4px hsl(215 25% 15% / 0.06);
-    --shadow-glow-teal: 0 0 20px -4px hsl(180 45% 35% / 0.2);
-    --shadow-glow-green: 0 0 20px -4px hsl(160 50% 40% / 0.2);
+    --shadow-card-hover: 0 4px 16px -2px hsl(215 25% 15% / 0.08), 0 2px 6px -2px hsl(215 25% 15% / 0.06);
+    --shadow-elevated: 0 8px 30px -4px hsl(215 25% 15% / 0.1), 0 4px 8px -4px hsl(215 25% 15% / 0.06);
+    --shadow-glow-teal: 0 0 24px -4px hsl(174 60% 40% / 0.25);
+    --shadow-glow-green: 0 0 24px -4px hsl(160 50% 40% / 0.25);
 
-    /* Sidebar - Professional dark sidebar */
+    /* Sidebar */
     --sidebar-background: 215 30% 12%;
     --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 180 45% 50%;
+    --sidebar-primary: 174 60% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 215 25% 20%;
     --sidebar-accent-foreground: 210 20% 95%;
     --sidebar-border: 215 25% 18%;
-    --sidebar-ring: 180 45% 50%;
+    --sidebar-ring: 174 60% 50%;
 
-    /* CareCoin specific tokens */
-    --care-teal: 180 45% 35%;
-    --care-teal-light: 180 40% 50%;
-    --care-teal-dark: 180 50% 25%;
-    --care-green: 160 50% 40%;
-    --care-green-light: 160 45% 55%;
-    --care-blue: 210 60% 45%;
-    --care-blue-light: 210 55% 60%;
-    --care-warning: 45 90% 50%;
+    /* CareCoin accent tokens */
+    --care-teal: 174 60% 40%;
+    --care-teal-light: 174 55% 52%;
+    --care-teal-dark: 174 65% 28%;
+    --care-green: 155 55% 42%;
+    --care-green-light: 155 50% 55%;
+    --care-blue: 210 65% 48%;
+    --care-blue-light: 210 60% 62%;
+    --care-warning: 42 95% 55%;
     --care-warning-foreground: 30 30% 15%;
 
-    /* Chart colors - medical/healthcare palette */
-    --chart-1: 180 45% 35%;
-    --chart-2: 160 50% 40%;
-    --chart-3: 210 60% 45%;
+    /* Chart */
+    --chart-1: 174 60% 40%;
+    --chart-2: 155 55% 42%;
+    --chart-3: 210 65% 48%;
     --chart-4: 280 40% 50%;
-    --chart-5: 45 80% 50%;
+    --chart-5: 42 85% 55%;
   }
 
   .dark {
-    --background: 215 30% 8%;
-    --foreground: 210 20% 95%;
+    /* Deep, rich dark backgrounds */
+    --background: 220 25% 6%;
+    --foreground: 210 25% 94%;
 
-    --card: 215 28% 12%;
-    --card-foreground: 210 20% 95%;
+    --card: 220 22% 10%;
+    --card-foreground: 210 25% 94%;
 
-    --popover: 215 28% 12%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 220 22% 10%;
+    --popover-foreground: 210 25% 94%;
 
-    --primary: 180 50% 45%;
-    --primary-foreground: 215 30% 8%;
+    --primary: 174 65% 48%;
+    --primary-foreground: 220 25% 6%;
 
-    --secondary: 215 25% 18%;
-    --secondary-foreground: 210 20% 90%;
+    --secondary: 220 20% 16%;
+    --secondary-foreground: 210 20% 88%;
 
-    --muted: 215 25% 15%;
-    --muted-foreground: 210 15% 60%;
+    --muted: 220 18% 13%;
+    --muted-foreground: 215 15% 55%;
 
-    --accent: 160 45% 45%;
-    --accent-foreground: 215 30% 8%;
+    --accent: 155 50% 48%;
+    --accent-foreground: 220 25% 6%;
 
-    --destructive: 0 65% 45%;
+    --destructive: 0 62% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 25% 20%;
-    --input: 215 25% 20%;
-    --ring: 180 50% 45%;
+    --border: 220 18% 16%;
+    --input: 220 18% 16%;
+    --ring: 174 65% 48%;
 
-    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.15), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-    --shadow-card-hover: 0 4px 12px -2px hsl(0 0% 0% / 0.25), 0 2px 6px -2px hsl(0 0% 0% / 0.15);
-    --shadow-elevated: 0 8px 24px -4px hsl(0 0% 0% / 0.3), 0 4px 8px -4px hsl(0 0% 0% / 0.15);
-    --shadow-glow-teal: 0 0 24px -4px hsl(180 50% 45% / 0.3);
-    --shadow-glow-green: 0 0 24px -4px hsl(160 45% 45% / 0.3);
+    --shadow-card: 0 1px 4px 0 hsl(0 0% 0% / 0.2), 0 1px 2px -1px hsl(0 0% 0% / 0.15);
+    --shadow-card-hover: 0 6px 20px -4px hsl(0 0% 0% / 0.35), 0 2px 8px -2px hsl(0 0% 0% / 0.2);
+    --shadow-elevated: 0 12px 36px -6px hsl(0 0% 0% / 0.4), 0 4px 12px -4px hsl(0 0% 0% / 0.2);
+    --shadow-glow-teal: 0 0 30px -4px hsl(174 65% 48% / 0.3);
+    --shadow-glow-green: 0 0 30px -4px hsl(155 50% 48% / 0.3);
 
-    --sidebar-background: 215 35% 6%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 180 50% 50%;
-    --sidebar-primary-foreground: 215 30% 8%;
-    --sidebar-accent: 215 30% 15%;
-    --sidebar-accent-foreground: 210 20% 95%;
-    --sidebar-border: 215 30% 12%;
-    --sidebar-ring: 180 50% 50%;
+    /* Dark sidebar - deeper than card */
+    --sidebar-background: 220 30% 5%;
+    --sidebar-foreground: 210 20% 88%;
+    --sidebar-primary: 174 65% 52%;
+    --sidebar-primary-foreground: 220 25% 6%;
+    --sidebar-accent: 220 22% 12%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 220 22% 10%;
+    --sidebar-ring: 174 65% 52%;
 
-    --care-teal: 180 50% 45%;
-    --care-teal-light: 180 45% 55%;
-    --care-teal-dark: 180 55% 30%;
-    --care-green: 160 45% 45%;
-    --care-green-light: 160 40% 55%;
-    --care-blue: 210 55% 55%;
-    --care-blue-light: 210 50% 65%;
-    --care-warning: 45 85% 55%;
+    --care-teal: 174 65% 48%;
+    --care-teal-light: 174 60% 58%;
+    --care-teal-dark: 174 70% 32%;
+    --care-green: 155 50% 48%;
+    --care-green-light: 155 45% 58%;
+    --care-blue: 210 60% 56%;
+    --care-blue-light: 210 55% 66%;
+    --care-warning: 42 90% 58%;
     --care-warning-foreground: 0 0% 100%;
 
-    --chart-1: 180 50% 45%;
-    --chart-2: 160 45% 45%;
-    --chart-3: 210 55% 55%;
-    --chart-4: 280 35% 55%;
-    --chart-5: 45 80% 55%;
+    --chart-1: 174 65% 48%;
+    --chart-2: 155 50% 48%;
+    --chart-3: 210 60% 56%;
+    --chart-4: 280 40% 58%;
+    --chart-5: 42 85% 58%;
   }
 }
 
@@ -156,34 +149,33 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Professional typography for healthcare */
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
+    letter-spacing: -0.025em;
   }
 
-  /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
   }
 }
 
 @layer utilities {
-  /* Glass morphism for cards */
+  /* Glass morphism */
   .glass {
-    @apply bg-card/80 backdrop-blur-sm;
+    @apply bg-card/70 backdrop-blur-md;
   }
 
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-border/30;
-    box-shadow: var(--shadow-card), inset 0 1px 0 0 hsl(0 0% 100% / 0.05), inset 0 0 40px 0 hsl(var(--care-teal) / 0.02);
+    @apply bg-card/50 backdrop-blur-xl border border-border/40;
+    box-shadow: var(--shadow-card), inset 0 1px 0 0 hsl(0 0% 100% / 0.03), inset 0 0 40px 0 hsl(var(--care-teal) / 0.02);
   }
 
-  /* Consistent card hover lift */
+  /* Card hover */
   .card-hover-lift {
-    @apply transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)];
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)];
   }
 
-  /* Branded loading card */
+  /* Loading card */
   .loading-card {
     @apply glass-card rounded-xl p-8 flex flex-col items-center gap-4;
   }
@@ -191,14 +183,14 @@
   /* Animated mesh background */
   .bg-mesh-animated {
     background-image:
-      radial-gradient(at 15% 25%, hsl(var(--care-teal) / 0.06) 0%, transparent 55%),
-      radial-gradient(at 85% 75%, hsl(var(--care-green) / 0.04) 0%, transparent 55%),
+      radial-gradient(at 15% 25%, hsl(var(--care-teal) / 0.05) 0%, transparent 55%),
+      radial-gradient(at 85% 75%, hsl(var(--care-green) / 0.03) 0%, transparent 55%),
       radial-gradient(at 50% 10%, hsl(var(--care-blue) / 0.03) 0%, transparent 50%);
     background-size: 200% 200%;
-    animation: gradient-shift 12s ease infinite;
+    animation: gradient-shift 14s ease infinite;
   }
 
-  /* Gradient text for branding */
+  /* Gradient text */
   .text-gradient {
     @apply bg-gradient-to-r from-[hsl(var(--care-teal))] to-[hsl(var(--care-green))] bg-clip-text text-transparent;
   }
@@ -207,35 +199,17 @@
     @apply bg-gradient-to-r from-[hsl(var(--care-teal))] via-[hsl(var(--care-blue))] to-[hsl(var(--care-green))] bg-clip-text text-transparent;
   }
 
-  /* Card elevation system */
-  .card-shadow {
-    box-shadow: var(--shadow-card);
-  }
-  .card-shadow-hover {
-    box-shadow: var(--shadow-card-hover);
-  }
-  .card-shadow-elevated {
-    box-shadow: var(--shadow-elevated);
-  }
-  .card-glow-teal {
-    box-shadow: var(--shadow-card), var(--shadow-glow-teal);
-  }
-  .card-glow-green {
-    box-shadow: var(--shadow-card), var(--shadow-glow-green);
-  }
+  /* Elevation system */
+  .card-shadow { box-shadow: var(--shadow-card); }
+  .card-shadow-hover { box-shadow: var(--shadow-card-hover); }
+  .card-shadow-elevated { box-shadow: var(--shadow-elevated); }
+  .card-glow-teal { box-shadow: var(--shadow-card), var(--shadow-glow-teal); }
+  .card-glow-green { box-shadow: var(--shadow-card), var(--shadow-glow-green); }
 
-  /* Healthcare status indicators */
-  .status-success {
-    @apply bg-[hsl(var(--care-green))] text-white;
-  }
-
-  .status-pending {
-    @apply bg-[hsl(var(--care-warning))] text-[hsl(var(--care-warning-foreground))];
-  }
-
-  .status-error {
-    @apply bg-destructive text-destructive-foreground;
-  }
+  /* Status indicators */
+  .status-success { @apply bg-[hsl(var(--care-green))] text-white; }
+  .status-pending { @apply bg-[hsl(var(--care-warning))] text-[hsl(var(--care-warning-foreground))]; }
+  .status-error { @apply bg-destructive text-destructive-foreground; }
 
   /* Gradient borders */
   .border-gradient-teal {
@@ -249,14 +223,14 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, hsl(var(--care-teal) / 0.4), hsl(var(--care-green) / 0.2));
+    background: linear-gradient(135deg, hsl(var(--care-teal) / 0.5), hsl(var(--care-green) / 0.25));
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask-composite: exclude;
     -webkit-mask-composite: xor;
     pointer-events: none;
   }
 
-  /* Shimmer border animation */
+  /* Shimmer border */
   .shimmer-border {
     position: relative;
   }
@@ -268,29 +242,29 @@
     padding: 1.5px;
     background: linear-gradient(
       90deg,
-      hsl(var(--care-teal) / 0.1),
-      hsl(var(--care-teal) / 0.6),
-      hsl(var(--care-green) / 0.6),
-      hsl(var(--care-blue) / 0.3),
-      hsl(var(--care-teal) / 0.1)
+      hsl(var(--care-teal) / 0.08),
+      hsl(var(--care-teal) / 0.5),
+      hsl(var(--care-green) / 0.5),
+      hsl(var(--care-blue) / 0.25),
+      hsl(var(--care-teal) / 0.08)
     );
     background-size: 300% 100%;
-    animation: shimmer 4s linear infinite;
+    animation: shimmer 5s linear infinite;
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask-composite: exclude;
     -webkit-mask-composite: xor;
     pointer-events: none;
   }
 
-  /* Stagger animation helper */
+  /* Stagger animations */
   .animate-stagger-1 { animation-delay: 0ms; }
-  .animate-stagger-2 { animation-delay: 80ms; }
-  .animate-stagger-3 { animation-delay: 160ms; }
-  .animate-stagger-4 { animation-delay: 240ms; }
-  .animate-stagger-5 { animation-delay: 320ms; }
-  .animate-stagger-6 { animation-delay: 400ms; }
+  .animate-stagger-2 { animation-delay: 60ms; }
+  .animate-stagger-3 { animation-delay: 120ms; }
+  .animate-stagger-4 { animation-delay: 180ms; }
+  .animate-stagger-5 { animation-delay: 240ms; }
+  .animate-stagger-6 { animation-delay: 300ms; }
 
-  /* Page header utility */
+  /* Page header */
   .page-header {
     @apply text-2xl sm:text-3xl font-bold tracking-tight;
     background: linear-gradient(135deg, hsl(var(--care-teal)), hsl(var(--care-blue)), hsl(var(--care-green)));
@@ -301,23 +275,23 @@
 
   /* Interactive card hover */
   .card-interactive {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
+    @apply transition-all duration-200 hover:-translate-y-1 hover:shadow-lg;
     &:hover {
       border-color: hsl(var(--care-teal) / 0.3);
     }
   }
 
-  /* Activity row hover accent */
+  /* Activity row */
   .activity-row {
     @apply transition-all duration-200 hover:bg-muted/40 hover:border-l-2 hover:border-l-[hsl(var(--care-teal)/0.5)] hover:pl-3;
   }
 
-  /* Skeleton shimmer loading */
+  /* Skeleton shimmer */
   .skeleton-shimmer {
     background: linear-gradient(
       90deg,
       hsl(var(--muted)) 25%,
-      hsl(var(--care-teal) / 0.08) 50%,
+      hsl(var(--care-teal) / 0.06) 50%,
       hsl(var(--muted)) 75%
     );
     background-size: 300% 100%;
@@ -327,6 +301,20 @@
   /* Alternate row shading */
   .row-striped > *:nth-child(even) {
     @apply bg-muted/20;
+  }
+
+  /* Surface noise texture for depth */
+  .surface-noise {
+    position: relative;
+  }
+  .surface-noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0.02;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    pointer-events: none;
   }
 }
 
