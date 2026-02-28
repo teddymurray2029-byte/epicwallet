@@ -128,14 +128,16 @@ export default function EhrIntegration() {
     setConnecting(type);
     const cfg = EHR_CONFIG[type];
     try {
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${cfg.authFunction}?action=authorize&entity_id=${entity.id}`);
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${cfg.authFunction}?action=authorize&entity_id=${entity.id}`,
+        { headers: { 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
+      );
       const data = await res.json();
       if (data.configured === false) {
         setNotConfigured(type);
         setConnecting(null);
         return;
       }
-      // Handle redirect-based flow (PCC) or direct connect (Epic)
       if (data.authorize_url) {
         window.location.href = data.authorize_url;
       } else if (data.success) {
@@ -143,8 +145,9 @@ export default function EhrIntegration() {
         await fetchIntegrations();
         setConnecting(null);
       } else {
-        const errorMsg = data.hint || data.detail || data.error || 'Failed to start connection';
-        toast({ title: 'Error', description: errorMsg, variant: 'destructive' });
+        // Surface actionable hint from backend
+        const errorMsg = data.hint || data.error || 'Failed to start connection';
+        toast({ title: `${cfg.label} Connection Failed`, description: errorMsg, variant: 'destructive' });
         setConnecting(null);
       }
     } catch {

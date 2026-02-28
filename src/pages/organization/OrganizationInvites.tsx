@@ -147,9 +147,23 @@ export default function OrganizationInvites() {
     if (!entity?.id) return;
     const creds = ehrCreds[ehrType];
     if (!creds.client_id.trim() || !creds.client_secret.trim()) {
-      toast({ title: 'Missing fields', description: 'Please provide both Client ID and Client Secret.', variant: 'destructive' });
+      toast({ title: 'Missing fields', description: 'Please provide both Client ID and Client Secret / Private Key.', variant: 'destructive' });
       return;
     }
+
+    // Epic-specific PEM validation
+    if (ehrType === 'epic') {
+      const secret = creds.client_secret.trim();
+      if (!secret.includes('-----BEGIN') || !secret.includes('PRIVATE KEY')) {
+        toast({
+          title: 'Invalid Epic Private Key',
+          description: 'Epic Backend System apps require an RSA private key in PEM format (-----BEGIN PRIVATE KEY-----). Generate a key pair in Epic App Orchard and paste the full private key here.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     setEhrSaving(ehrType);
     setEhrSaved(null);
     try {
@@ -166,7 +180,7 @@ export default function OrganizationInvites() {
         setEhrConfigured(prev => ({ ...prev, [ehrType]: true }));
         setEhrSaved(ehrType);
         setEhrCreds(prev => ({ ...prev, [ehrType]: { client_id: '', client_secret: '' } }));
-        toast({ title: 'Credentials saved', description: `${ehrType === 'epic' ? 'Epic' : 'PointClickCare'} OAuth credentials have been saved securely.` });
+        toast({ title: 'Credentials saved', description: `${ehrType === 'epic' ? 'Epic' : 'PointClickCare'} credentials have been saved securely.` });
         setTimeout(() => setEhrSaved(null), 3000);
       } else {
         toast({ title: 'Error', description: data.error || 'Failed to save credentials', variant: 'destructive' });
@@ -398,24 +412,46 @@ export default function OrganizationInvites() {
                         value={creds.client_id}
                         onChange={(e) => setEhrCreds(prev => ({ ...prev, [ehrType]: { ...prev[ehrType], client_id: e.target.value } }))}
                       />
+                      {ehrType === 'epic' && (
+                        <p className="text-xs text-muted-foreground">UUID from Epic App Orchard</p>
+                      )}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">Client Secret</label>
+                      <label className="text-xs font-medium text-muted-foreground">
+                        {ehrType === 'epic' ? 'Private Key (PEM)' : 'Client Secret'}
+                      </label>
                       <div className="relative">
-                        <Input
-                          type={showSecret[ehrType] ? 'text' : 'password'}
-                          placeholder={configured ? '••••••••' : `${label} Client Secret`}
-                          value={creds.client_secret}
-                          onChange={(e) => setEhrCreds(prev => ({ ...prev, [ehrType]: { ...prev[ehrType], client_secret: e.target.value } }))}
-                        />
-                        <button
-                          type="button"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          onClick={() => setShowSecret(prev => ({ ...prev, [ehrType]: !prev[ehrType] }))}
-                        >
-                          {showSecret[ehrType] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
+                        {ehrType === 'epic' ? (
+                          <textarea
+                            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+                            placeholder={configured ? '••••••••' : '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----'}
+                            value={creds.client_secret}
+                            onChange={(e) => setEhrCreds(prev => ({ ...prev, [ehrType]: { ...prev[ehrType], client_secret: e.target.value } }))}
+                          />
+                        ) : (
+                          <>
+                            <Input
+                              type={showSecret[ehrType] ? 'text' : 'password'}
+                              placeholder={configured ? '••••••••' : `${label} Client Secret`}
+                              value={creds.client_secret}
+                              onChange={(e) => setEhrCreds(prev => ({ ...prev, [ehrType]: { ...prev[ehrType], client_secret: e.target.value } }))}
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              onClick={() => setShowSecret(prev => ({ ...prev, [ehrType]: !prev[ehrType] }))}
+                            >
+                              {showSecret[ehrType] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </>
+                        )}
                       </div>
+                      {ehrType === 'epic' && (
+                        <p className="text-xs text-muted-foreground">
+                          Paste the full RSA private key from{' '}
+                          <a href="https://fhir.epic.com/Developer/Apps" target="_blank" rel="noopener noreferrer" className="text-primary underline">Epic App Orchard</a>.
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 justify-end">

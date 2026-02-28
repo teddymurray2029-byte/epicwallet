@@ -227,13 +227,16 @@ Deno.serve(async (req) => {
           );
         }
       } else {
-        // Simple client_secret flow (fallback)
-        console.log('Using client_secret flow for Epic');
-        tokenBody = new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: epicClientId,
-          client_secret: epicClientSecret,
-        });
+        // Non-PEM credential detected — short-circuit with actionable error
+        console.warn('Epic credential is not a PEM private key. Returning hint to caller.');
+        return new Response(
+          JSON.stringify({
+            error: 'Invalid Epic credential format',
+            hint: 'Epic Backend System apps require an RSA private key in PEM format, not a client secret. Update your credentials on the Organization Management page (/admin/organizations) with the RSA private key from Epic App Orchard (https://fhir.epic.com/Developer/Apps).',
+            code: 'INVALID_CREDENTIAL_FORMAT',
+          }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
       }
 
       const tokenRes = await fetch(epicTokenUrl, {
