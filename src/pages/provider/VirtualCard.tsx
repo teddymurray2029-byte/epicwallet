@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { loadStripe } from '@stripe/stripe-js';
 import {
   CreditCard,
   ArrowRightLeft,
@@ -23,6 +24,8 @@ import {
 } from 'lucide-react';
 import { CardActivityTable } from '@/components/provider/CardActivityTable';
 
+const stripePromise = loadStripe('pk_live_51StvAPRzNLUIpDoyMwf5quZ4u9fhuX9Y4ilK1gdEhiEjfTWwjDOVk0icp1G7kQXDYYjf0Q1pKZXV0CRDThH5hKN800mCtFBlLR');
+
 interface VirtualCardData {
   id: string;
   last4: string;
@@ -34,12 +37,7 @@ interface VirtualCardData {
   usd_balance: number;
 }
 
-interface CardDetails {
-  number: string;
-  cvc: string;
-  exp_month: number;
-  exp_year: number;
-}
+// Stripe Elements handles card detail display securely
 
 export default function VirtualCard() {
   const { isConnected, entity, earnedBalance, onChainBalance, address } = useWallet();
@@ -48,8 +46,11 @@ export default function VirtualCard() {
   const [creating, setCreating] = useState(false);
   const [converting, setConverting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [cardDetails, setCardDetails] = useState<CardDetails | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const numberRef = useRef<HTMLDivElement>(null);
+  const cvcRef = useRef<HTMLDivElement>(null);
+  const expiryRef = useRef<HTMLDivElement>(null);
+  const elementsRef = useRef<any>(null);
   const [convertAmount, setConvertAmount] = useState('');
   const [usdRate] = useState(0.01); // 1 CARE = $0.01 placeholder rate
 
@@ -136,24 +137,74 @@ export default function VirtualCard() {
   };
 
   const handleReveal = async () => {
-    if (!entity?.id) return;
-    if (cardDetails) {
-      setShowDetails(!showDetails);
+    if (!entity?.id || !card) return;
+
+    // Toggle off
+    if (showDetails) {
+      // Unmount elements
+      if (elementsRef.current) {
+        elementsRef.current = null;
+      }
+      if (numberRef.current) numberRef.current.innerHTML = '';
+      if (cvcRef.current) cvcRef.current.innerHTML = '';
+      if (expiryRef.current) expiryRef.current.innerHTML = '';
+      setShowDetails(false);
       return;
     }
+
     setRevealing(true);
     try {
+      const stripe = await stripePromise;
+      if (!stripe) throw new Error('Stripe not loaded');
+
+      // 1. Create nonce
+      const nonceResult = await stripe.createEphemeralKeyNonce({ issuingCard: card.id });
+      if (nonceResult.error) throw new Error(nonceResult.error.message);
+
+      // 2. Get ephemeral key from backend
       const response = await supabase.functions.invoke('virtual-card', {
-        body: { action: 'reveal', entity_id: entity.id, wallet_address: address },
+        body: { action: 'ephemeral-key', entity_id: entity.id, wallet_address: address, nonce: nonceResult.nonce },
       });
-      if (response.data?.number) {
-        setCardDetails(response.data);
-        setShowDetails(true);
-      } else {
-        toast.error(response.data?.error || 'Failed to reveal card details');
-      }
-    } catch (err) {
-      toast.error('Failed to reveal card details');
+
+      if (response.data?.error) throw new Error(response.data.error);
+
+      const { ephemeralKeySecret, cardId } = response.data;
+
+      // 3. Create Stripe Elements and mount
+      const elements = stripe.elements();
+      elementsRef.current = elements;
+
+      const style = { base: { color: '#ffffff', fontSize: '16px', fontFamily: 'monospace' } };
+
+      const numberEl = elements.create('issuingCardNumberDisplay', {
+        issuingCard: cardId,
+        nonce: nonceResult.nonce,
+        ephemeralKeySecret,
+        style,
+      });
+
+      const cvcEl = elements.create('issuingCardCvcDisplay', {
+        issuingCard: cardId,
+        nonce: nonceResult.nonce,
+        ephemeralKeySecret,
+        style,
+      });
+
+      const expiryEl = elements.create('issuingCardExpiryDisplay', {
+        issuingCard: cardId,
+        nonce: nonceResult.nonce,
+        ephemeralKeySecret,
+        style,
+      });
+
+      if (numberRef.current) numberEl.mount(numberRef.current);
+      if (cvcRef.current) cvcEl.mount(cvcRef.current);
+      if (expiryRef.current) expiryEl.mount(expiryRef.current);
+
+      setShowDetails(true);
+    } catch (err: any) {
+      console.error('Reveal error:', err);
+      toast.error(err.message || 'Failed to reveal card details');
     } finally {
       setRevealing(false);
     }
@@ -236,14 +287,17 @@ export default function VirtualCard() {
                     </div>
 
                     <div>
-                      <p className="text-xl tracking-[0.25em] font-mono">
-                        {showDetails && cardDetails
-                          ? cardDetails.number.replace(/(.{4})/g, '$1 ').trim()
-                          : `•••• •••• •••• ${card.last4}`}
-                      </p>
-                      {showDetails && cardDetails && (
-                        <p className="text-sm font-mono mt-1 opacity-80">
-                          CVC: {cardDetails.cvc}
+                      {showDetails ? (
+                        <div className="space-y-1">
+                          <div ref={numberRef} className="text-xl tracking-[0.25em] font-mono min-h-[28px]" />
+                          <div className="flex items-center gap-2 text-sm font-mono opacity-80">
+                            <span>CVC:</span>
+                            <div ref={cvcRef} className="inline-block min-w-[40px]" />
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xl tracking-[0.25em] font-mono">
+                          {`•••• •••• •••• ${card.last4}`}
                         </p>
                       )}
                     </div>
@@ -251,9 +305,13 @@ export default function VirtualCard() {
                     <div className="flex justify-between items-end">
                       <div>
                         <p className="text-xs uppercase opacity-60">Expires</p>
-                        <p className="text-sm font-mono">
-                          {`${String(card.exp_month).padStart(2, '0')}/${card.exp_year}`}
-                        </p>
+                        {showDetails ? (
+                          <div ref={expiryRef} className="text-sm font-mono min-h-[20px]" />
+                        ) : (
+                          <p className="text-sm font-mono">
+                            {`${String(card.exp_month).padStart(2, '0')}/${card.exp_year}`}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-xs uppercase opacity-60">Balance</p>
@@ -289,11 +347,7 @@ export default function VirtualCard() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      if (cardDetails) {
-                        copyToClipboard(cardDetails.number, 'Card number');
-                      } else {
-                        toast.error('Reveal card details first');
-                      }
+                      toast.info('Card number is displayed securely via Stripe — use your browser to copy it.');
                     }}
                     className="flex-1"
                   >

@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, entity_id, wallet_address, care_amount, card_id } = await req.json();
+    const { action, entity_id, wallet_address, care_amount, card_id, nonce } = await req.json();
 
     if (!entity_id || typeof entity_id !== 'string') {
       return jsonResponse({ error: 'entity_id is required' }, 400, corsHeaders);
@@ -101,9 +101,9 @@ Deno.serve(async (req) => {
       case 'create':
         await auditLog(supabase, 'virtual_card_created', 'virtual_card', { entity_id }, req, wallet_address);
         return await handleCreateCard(stripeKey, entity_id, wallet_address, supabase, corsHeaders);
-      case 'reveal':
-        await auditLog(supabase, 'card_details_revealed', 'virtual_card', { entity_id }, req, wallet_address);
-        return await handleRevealCard(stripeKey, entity_id, supabase, corsHeaders);
+      case 'ephemeral-key':
+        await auditLog(supabase, 'card_ephemeral_key_created', 'virtual_card', { entity_id }, req, wallet_address);
+        return await handleEphemeralKey(stripeKey, entity_id, nonce, supabase, corsHeaders);
       case 'convert':
         await auditLog(supabase, 'care_to_usd_conversion', 'virtual_card', { entity_id, care_amount }, req, wallet_address);
         return await handleConvert(stripeKey, entity_id, wallet_address, care_amount, supabase, corsHeaders);
@@ -170,7 +170,11 @@ async function handleGetCard(stripeKey: string, entity_id: string, supabase: any
   }
 }
 
-async function handleRevealCard(stripeKey: string, entity_id: string, supabase: any, corsHeaders: Record<string, string>) {
+async function handleEphemeralKey(stripeKey: string, entity_id: string, nonce: string, supabase: any, corsHeaders: Record<string, string>) {
+  if (!nonce) {
+    return jsonResponse({ error: 'nonce is required' }, 400, corsHeaders);
+  }
+
   const { data: settings } = await supabase
     .from('system_settings')
     .select('value')
@@ -181,15 +185,17 @@ async function handleRevealCard(stripeKey: string, entity_id: string, supabase: 
     return jsonResponse({ error: 'No card found' }, 400, corsHeaders);
   }
 
-  // Retrieve full card details including number and CVC using expand
   const cardId = settings.value.card_id;
-  const numberData = await stripeRequest(stripeKey, `issuing/cards/${cardId}?expand[]=number&expand[]=cvc`, 'GET');
+
+  // Create ephemeral key with nonce for Stripe.js Issuing Elements
+  const ephemeralKey = await stripeRequest(stripeKey, 'ephemeral_keys', 'POST', {
+    issuing_card: cardId,
+    nonce: nonce,
+  }, { 'Stripe-Version': '2025-04-30.basil' });
 
   return jsonResponse({
-    number: numberData.number,
-    cvc: numberData.cvc,
-    exp_month: numberData.exp_month,
-    exp_year: numberData.exp_year,
+    ephemeralKeySecret: ephemeralKey.secret,
+    cardId: cardId,
   }, 200, corsHeaders);
 }
 
@@ -294,9 +300,9 @@ async function handleFreezeCard(stripeKey: string, card_id: string, freeze: bool
   return jsonResponse({ success: true, status: card.status }, 200, corsHeaders);
 }
 
-async function stripeRequest(secretKey: string, endpoint: string, method: string, body?: any) {
+async function stripeRequest(secretKey: string, endpoint: string, method: string, body?: any, extraHeaders?: Record<string, string>) {
   const url = `https://api.stripe.com/v1/${endpoint}`;
-  const headers: Record<string, string> = { 'Authorization': `Bearer ${secretKey}` };
+  const headers: Record<string, string> = { 'Authorization': `Bearer ${secretKey}`, ...extraHeaders };
 
   let bodyStr: string | undefined;
   if (body && method === 'POST') {
