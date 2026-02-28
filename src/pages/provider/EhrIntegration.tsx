@@ -143,7 +143,8 @@ export default function EhrIntegration() {
         await fetchIntegrations();
         setConnecting(null);
       } else {
-        toast({ title: 'Error', description: data.error || data.detail || 'Failed to start connection', variant: 'destructive' });
+        const errorMsg = data.hint || data.detail || data.error || 'Failed to start connection';
+        toast({ title: 'Error', description: errorMsg, variant: 'destructive' });
         setConnecting(null);
       }
     } catch {
