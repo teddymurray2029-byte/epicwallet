@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.manage-ehr-credentials]
 verify_jwt = false
+
+[functions.epic-jwks]
+verify_jwt = false

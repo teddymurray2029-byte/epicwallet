@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
     // POST: Save/update credentials (encrypted)
     if (req.method === 'POST') {
       const body = await req.json();
-      const { ehr_type, client_id, client_secret } = body;
+      const { ehr_type, client_id, client_secret, public_key_jwks } = body;
 
       if (!ehr_type || !client_id || !client_secret) {
         return new Response(
@@ -173,17 +173,21 @@ Deno.serve(async (req) => {
 
       const encryptedSecret = await encrypt(client_secret.trim());
 
+      const upsertData: Record<string, unknown> = {
+        organization_id: organizationId,
+        ehr_type,
+        client_id: client_id.trim(),
+        client_secret: encryptedSecret,
+      };
+
+      // Store public key JWKS if provided (for Epic Backend System apps)
+      if (public_key_jwks) {
+        upsertData.public_key_jwks = public_key_jwks;
+      }
+
       const { error: upsertError } = await supabase
         .from('ehr_credentials')
-        .upsert(
-          {
-            organization_id: organizationId,
-            ehr_type,
-            client_id: client_id.trim(),
-            client_secret: encryptedSecret,
-          },
-          { onConflict: 'organization_id,ehr_type' },
-        );
+        .upsert(upsertData, { onConflict: 'organization_id,ehr_type' });
 
       if (upsertError) {
         console.error('upsert error:', JSON.stringify(upsertError));

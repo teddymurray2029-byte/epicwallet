@@ -236,6 +236,7 @@ export type Database = {
           ehr_type: string
           id: string
           organization_id: string
+          public_key_jwks: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -245,6 +246,7 @@ export type Database = {
           ehr_type: string
           id?: string
           organization_id: string
+          public_key_jwks?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -254,6 +256,7 @@ export type Database = {
           ehr_type?: string
           id?: string
           organization_id?: string
+          public_key_jwks?: Json | null
           updated_at?: string | null
         }
         Relationships: [
