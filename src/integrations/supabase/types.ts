@@ -101,6 +101,42 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_withdrawals: {
+        Row: {
+          care_amount: number
+          completed_at: string | null
+          created_at: string
+          entity_id: string
+          fee_amount: number
+          id: string
+          status: string
+          stripe_payout_id: string | null
+          usd_amount: number
+        }
+        Insert: {
+          care_amount: number
+          completed_at?: string | null
+          created_at?: string
+          entity_id: string
+          fee_amount?: number
+          id?: string
+          status?: string
+          stripe_payout_id?: string | null
+          usd_amount: number
+        }
+        Update: {
+          care_amount?: number
+          completed_at?: string | null
+          created_at?: string
+          entity_id?: string
+          fee_amount?: number
+          id?: string
+          status?: string
+          stripe_payout_id?: string | null
+          usd_amount?: number
+        }
+        Relationships: []
+      }
       card_transactions: {
         Row: {
           card_id: string | null
@@ -607,6 +643,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stripe_connect_accounts: {
+        Row: {
+          created_at: string
+          entity_id: string
+          id: string
+          onboarding_complete: boolean
+          payouts_enabled: boolean
+          stripe_account_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          id?: string
+          onboarding_complete?: boolean
+          payouts_enabled?: boolean
+          stripe_account_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          id?: string
+          onboarding_complete?: boolean
+          payouts_enabled?: boolean
+          stripe_account_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       system_settings: {
         Row: {
