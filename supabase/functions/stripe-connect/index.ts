@@ -198,7 +198,13 @@ Deno.serve(async (req) => {
             usd_amount: netUsd,
             fee_amount: fee,
           });
-        } catch (stripeErr) {
+        } catch (stripeErr: any) {
+          // Handle insufficient balance in test mode
+          if (stripeErr?.code === "balance_insufficient") {
+            return json({
+              error: "Platform balance insufficient. In Stripe test mode, create a charge using card 4000000000000077 to add funds.",
+            }, 400);
+          }
           // Record failed withdrawal
           await supabase.from("bank_withdrawals").insert({
             entity_id,
