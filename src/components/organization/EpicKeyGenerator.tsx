@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 
 interface EpicKeyGeneratorProps {
   onPrivateKeyGenerated: (pem: string) => void;
+  onJwksGenerated?: (jwks: object) => void;
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -23,7 +24,7 @@ function formatPem(base64: string, label: string): string {
   return `-----BEGIN ${label}-----\n${lines.join('\n')}\n-----END ${label}-----`;
 }
 
-export default function EpicKeyGenerator({ onPrivateKeyGenerated }: EpicKeyGeneratorProps) {
+export default function EpicKeyGenerator({ onPrivateKeyGenerated, onJwksGenerated }: EpicKeyGeneratorProps) {
   const [generating, setGenerating] = useState(false);
   const [jwkPublicKey, setJwkPublicKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -57,11 +58,14 @@ export default function EpicKeyGenerator({ onPrivateKeyGenerated }: EpicKeyGener
         use: 'sig',
       };
 
-      const jwksJson = JSON.stringify({ keys: [epicJwk] }, null, 2);
+      const jwksObj = { keys: [epicJwk] };
+      const jwksJson = JSON.stringify(jwksObj, null, 2);
       setJwkPublicKey(jwksJson);
 
       // Auto-fill the PEM private key
       onPrivateKeyGenerated(pem);
+      // Pass JWKS object to parent for saving
+      onJwksGenerated?.(jwksObj);
 
       toast({
         title: 'Key pair generated',

@@ -1,0 +1,1 @@
+ALTER TABLE public.ehr_credentials ADD COLUMN IF NOT EXISTS public_key_jwks jsonb;

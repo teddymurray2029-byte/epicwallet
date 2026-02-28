@@ -33,7 +33,7 @@ export default function OrganizationInvites() {
   const [latestInviteLink, setLatestInviteLink] = useState<string | null>(null);
 
   // EHR Credentials state
-  const [ehrCreds, setEhrCreds] = useState<Record<string, { client_id: string; client_secret: string }>>({
+  const [ehrCreds, setEhrCreds] = useState<Record<string, { client_id: string; client_secret: string; public_key_jwks?: object }>>({
     epic: { client_id: '', client_secret: '' },
     pointclickcare: { client_id: '', client_secret: '' },
   });
@@ -42,6 +42,7 @@ export default function OrganizationInvites() {
   const [ehrSaved, setEhrSaved] = useState<string | null>(null);
   const [ehrDeleting, setEhrDeleting] = useState<string | null>(null);
   const [showSecret, setShowSecret] = useState<Record<string, boolean>>({ epic: false, pointclickcare: false });
+  const [jwksUrl, setJwksUrl] = useState<string | null>(null);
 
   const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
 
@@ -173,13 +174,23 @@ export default function OrganizationInvites() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ ehr_type: ehrType, client_id: creds.client_id.trim(), client_secret: creds.client_secret.trim() }),
+          body: JSON.stringify({
+            ehr_type: ehrType,
+            client_id: creds.client_id.trim(),
+            client_secret: creds.client_secret.trim(),
+            ...(creds.public_key_jwks ? { public_key_jwks: creds.public_key_jwks } : {}),
+          }),
         }
       );
       const data = await res.json();
       if (data.success) {
         setEhrConfigured(prev => ({ ...prev, [ehrType]: true }));
         setEhrSaved(ehrType);
+        // Show JWKS URL for Epic
+        if (ehrType === 'epic' && creds.public_key_jwks) {
+          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/epic-jwks?org=${orgId}`;
+          setJwksUrl(url);
+        }
         setEhrCreds(prev => ({ ...prev, [ehrType]: { client_id: '', client_secret: '' } }));
         toast({ title: 'Credentials saved', description: `${ehrType === 'epic' ? 'Epic' : 'PointClickCare'} credentials have been saved securely.` });
         setTimeout(() => setEhrSaved(null), 3000);
@@ -456,11 +467,38 @@ export default function OrganizationInvites() {
                     </div>
                   </div>
                   {ehrType === 'epic' && (
-                    <EpicKeyGenerator
-                      onPrivateKeyGenerated={(pem) =>
-                        setEhrCreds(prev => ({ ...prev, epic: { ...prev.epic, client_secret: pem } }))
-                      }
-                    />
+                    <>
+                      <EpicKeyGenerator
+                        onPrivateKeyGenerated={(pem) =>
+                          setEhrCreds(prev => ({ ...prev, epic: { ...prev.epic, client_secret: pem } }))
+                        }
+                        onJwksGenerated={(jwks) =>
+                          setEhrCreds(prev => ({ ...prev, epic: { ...prev.epic, public_key_jwks: jwks } }))
+                        }
+                      />
+                      {jwksUrl && (
+                        <div className="rounded-md border border-border/40 bg-muted/30 p-3 space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Your JWKS URL — paste this into Epic App Orchard → Non-Production JWK Set URL:
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <code className="text-xs text-foreground break-all flex-1">{jwksUrl}</code>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="shrink-0 gap-1.5 text-xs"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(jwksUrl);
+                                toast({ title: 'JWKS URL copied', description: 'Paste this into Epic App Orchard → Non-Production JWK Set URL.' });
+                              }}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              Copy URL
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                   <div className="flex items-center gap-2 justify-end">
                     {ehrSaved === ehrType && (
