@@ -119,8 +119,16 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
     }
   } catch (err) {
-    console.error('Virtual card error:', String(err));
-    return jsonResponse({ error: `Error: ${String(err).slice(0, 200)}` }, 500, getCorsHeaders(req));
+    const message = String(err);
+    console.error('Virtual card error:', message);
+
+    if (message.toLowerCase().includes('outstanding requirements')) {
+      return jsonResponse({
+        error: 'Cardholder verification is still pending. Please complete Issuing verification requirements, then try again.',
+      }, 400, getCorsHeaders(req));
+    }
+
+    return jsonResponse({ error: message.slice(0, 200) }, 500, getCorsHeaders(req));
   }
 });
 
