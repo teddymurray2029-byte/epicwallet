@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
       if (orgId) {
         const { data: creds } = await supabase
           .from('ehr_credentials')
-          .select('client_id, client_secret')
+          .select('client_id, client_secret, public_key_jwks')
           .eq('organization_id', orgId)
           .eq('ehr_type', 'epic')
           .maybeSingle();
@@ -177,7 +177,11 @@ Deno.serve(async (req) => {
           epicClientId = creds.client_id;
           const rawSecret = creds.client_secret;
           epicClientSecret = await decrypt(rawSecret);
-          console.log(`Epic creds loaded from DB for org ${orgId}. client_id=${epicClientId.slice(0,8)}…, secret starts with: ${epicClientSecret.slice(0,27)}`);
+          // Extract kid from stored JWKS so the JWT header matches
+          if (creds.public_key_jwks?.keys?.[0]?.kid) {
+            epicKid = creds.public_key_jwks.keys[0].kid;
+          }
+          console.log(`Epic creds loaded from DB for org ${orgId}. client_id=${epicClientId.slice(0,8)}…, kid=${epicKid || '[none]'}, secret starts with: ${epicClientSecret.slice(0,27)}`);
         }
       }
     }
