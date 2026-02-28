@@ -9,6 +9,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Copy, Link2, RefreshCw, XCircle, Shield, CheckCircle2, Eye, EyeOff, Trash2, Loader2 } from 'lucide-react';
+import EpicKeyGenerator from '@/components/organization/EpicKeyGenerator';
 
 interface OrganizationInvite {
   id: string;
@@ -454,6 +455,13 @@ export default function OrganizationInvites() {
                       )}
                     </div>
                   </div>
+                  {ehrType === 'epic' && (
+                    <EpicKeyGenerator
+                      onPrivateKeyGenerated={(pem) =>
+                        setEhrCreds(prev => ({ ...prev, epic: { ...prev.epic, client_secret: pem } }))
+                      }
+                    />
+                  )}
                   <div className="flex items-center gap-2 justify-end">
                     {ehrSaved === ehrType && (
                       <span className="flex items-center gap-1 text-xs text-[hsl(var(--care-green))] animate-fade-in-up">
