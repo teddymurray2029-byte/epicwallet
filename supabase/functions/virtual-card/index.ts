@@ -77,8 +77,8 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify wallet ownership: entity must belong to the claimed wallet
-    if (wallet_address && action !== 'history' && action !== 'get') {
+    // Verify wallet ownership
+    if (wallet_address && !['history', 'get'].includes(action)) {
       const { data: entityRecord } = await supabase
         .from('entities')
         .select('wallet_address')
@@ -92,37 +92,35 @@ Deno.serve(async (req) => {
     }
 
     if (!stripeKey) {
-      return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);
+      return jsonResponse({ error: 'Stripe is not configured' }, 500, corsHeaders);
     }
 
-    try {
-      switch (action) {
-        case 'get':
-          return await handleGetCard(stripeKey, entity_id, supabase, corsHeaders);
-        case 'create':
-          await auditLog(supabase, 'virtual_card_created', 'virtual_card', { entity_id }, req, wallet_address);
-          return await handleCreateCard(stripeKey, entity_id, wallet_address, supabase, corsHeaders);
-        case 'convert':
-          await auditLog(supabase, 'care_to_usd_conversion', 'virtual_card', { entity_id, care_amount }, req, wallet_address);
-          return await handleConvert(stripeKey, entity_id, wallet_address, care_amount, supabase, corsHeaders);
-        case 'freeze':
-          await auditLog(supabase, 'card_frozen', 'virtual_card', { card_id }, req, wallet_address);
-          return await handleFreezeCard(stripeKey, card_id, true, corsHeaders);
-        case 'unfreeze':
-          await auditLog(supabase, 'card_unfrozen', 'virtual_card', { card_id }, req, wallet_address);
-          return await handleFreezeCard(stripeKey, card_id, false, corsHeaders);
-        case 'history':
-          return await handleHistory(entity_id, supabase, corsHeaders);
-        default:
-          return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
-      }
-    } catch (stripeErr) {
-      console.error('Stripe Issuing not available, using demo mode:', String(stripeErr));
-      return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);
+    switch (action) {
+      case 'get':
+        return await handleGetCard(stripeKey, entity_id, supabase, corsHeaders);
+      case 'create':
+        await auditLog(supabase, 'virtual_card_created', 'virtual_card', { entity_id }, req, wallet_address);
+        return await handleCreateCard(stripeKey, entity_id, wallet_address, supabase, corsHeaders);
+      case 'reveal':
+        await auditLog(supabase, 'card_details_revealed', 'virtual_card', { entity_id }, req, wallet_address);
+        return await handleRevealCard(stripeKey, entity_id, supabase, corsHeaders);
+      case 'convert':
+        await auditLog(supabase, 'care_to_usd_conversion', 'virtual_card', { entity_id, care_amount }, req, wallet_address);
+        return await handleConvert(stripeKey, entity_id, wallet_address, care_amount, supabase, corsHeaders);
+      case 'freeze':
+        await auditLog(supabase, 'card_frozen', 'virtual_card', { card_id }, req, wallet_address);
+        return await handleFreezeCard(stripeKey, card_id, true, corsHeaders);
+      case 'unfreeze':
+        await auditLog(supabase, 'card_unfrozen', 'virtual_card', { card_id }, req, wallet_address);
+        return await handleFreezeCard(stripeKey, card_id, false, corsHeaders);
+      case 'history':
+        return await handleHistory(entity_id, supabase, corsHeaders);
+      default:
+        return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
     }
   } catch (err) {
     console.error('Virtual card error:', String(err));
-    return jsonResponse({ error: 'Internal server error' }, 500, getCorsHeaders(req));
+    return jsonResponse({ error: `Error: ${String(err).slice(0, 200)}` }, 500, getCorsHeaders(req));
   }
 });
 
@@ -140,120 +138,6 @@ async function handleHistory(entity_id: string, supabase: any, corsHeaders: Reco
   return jsonResponse({ transactions: data || [] }, 200, corsHeaders);
 }
 
-async function handleDemoMode(
-  action: string,
-  entity_id: string,
-  wallet_address: string,
-  care_amount: number | undefined,
-  supabase: any,
-  req: Request,
-  corsHeaders: Record<string, string>,
-) {
-  switch (action) {
-    case 'get': {
-      const { data } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', `virtual_card_${entity_id}`)
-        .maybeSingle();
-
-      return jsonResponse({ card: data?.value || null }, 200, corsHeaders);
-    }
-
-    case 'create': {
-      const demoCard = {
-        id: `ic_demo_${crypto.randomUUID().slice(0, 8)}`,
-        last4: String(Math.floor(1000 + Math.random() * 9000)),
-        exp_month: new Date().getMonth() + 1,
-        exp_year: new Date().getFullYear() + 3,
-        brand: 'Visa',
-        status: 'active',
-        spending_limit: 5000,
-        usd_balance: 0,
-      };
-
-      await supabase.from('system_settings').upsert({
-        key: `virtual_card_${entity_id}`,
-        value: demoCard,
-      }, { onConflict: 'key' });
-
-      await auditLog(supabase, 'demo_card_created', 'virtual_card', { entity_id }, req, wallet_address);
-      return jsonResponse({ card: demoCard }, 200, corsHeaders);
-    }
-
-    case 'convert': {
-      if (!care_amount || care_amount <= 0) {
-        return jsonResponse({ error: 'Invalid amount' }, 400, corsHeaders);
-      }
-
-      const limit = await checkDailyLimit(supabase, entity_id, care_amount);
-      if (!limit.allowed) {
-        return jsonResponse({ error: `Daily limit exceeded. Remaining: ${limit.remaining.toLocaleString()} CARE` }, 400, corsHeaders);
-      }
-
-      const usdRate = 0.01;
-      const fee = 0.01;
-      const feeAmount = care_amount * usdRate * fee;
-      const usdAmount = care_amount * usdRate * (1 - fee);
-
-      const { data } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', `virtual_card_${entity_id}`)
-        .maybeSingle();
-
-      if (!data?.value) {
-        return jsonResponse({ error: 'No card found' }, 400, corsHeaders);
-      }
-
-      const updatedCard = {
-        ...data.value,
-        usd_balance: (data.value.usd_balance || 0) + usdAmount,
-      };
-
-      await supabase.from('system_settings').upsert({
-        key: `virtual_card_${entity_id}`,
-        value: updatedCard,
-      }, { onConflict: 'key' });
-
-      await insertCardTransaction(supabase, entity_id, data.value.id || null, care_amount, usdAmount, feeAmount);
-
-      return jsonResponse({
-        success: true,
-        care_amount,
-        usdc_amount: care_amount * usdRate,
-        usd_loaded: usdAmount,
-        new_balance: updatedCard.usd_balance,
-      }, 200, corsHeaders);
-    }
-
-    case 'freeze':
-    case 'unfreeze': {
-      const { data } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', `virtual_card_${entity_id}`)
-        .maybeSingle();
-
-      if (data?.value) {
-        const updatedCard = { ...data.value, status: action === 'freeze' ? 'frozen' : 'active' };
-        await supabase.from('system_settings').upsert({
-          key: `virtual_card_${entity_id}`,
-          value: updatedCard,
-        }, { onConflict: 'key' });
-      }
-
-      return jsonResponse({ success: true }, 200, corsHeaders);
-    }
-
-    case 'history':
-      return await handleHistory(entity_id, supabase, corsHeaders);
-
-    default:
-      return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
-  }
-}
-
 async function handleGetCard(stripeKey: string, entity_id: string, supabase: any, corsHeaders: Record<string, string>) {
   const { data: settings } = await supabase
     .from('system_settings')
@@ -265,19 +149,47 @@ async function handleGetCard(stripeKey: string, entity_id: string, supabase: any
     return jsonResponse({ card: null }, 200, corsHeaders);
   }
 
-  const card = await stripeRequest(stripeKey, `issuing/cards/${settings.value.card_id}`, 'GET');
+  try {
+    const card = await stripeRequest(stripeKey, `issuing/cards/${settings.value.card_id}`, 'GET');
+
+    return jsonResponse({
+      card: {
+        id: card.id,
+        last4: card.last4,
+        exp_month: card.exp_month,
+        exp_year: card.exp_year,
+        brand: card.brand || 'Visa',
+        status: card.status === 'canceled' ? 'inactive' : card.status,
+        spending_limit: card.spending_controls?.spending_limits?.[0]?.amount ? card.spending_controls.spending_limits[0].amount / 100 : 5000,
+        usd_balance: settings.value.usd_balance || 0,
+      },
+    }, 200, corsHeaders);
+  } catch (err) {
+    console.error('Error fetching card from Stripe:', String(err));
+    return jsonResponse({ card: null, error: String(err).slice(0, 200) }, 200, corsHeaders);
+  }
+}
+
+async function handleRevealCard(stripeKey: string, entity_id: string, supabase: any, corsHeaders: Record<string, string>) {
+  const { data: settings } = await supabase
+    .from('system_settings')
+    .select('value')
+    .eq('key', `stripe_card_${entity_id}`)
+    .maybeSingle();
+
+  if (!settings?.value?.card_id) {
+    return jsonResponse({ error: 'No card found' }, 400, corsHeaders);
+  }
+
+  // Retrieve full card details including number and CVC using expand
+  const cardId = settings.value.card_id;
+  const numberData = await stripeRequest(stripeKey, `issuing/cards/${cardId}?expand[]=number&expand[]=cvc`, 'GET');
 
   return jsonResponse({
-    card: {
-      id: card.id,
-      last4: card.last4,
-      exp_month: card.exp_month,
-      exp_year: card.exp_year,
-      brand: card.brand || 'Visa',
-      status: card.status === 'canceled' ? 'inactive' : card.status,
-      spending_limit: card.spending_controls?.spending_limits?.[0]?.amount || 500000,
-      usd_balance: settings.value.usd_balance || 0,
-    },
+    number: numberData.number,
+    cvc: numberData.cvc,
+    exp_month: numberData.exp_month,
+    exp_year: numberData.exp_year,
   }, 200, corsHeaders);
 }
 
@@ -409,6 +321,14 @@ function flattenToFormData(obj: any, prefix = ''): string {
     const fullKey = prefix ? `${prefix}[${key}]` : key;
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       parts.push(flattenToFormData(value, fullKey));
+    } else if (Array.isArray(value)) {
+      value.forEach((v, i) => {
+        if (typeof v === 'object' && v !== null) {
+          parts.push(flattenToFormData(v, `${fullKey}[${i}]`));
+        } else {
+          parts.push(`${encodeURIComponent(`${fullKey}[${i}]`)}=${encodeURIComponent(String(v))}`);
+        }
+      });
     } else {
       parts.push(`${encodeURIComponent(fullKey)}=${encodeURIComponent(String(value))}`);
     }

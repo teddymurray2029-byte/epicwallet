@@ -34,6 +34,13 @@ interface VirtualCardData {
   usd_balance: number;
 }
 
+interface CardDetails {
+  number: string;
+  cvc: string;
+  exp_month: number;
+  exp_year: number;
+}
+
 export default function VirtualCard() {
   const { isConnected, entity, earnedBalance, onChainBalance, address } = useWallet();
   const [card, setCard] = useState<VirtualCardData | null>(null);
@@ -41,6 +48,8 @@ export default function VirtualCard() {
   const [creating, setCreating] = useState(false);
   const [converting, setConverting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [cardDetails, setCardDetails] = useState<CardDetails | null>(null);
+  const [revealing, setRevealing] = useState(false);
   const [convertAmount, setConvertAmount] = useState('');
   const [usdRate] = useState(0.01); // 1 CARE = $0.01 placeholder rate
 
@@ -126,6 +135,30 @@ export default function VirtualCard() {
     }
   };
 
+  const handleReveal = async () => {
+    if (!entity?.id) return;
+    if (cardDetails) {
+      setShowDetails(!showDetails);
+      return;
+    }
+    setRevealing(true);
+    try {
+      const response = await supabase.functions.invoke('virtual-card', {
+        body: { action: 'reveal', entity_id: entity.id, wallet_address: address },
+      });
+      if (response.data?.number) {
+        setCardDetails(response.data);
+        setShowDetails(true);
+      } else {
+        toast.error(response.data?.error || 'Failed to reveal card details');
+      }
+    } catch (err) {
+      toast.error('Failed to reveal card details');
+    } finally {
+      setRevealing(false);
+    }
+  };
+
   const handleFreeze = async () => {
     if (!card) return;
     try {
@@ -204,15 +237,22 @@ export default function VirtualCard() {
 
                     <div>
                       <p className="text-xl tracking-[0.25em] font-mono">
-                        {showDetails ? `•••• •••• •••• ${card.last4}` : '•••• •••• •••• ••••'}
+                        {showDetails && cardDetails
+                          ? cardDetails.number.replace(/(.{4})/g, '$1 ').trim()
+                          : `•••• •••• •••• ${card.last4}`}
                       </p>
+                      {showDetails && cardDetails && (
+                        <p className="text-sm font-mono mt-1 opacity-80">
+                          CVC: {cardDetails.cvc}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex justify-between items-end">
                       <div>
                         <p className="text-xs uppercase opacity-60">Expires</p>
                         <p className="text-sm font-mono">
-                          {showDetails ? `${String(card.exp_month).padStart(2, '0')}/${card.exp_year}` : '••/••'}
+                          {`${String(card.exp_month).padStart(2, '0')}/${card.exp_year}`}
                         </p>
                       </div>
                       <div className="text-right">
@@ -232,16 +272,29 @@ export default function VirtualCard() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowDetails(!showDetails)}
+                    onClick={handleReveal}
+                    disabled={revealing}
                     className="flex-1"
                   >
-                    {showDetails ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                    {revealing ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : showDetails ? (
+                      <EyeOff className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Eye className="h-4 w-4 mr-2" />
+                    )}
                     {showDetails ? 'Hide' : 'Show'} Details
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(`**** **** **** ${card.last4}`, 'Card number')}
+                    onClick={() => {
+                      if (cardDetails) {
+                        copyToClipboard(cardDetails.number, 'Card number');
+                      } else {
+                        toast.error('Reveal card details first');
+                      }
+                    }}
                     className="flex-1"
                   >
                     <Copy className="h-4 w-4 mr-2" /> Copy Number
