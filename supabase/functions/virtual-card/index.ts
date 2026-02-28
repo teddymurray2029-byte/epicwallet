@@ -117,8 +117,8 @@ Deno.serve(async (req) => {
           return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
       }
     } catch (stripeErr) {
-      console.error('Stripe error, falling back to demo mode:', String(stripeErr));
-      return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);
+      console.error('Stripe API error:', String(stripeErr));
+      return jsonResponse({ error: `Stripe error: ${String(stripeErr).slice(0, 200)}` }, 502, corsHeaders);
     }
   } catch (err) {
     console.error('Virtual card error:', String(err));
@@ -294,8 +294,8 @@ async function handleCreateCard(stripeKey: string, entity_id: string, wallet_add
 
   const cardholder = await stripeRequest(stripeKey, 'issuing/cardholders', 'POST', {
     type: 'individual',
-    name: entity.display_name || `Provider ${redactWallet(wallet_address)}`,
-    email: `${wallet_address.toLowerCase()}@carecoin.app`,
+    name: (entity.display_name || `Provider ${redactWallet(wallet_address)}`).slice(0, 24),
+    email: `${wallet_address.toLowerCase().slice(0, 20)}@carecoin.app`,
     status: 'active',
     billing: {
       address: { line1: '1 CareCoin Way', city: 'San Francisco', state: 'CA', postal_code: '94111', country: 'US' },
