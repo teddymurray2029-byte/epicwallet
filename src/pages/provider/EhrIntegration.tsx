@@ -135,10 +135,15 @@ export default function EhrIntegration() {
         setConnecting(null);
         return;
       }
+      // Handle redirect-based flow (PCC) or direct connect (Epic)
       if (data.authorize_url) {
         window.location.href = data.authorize_url;
+      } else if (data.success) {
+        toast({ title: 'Connected!', description: `${cfg.label} EHR is now connected and receiving notifications.` });
+        await fetchIntegrations();
+        setConnecting(null);
       } else {
-        toast({ title: 'Error', description: data.error || 'Failed to start connection', variant: 'destructive' });
+        toast({ title: 'Error', description: data.error || data.detail || 'Failed to start connection', variant: 'destructive' });
         setConnecting(null);
       }
     } catch {
@@ -261,7 +266,7 @@ export default function EhrIntegration() {
             {connecting === type ? 'Connecting...' : `Connect to ${cfg.label}`}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
-            You'll be redirected to {cfg.label} to authorize access.
+            {type === 'epic' ? 'Connects directly using your organization\'s credentials.' : `You'll be redirected to ${cfg.label} to authorize access.`}
           </p>
           <div className="pt-3 border-t border-border/30">
             <Button

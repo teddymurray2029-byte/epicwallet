@@ -61,6 +61,10 @@ export function EhrConnectCard() {
       }
       if (respData.authorize_url) {
         window.location.href = respData.authorize_url;
+      } else if (respData.success) {
+        toast({ title: 'Connected!', description: `${cfg.label} EHR is now connected.` });
+        await fetchStatus();
+        setConnecting(null);
       } else {
         toast({ title: 'Error', description: respData.error || 'Failed to connect', variant: 'destructive' });
         setConnecting(null);
