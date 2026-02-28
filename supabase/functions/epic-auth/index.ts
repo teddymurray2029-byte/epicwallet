@@ -103,8 +103,8 @@ async function createJwtAssertion(clientId: string, tokenUrl: string, privateKey
     aud: tokenUrl,
     jti,
     exp: now + 300, // 5 minutes
-    iat: now,
-    nbf: now,
+    iat: now - 60,  // allow clock skew
+    nbf: now - 60,  // allow clock skew
   };
 
   const headerB64 = textToBase64url(JSON.stringify(header));
@@ -203,6 +203,7 @@ Deno.serve(async (req) => {
     }
 
     const epicTokenUrl = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token';
+    const epicScope = Deno.env.get('EPIC_SCOPE') || 'system/*.read';
     const epicFhirBase = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4';
 
     // ─── Flow 1: Connect via Client Credentials ───
@@ -227,6 +228,7 @@ Deno.serve(async (req) => {
           tokenBody = new URLSearchParams({
             grant_type: 'client_credentials',
             client_id: epicClientId,
+            scope: epicScope,
             client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
             client_assertion: jwt,
           });
