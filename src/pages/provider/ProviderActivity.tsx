@@ -11,7 +11,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Activity, Search, Filter, FileText, CalendarDays } from 'lucide-react';
 import { formatDistanceToNow, format, subDays, subWeeks, subMonths, isAfter } from 'date-fns';
 
-
 const DATE_PRESETS = [
   { label: 'All Time', value: 'all' },
   { label: 'Today', value: 'today' },
@@ -33,8 +32,8 @@ export default function ProviderActivity() {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Connect your wallet to view your activity.</p>
+          <Activity className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">Connect your wallet to view activity.</p>
         </div>
       </DashboardLayout>
     );
@@ -45,24 +44,15 @@ export default function ProviderActivity() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return <Badge className="bg-[hsl(var(--care-green))] text-primary-foreground gap-1"><span className="h-1.5 w-1.5 rounded-full bg-primary-foreground/80 inline-block" />Confirmed</Badge>;
+        return <Badge className="status-success text-xs">Confirmed</Badge>;
       case 'pending':
-        return <Badge variant="outline" className="border-[hsl(var(--care-warning))] text-[hsl(var(--care-warning))] gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--care-warning))] inline-block animate-pulse" />Pending</Badge>;
+        return <Badge variant="outline" className="border-care-warning text-care-warning text-xs">Pending</Badge>;
       case 'rejected':
-        return <Badge variant="destructive">Rejected</Badge>;
+        return <Badge variant="destructive" className="text-xs">Rejected</Badge>;
       case 'expired':
-        return <Badge variant="secondary">Expired</Badge>;
+        return <Badge variant="secondary" className="text-xs">Expired</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
-  const getStatusAccent = (status: string) => {
-    switch (status) {
-      case 'confirmed': return 'border-l-2 border-l-[hsl(var(--care-green))]';
-      case 'pending': return 'border-l-2 border-l-[hsl(var(--care-warning))]';
-      case 'rejected': return 'border-l-2 border-l-destructive';
-      default: return '';
+        return <Badge variant="secondary" className="text-xs">{status}</Badge>;
     }
   };
 
@@ -77,7 +67,6 @@ export default function ProviderActivity() {
   };
 
   const dateCutoff = getDateCutoff();
-
   const filteredActivities = displayActivities.filter((activity) => {
     const matchesSearch = activity.eventType.toLowerCase().includes(searchQuery.toLowerCase()) ||
       activity.eventHash.toLowerCase().includes(searchQuery.toLowerCase());
@@ -89,24 +78,19 @@ export default function ProviderActivity() {
   const visibleActivities = filteredActivities.slice(0, visibleCount);
   const hasMore = visibleCount < filteredActivities.length;
 
-  const truncateHash = (hash: string) => {
-    if (!hash) return '—';
-    return `${hash.slice(0, 10)}...${hash.slice(-8)}`;
-  };
-
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in-up">
+      <div className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="page-header inline-block">Activity</h1>
-            <p className="text-muted-foreground">View all your documentation events and rewards history</p>
+            <h1 className="text-2xl font-semibold">Activity</h1>
+            <p className="text-sm text-muted-foreground mt-1">Documentation events and rewards history</p>
           </div>
-          <Button variant="outline" onClick={() => refetch()}>Refresh</Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Refresh</Button>
         </div>
 
         {/* Filters */}
-        <Card variant="glass">
+        <Card>
           <CardContent className="pt-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
@@ -114,21 +98,21 @@ export default function ProviderActivity() {
                 <Input placeholder="Search by event type or hash..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
               </div>
               <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-full sm:w-40">
+                <SelectTrigger className="w-full sm:w-36">
                   <CalendarDays className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Date range" />
+                  <SelectValue placeholder="Date" />
                 </SelectTrigger>
                 <SelectContent>
                   {DATE_PRESETS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-40">
+                <SelectTrigger className="w-full sm:w-36">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter status" />
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   <SelectItem value="confirmed">Confirmed</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
@@ -139,80 +123,69 @@ export default function ProviderActivity() {
           </CardContent>
         </Card>
 
-        {/* Activity List */}
+        {/* List */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Documentation Events
-              </CardTitle>
-            </div>
-            <CardDescription>{filteredActivities.length} events found</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Events
+            </CardTitle>
+            <CardDescription>{filteredActivities.length} found</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex items-center justify-between py-4 border-b">
-                    <div className="space-y-2"><Skeleton className="h-5 w-40" /><Skeleton className="h-4 w-32" /></div>
-                    <Skeleton className="h-8 w-24" />
+                  <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
+                    <div className="space-y-1.5"><Skeleton className="h-4 w-36" /><Skeleton className="h-3 w-28" /></div>
+                    <Skeleton className="h-5 w-20" />
                   </div>
                 ))}
               </div>
             ) : error ? (
-              <div className="text-center py-8 text-destructive"><p>Failed to load activity</p></div>
+              <p className="text-center py-8 text-sm text-destructive">Failed to load activity</p>
             ) : visibleActivities.length > 0 ? (
               <>
-                <div className="divide-y divide-border/30 row-striped">
-                  {visibleActivities.map((activity, index) => (
-                    <div
-                      key={activity.id}
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between py-4 gap-3 rounded-lg px-3 -mx-3 transition-all duration-200 hover:bg-muted/40 hover:shadow-sm ${getStatusAccent(activity.status)}`}
-                      style={{ animation: `fade-in-up 0.3s ease-out ${Math.min(index, 10) * 40}ms both` }}
-                    >
+                <div className="divide-y">
+                  {visibleActivities.map((activity) => (
+                    <div key={activity.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-2">
                       <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-muted/60 ring-1 ring-border/30">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                        </div>
+                        <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium">{activity.eventType}</span>
+                            <span className="text-sm font-medium">{activity.eventType}</span>
                             {getStatusBadge(activity.status)}
                           </div>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                             <span>{format(new Date(activity.createdAt), 'MMM d, yyyy h:mm a')}</span>
-                            <span>•</span>
+                            <span>·</span>
                             <span>{formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}</span>
                           </div>
                           {activity.eventHash && (
-                            <code className="text-xs font-mono bg-muted/60 px-2 py-0.5 rounded-md border border-border/30 mt-2 inline-block">
-                              {truncateHash(activity.eventHash)}
+                            <code className="text-xs font-mono text-muted-foreground mt-1 inline-block">
+                              {activity.eventHash.slice(0, 10)}...{activity.eventHash.slice(-8)}
                             </code>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 pl-11 sm:pl-0">
-                        <p className="font-bold text-[hsl(var(--care-teal))]">
-                          +{activity.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
-                        </p>
-                      </div>
+                      <span className="text-sm font-bold text-care-teal pl-7 sm:pl-0">
+                        +{activity.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
+                      </span>
                     </div>
                   ))}
                 </div>
                 {hasMore && (
-                  <div className="text-center mt-6">
-                    <Button variant="outline" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+                  <div className="text-center mt-4">
+                    <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
                       Load more ({filteredActivities.length - visibleCount} remaining)
                     </Button>
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-center py-12">
-                <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-40" />
-                <p className="text-muted-foreground font-medium">No matching activity</p>
-                <p className="text-xs text-muted-foreground mt-1">Try adjusting your filters or date range</p>
+              <div className="text-center py-10">
+                <Activity className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">No matching activity</p>
               </div>
             )}
           </CardContent>

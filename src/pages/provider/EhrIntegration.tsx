@@ -193,7 +193,7 @@ export default function EhrIntegration() {
 
     if (integration) {
       return (
-        <Card key={type} variant="glow" className="bg-gradient-to-br from-card via-card to-accent/10 animate-fade-in-up" style={{ animationDelay: `${80 + index * 80}ms` }}>
+        <Card key={type}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

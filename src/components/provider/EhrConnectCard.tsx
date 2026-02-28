@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWallet } from '@/contexts/WalletContext';
@@ -14,10 +14,7 @@ const EHR_CONFIG: Record<EhrType, { label: string; authFunction: string }> = {
   pointclickcare: { label: 'PointClickCare', authFunction: 'pointclickcare-auth' },
 };
 
-interface EhrStatus {
-  epic: boolean;
-  pointclickcare: boolean;
-}
+interface EhrStatus { epic: boolean; pointclickcare: boolean; }
 
 export function EhrConnectCard() {
   const { entity } = useWallet();
@@ -25,9 +22,7 @@ export function EhrConnectCard() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<EhrType | null>(null);
 
-  useEffect(() => {
-    if (entity?.id) fetchStatus();
-  }, [entity?.id]);
+  useEffect(() => { if (entity?.id) fetchStatus(); }, [entity?.id]);
 
   const fetchStatus = async () => {
     if (!entity?.id) return;
@@ -37,7 +32,6 @@ export function EhrConnectCard() {
       .select('integration_type, is_active')
       .eq('entity_id', entity.id)
       .in('integration_type', ['epic', 'pointclickcare']);
-
     const result: EhrStatus = { epic: false, pointclickcare: false };
     if (data) {
       for (const row of data) {
@@ -61,7 +55,7 @@ export function EhrConnectCard() {
       );
       const respData = await res.json();
       if (respData.configured === false) {
-        toast({ title: `${cfg.label} Not Configured`, description: 'Ask your organization admin to add credentials on the Organization Management page.', variant: 'destructive' });
+        toast({ title: `${cfg.label} Not Configured`, description: 'Ask your organization admin to add credentials.', variant: 'destructive' });
         setConnecting(null);
         return;
       }
@@ -82,9 +76,9 @@ export function EhrConnectCard() {
 
   if (loading) {
     return (
-      <Card className="border-border/40 bg-gradient-to-br from-card via-card to-primary/5">
+      <Card>
         <CardContent className="py-6">
-          <div className="h-20 animate-pulse bg-muted/30 rounded-lg" />
+          <div className="h-20 animate-pulse bg-muted rounded-lg" />
         </CardContent>
       </Card>
     );
@@ -92,14 +86,12 @@ export function EhrConnectCard() {
 
   if (bothConnected) {
     return (
-      <Card variant="glow" className="bg-gradient-to-br from-card via-card to-accent/10">
+      <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15">
-              <ShieldCheck className="h-5 w-5 text-accent" />
-            </div>
+            <ShieldCheck className="h-5 w-5 text-care-green" />
             <div>
-              <CardTitle className="text-base">EHR Connected</CardTitle>
+              <CardTitle>EHR Connected</CardTitle>
               <CardDescription>Both systems actively sending events</CardDescription>
             </div>
           </div>
@@ -115,54 +107,37 @@ export function EhrConnectCard() {
   }
 
   return (
-    <Card className="shimmer-border bg-gradient-to-br from-card via-card to-primary/5 card-hover-lift">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-            <Zap className="h-6 w-6 text-primary" />
-          </div>
+          <Zap className="h-5 w-5 text-primary" />
           <div className="flex-1">
-            <CardTitle className="text-base">Connect Your EHR</CardTitle>
-            <CardDescription>1-click to start earning CARE for every chart</CardDescription>
+            <CardTitle>Connect Your EHR</CardTitle>
+            <CardDescription>Start earning CARE for every chart</CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-0 space-y-2">
+      <CardContent className="pt-0 space-y-3">
         {anyConnected && (
-          <div className="flex gap-2 mb-3">
+          <div className="flex gap-2">
             {status.epic && <Badge className="status-success"><Check className="h-3 w-3 mr-1" />Epic</Badge>}
             {status.pointclickcare && <Badge className="status-success"><Check className="h-3 w-3 mr-1" />PCC</Badge>}
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">
           {!status.epic && (
-            <Button
-              variant="gradient"
-              size="sm"
-              className="w-full"
-              onClick={() => handleConnect('epic')}
-              loading={connecting === 'epic'}
-            >
+            <Button variant="default" size="sm" className="w-full" onClick={() => handleConnect('epic')} loading={connecting === 'epic'}>
               <Activity className="mr-1.5 h-4 w-4" />
-              {connecting === 'epic' ? 'Connecting…' : 'Connect Epic'}
+              {connecting === 'epic' ? 'Connecting…' : 'Epic'}
             </Button>
           )}
           {!status.pointclickcare && (
-            <Button
-              variant="gradient"
-              size="sm"
-              className="w-full"
-              onClick={() => handleConnect('pointclickcare')}
-              loading={connecting === 'pointclickcare'}
-            >
+            <Button variant="default" size="sm" className="w-full" onClick={() => handleConnect('pointclickcare')} loading={connecting === 'pointclickcare'}>
               <Activity className="mr-1.5 h-4 w-4" />
-              {connecting === 'pointclickcare' ? 'Connecting…' : 'Connect PCC'}
+              {connecting === 'pointclickcare' ? 'Connecting…' : 'PCC'}
             </Button>
           )}
         </div>
-        <p className="text-xs text-muted-foreground text-center">
-          You'll be redirected to authorize. Every chart earns CARE automatically.
-        </p>
       </CardContent>
     </Card>
   );

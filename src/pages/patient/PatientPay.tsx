@@ -86,7 +86,7 @@ export default function PatientPay() {
         </div>
 
         {/* Balance card */}
-        <Card variant="glass" className="border-[hsl(var(--care-teal)/0.15)]">
+        <Card>
           <CardContent className="pt-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Wallet className="h-5 w-5 text-[hsl(var(--care-teal))]" />
@@ -141,7 +141,7 @@ export default function PatientPay() {
         </Card>
 
         {/* How it works */}
-        <Card variant="glass">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">How QR Payments Work</CardTitle>
           </CardHeader>

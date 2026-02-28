@@ -111,8 +111,7 @@ export default function RewardsLeaderboard() {
               return (
                 <Card
                   key={entry.entityId}
-                  variant={isFirst ? 'glow' : 'glass'}
-                  className={`text-center ${isFirst ? 'row-span-2 border-[hsl(var(--care-teal)/0.3)]' : ''}`}
+                  className={`text-center ${isFirst ? 'row-span-2' : ''}`}
                 >
                   <CardContent className="pt-6 space-y-2">
                     <RankIcon rank={entry.rank} />

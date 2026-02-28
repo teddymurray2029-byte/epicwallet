@@ -109,7 +109,7 @@ export default function ProviderInvoice() {
 
         {/* QR Result */}
         {generated && paymentUrl && (
-          <Card variant="glow" className="animate-fade-in-up">
+          <Card>
             <CardContent className="pt-6 flex flex-col items-center gap-6">
               <div className="p-4 bg-white rounded-xl shadow-md">
                 <QRCodeSVG
@@ -148,7 +148,7 @@ export default function ProviderInvoice() {
         )}
 
         {/* How it works */}
-        <Card variant="glass">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">How It Works</CardTitle>
           </CardHeader>
