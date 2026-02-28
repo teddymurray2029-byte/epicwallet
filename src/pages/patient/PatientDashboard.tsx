@@ -1,28 +1,24 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
-import {
-  Wallet, Coins, QrCode, History, ArrowRight, ShieldCheck,
-} from 'lucide-react';
+import { Wallet, Coins, QrCode, History, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function PatientDashboard() {
-  const { isConnected, address, earnedBalance, earnedBalanceLoading, onChainBalance, isContractDeployed, chainName } = useWallet();
+  const { isConnected, earnedBalance, earnedBalanceLoading, onChainBalance, isContractDeployed, chainName } = useWallet();
 
   if (!isConnected) {
     return (
       <DashboardLayout>
-        <div className="mx-auto max-w-lg py-16 text-center space-y-6 animate-fade-in-up">
-          <div className="mx-auto h-20 w-20 rounded-full bg-gradient-to-br from-[hsl(var(--care-teal)/0.2)] to-[hsl(var(--care-green)/0.2)] flex items-center justify-center ring-1 ring-[hsl(var(--care-teal)/0.2)]">
-            <Wallet className="h-10 w-10 text-[hsl(var(--care-teal))]" />
+        <div className="mx-auto max-w-sm py-16 text-center space-y-5">
+          <Wallet className="h-10 w-10 text-primary mx-auto" />
+          <div>
+            <h1 className="text-xl font-semibold">Welcome to CareWallet</h1>
+            <p className="text-sm text-muted-foreground mt-1">Connect your wallet to view balances and manage rewards.</p>
           </div>
-          <h1 className="text-2xl font-bold">Welcome to CareWallet</h1>
-          <p className="text-muted-foreground">Connect your wallet to view your CARE balance, pay invoices, and manage your healthcare rewards.</p>
           <ConnectWalletButton />
         </div>
       </DashboardLayout>
@@ -38,76 +34,69 @@ export default function PatientDashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="animate-fade-in-up">
-          <h1 className="page-header inline-block">Patient Dashboard</h1>
-          <p className="text-muted-foreground">Manage your CARE tokens and healthcare payments</p>
+        <div>
+          <h1 className="text-2xl font-semibold">Patient Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage your CARE tokens and healthcare payments</p>
         </div>
 
-        {/* Balance Hero */}
-        <Card className="shimmer-border bg-hero-gradient border-[hsl(var(--care-teal)/0.2)] overflow-hidden relative">
-          <div className="absolute inset-0 bg-card-mesh pointer-events-none" />
-          <CardContent className="pt-6 relative">
+        {/* Balance */}
+        <Card>
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Earned Rewards</p>
+                  <p className="text-xs text-muted-foreground mb-1">Earned Rewards</p>
                   {earnedBalanceLoading ? (
-                    <Skeleton className="h-10 w-40" />
+                    <Skeleton className="h-8 w-32" />
                   ) : (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-gradient inline-block">
-                        {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-xl text-muted-foreground">CARE</span>
-                    </div>
+                    <p className="text-3xl font-bold text-care-teal">
+                      {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      <span className="text-base text-muted-foreground font-normal ml-2">CARE</span>
+                    </p>
                   )}
                 </div>
                 {isContractDeployed && (
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">On-Chain Balance ({chainName})</p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-[hsl(var(--care-blue))]">
-                        {onChainBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-lg text-muted-foreground">CARE</span>
-                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">On-Chain ({chainName})</p>
+                    <p className="text-xl font-bold text-care-blue">
+                      {onChainBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      <span className="text-sm text-muted-foreground font-normal ml-2">CARE</span>
+                    </p>
                   </div>
                 )}
               </div>
-              <div className="h-16 w-16 rounded-full bg-[hsl(var(--care-teal)/0.2)] flex items-center justify-center ring-1 ring-[hsl(var(--care-teal)/0.2)] shadow-[var(--shadow-glow-teal)]" style={{ animation: 'float 3s ease-in-out infinite' }}>
-                <Coins className="h-8 w-8 text-[hsl(var(--care-teal))]" />
-              </div>
+              <Coins className="h-10 w-10 text-care-teal/30" />
             </div>
           </CardContent>
         </Card>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {quickActions.map((action, i) => (
-            <Card key={action.label} className="card-interactive" style={{ animation: `fade-in-up 0.4s ease-out ${i * 80}ms both` }}>
-              <CardContent className="pt-6">
-                <Link to={action.to} className="flex flex-col items-center text-center gap-3 group">
-                  <div className="p-3 rounded-xl bg-[hsl(var(--care-teal)/0.1)] ring-1 ring-[hsl(var(--care-teal)/0.15)] transition-transform group-hover:scale-110">
-                    <action.icon className="h-6 w-6 text-[hsl(var(--care-teal))]" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {quickActions.map((action) => (
+            <Link key={action.label} to={action.to}>
+              <Card className="h-full hover:border-primary/30 transition-colors">
+                <CardContent className="pt-5 pb-5 flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <action.icon className="h-5 w-5 text-primary" />
                   </div>
-                  <div>
-                    <p className="font-semibold">{action.label}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{action.label}</p>
                     <p className="text-xs text-muted-foreground">{action.description}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-[hsl(var(--care-teal))] transition-colors" />
-                </Link>
-              </CardContent>
-            </Card>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
 
         {/* HIPAA note */}
-        <Card variant="glass" className="border-[hsl(var(--care-teal)/0.15)]">
+        <Card>
           <CardContent className="pt-4 flex items-start gap-3">
-            <ShieldCheck className="h-5 w-5 text-[hsl(var(--care-teal))] shrink-0 mt-0.5" />
+            <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium">Your data is secure</p>
-              <p className="text-xs text-muted-foreground">CareWallet never stores personal health information on-chain. Only de-identified hashes are recorded for auditability.</p>
+              <p className="text-xs text-muted-foreground">CareWallet never stores personal health information on-chain. Only de-identified hashes are recorded.</p>
             </div>
           </CardContent>
         </Card>

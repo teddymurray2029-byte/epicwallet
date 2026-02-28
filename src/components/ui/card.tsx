@@ -1,32 +1,16 @@
 import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-
 import { cn } from "@/lib/utils";
 
-const cardVariants = cva(
-  "rounded-xl border bg-card text-card-foreground shadow-[var(--shadow-card)] transition-all duration-300 ease-out",
-  {
-    variants: {
-      variant: {
-        default: "border-border/50",
-        glass: "bg-card/40 backdrop-blur-xl border-border/30 shadow-[var(--shadow-card),inset_0_1px_0_0_hsl(0_0%_100%/0.04)]",
-        glow: "border-[hsl(var(--care-teal)/0.25)] shadow-[var(--shadow-card),var(--shadow-glow-teal)]",
-        elevated: "shadow-[var(--shadow-elevated)] border-border/20 hover:-translate-y-0.5 hover:shadow-[var(--shadow-elevated),var(--shadow-glow-teal)]",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-);
-
-export interface CardProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof cardVariants> {}
-
-const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, variant, ...props }, ref) => (
-    <div ref={ref} className={cn(cardVariants({ variant, className }))} {...props} />
+const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        "rounded-xl border border-border bg-card text-card-foreground shadow-[var(--shadow-card)]",
+        className
+      )}
+      {...props}
+    />
   )
 );
 Card.displayName = "Card";
@@ -40,7 +24,7 @@ CardHeader.displayName = "CardHeader";
 
 const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...props} />
+    <h3 ref={ref} className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />
   ),
 );
 CardTitle.displayName = "CardTitle";

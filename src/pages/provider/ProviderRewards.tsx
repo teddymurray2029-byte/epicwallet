@@ -13,7 +13,6 @@ import {
   HeartPulse, Code, UserCheck, Handshake, PhoneCall
 } from 'lucide-react';
 
-
 const eventTypeIcons: Record<string, React.ElementType> = {
   encounter_note: FileText,
   medication_reconciliation: Pill,
@@ -37,8 +36,8 @@ export default function ProviderRewards() {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <Coins className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Connect your wallet to view your rewards.</p>
+          <Coins className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">Connect your wallet to view rewards.</p>
         </div>
       </DashboardLayout>
     );
@@ -49,86 +48,73 @@ export default function ProviderRewards() {
   const milestoneProgress = (totalEarned / nextMilestone) * 100;
 
   const stats = [
-    { label: 'Total Earned', value: summary?.totalEarned ?? 0, icon: Coins, color: 'text-[hsl(var(--care-teal))]', bgColor: 'bg-[hsl(var(--care-teal)/0.1)]', borderColor: 'border-t-[hsl(var(--care-teal))]' },
-    { label: 'This Month', value: summary?.thisMonth ?? 0, icon: Calendar, color: 'text-[hsl(var(--care-green))]', bgColor: 'bg-[hsl(var(--care-green)/0.1)]', borderColor: 'border-t-[hsl(var(--care-green))]' },
-    { label: 'This Week', value: summary?.thisWeek ?? 0, icon: TrendingUp, color: 'text-[hsl(var(--care-blue))]', bgColor: 'bg-[hsl(var(--care-blue)/0.1)]', borderColor: 'border-t-[hsl(var(--care-blue))]' },
-    { label: 'Pending', value: summary?.pendingRewards ?? 0, icon: Clock, color: 'text-[hsl(var(--care-warning))]', bgColor: 'bg-[hsl(var(--care-warning)/0.1)]', borderColor: 'border-t-[hsl(var(--care-warning))]' },
+    { label: 'Total Earned', value: summary?.totalEarned ?? 0, icon: Coins, color: 'text-care-teal' },
+    { label: 'This Month', value: summary?.thisMonth ?? 0, icon: Calendar, color: 'text-care-green' },
+    { label: 'This Week', value: summary?.thisWeek ?? 0, icon: TrendingUp, color: 'text-care-blue' },
+    { label: 'Pending', value: summary?.pendingRewards ?? 0, icon: Clock, color: 'text-care-warning' },
   ];
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="animate-fade-in-up">
-          <h1 className="page-header inline-block">Rewards</h1>
-          <p className="text-muted-foreground">Track your CareWallet earnings from healthcare documentation</p>
+        <div>
+          <h1 className="text-2xl font-semibold">Rewards</h1>
+          <p className="text-sm text-muted-foreground mt-1">Track your CARE token earnings</p>
         </div>
 
-        {/* Current Balance Hero */}
-        <Card className="shimmer-border bg-hero-gradient border-[hsl(var(--care-teal)/0.2)] overflow-hidden relative">
-          <div className="absolute inset-0 bg-card-mesh pointer-events-none" />
-          <CardContent className="pt-6 relative">
+        {/* Balance */}
+        <Card>
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Earned Rewards (Claimable)</p>
+                  <p className="text-xs text-muted-foreground mb-1">Earned Rewards</p>
                   {earnedBalanceLoading ? (
-                    <Skeleton className="h-10 w-40" />
+                    <Skeleton className="h-8 w-32" />
                   ) : (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-gradient inline-block">
-                        {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-xl text-muted-foreground">CARE</span>
-                    </div>
+                    <p className="text-3xl font-bold text-care-teal">
+                      {earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      <span className="text-base text-muted-foreground font-normal ml-2">CARE</span>
+                    </p>
                   )}
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">On-Chain Balance ({chainName})</p>
-                  <div className="flex items-baseline gap-2">
-                    {!isContractDeployed ? (
-                      <span className="text-lg text-muted-foreground">Contract not deployed</span>
-                    ) : (
-                      <>
-                        <span className="text-2xl font-bold text-[hsl(var(--care-blue))]">
-                          {onChainBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                        </span>
-                        <span className="text-lg text-muted-foreground">CARE</span>
-                      </>
-                    )}
-                  </div>
+                  <p className="text-xs text-muted-foreground mb-1">On-Chain ({chainName})</p>
+                  {!isContractDeployed ? (
+                    <span className="text-sm text-muted-foreground">Not deployed</span>
+                  ) : (
+                    <p className="text-xl font-bold text-care-blue">
+                      {onChainBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      <span className="text-sm text-muted-foreground font-normal ml-2">CARE</span>
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="h-16 w-16 rounded-full bg-[hsl(var(--care-teal)/0.2)] flex items-center justify-center ring-1 ring-[hsl(var(--care-teal)/0.2)] shadow-[var(--shadow-glow-teal)]" style={{ animation: 'float 3s ease-in-out infinite' }}>
-                <Coins className="h-8 w-8 text-[hsl(var(--care-teal))]" />
-              </div>
+              <Coins className="h-10 w-10 text-care-teal/30" />
             </div>
-
-            {/* Milestone progress */}
-            <div className="mt-6 pt-4 border-t border-border/30">
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                 <span>Progress to {nextMilestone.toLocaleString()} CARE</span>
                 <span>{milestoneProgress.toFixed(0)}%</span>
               </div>
-              <Progress value={milestoneProgress} className="h-2" />
+              <Progress value={milestoneProgress} className="h-1.5" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, index) => (
-            <Card key={stat.label} className={`border-t-2 ${stat.borderColor} card-interactive`} style={{ animation: `fade-in-up 0.4s ease-out ${index * 80}ms both` }}>
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {stats.map((stat) => (
+            <Card key={stat.label}>
               <CardContent className="pt-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                  </div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <stat.icon className={`h-3.5 w-3.5 ${stat.color}`} />
+                  <span className="text-xs text-muted-foreground">{stat.label}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
                 {summaryLoading ? (
-                  <Skeleton className="h-6 w-20 mt-1" />
+                  <Skeleton className="h-6 w-20" />
                 ) : (
-                  <p className={`text-xl font-bold ${stat.color}`}>
+                  <p className={`text-lg font-bold ${stat.color}`}>
                     {stat.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
                   </p>
                 )}
@@ -137,110 +123,91 @@ export default function ProviderRewards() {
           ))}
         </div>
 
-        {/* Charts Section */}
-        <div className="grid lg:grid-cols-2 gap-6">
+        {/* Charts */}
+        <div className="grid lg:grid-cols-2 gap-4">
           <RewardsChart />
 
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Award className="h-5 w-5" />
-                  Earnings by Event Type
-                </CardTitle>
-              </div>
-              <CardDescription>Breakdown of your rewards by documentation type</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="h-4 w-4" />
+                Earnings by Type
+              </CardTitle>
+              <CardDescription>Breakdown by documentation type</CardDescription>
             </CardHeader>
             <CardContent>
               {byEventLoading ? (
                 <div className="space-y-3">
-                  {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+                  {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
                 </div>
-            ) : byEventType && byEventType.length > 0 ? (
-                <div className="space-y-3">
-                  {byEventType.map((item, index) => {
+              ) : byEventType && byEventType.length > 0 ? (
+                <div className="space-y-2">
+                  {byEventType.map((item) => {
                     const IconComp = eventTypeIcons[item.eventType] || FileText;
                     return (
-                      <div
-                        key={item.eventType}
-                        className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/20 transition-all duration-200 hover:bg-muted/60 hover:shadow-sm"
-                        style={{ animation: `fade-in-up 0.3s ease-out ${index * 50}ms both` }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 rounded-md bg-[hsl(var(--care-teal)/0.1)]">
-                            <IconComp className="h-4 w-4 text-[hsl(var(--care-teal))]" />
-                          </div>
+                      <div key={item.eventType} className="flex items-center justify-between p-2.5 rounded-lg border text-sm">
+                        <div className="flex items-center gap-2.5">
+                          <IconComp className="h-4 w-4 text-primary" />
                           <div>
-                            <p className="font-medium text-sm">{item.eventType}</p>
+                            <p className="font-medium">{item.eventType}</p>
                             <p className="text-xs text-muted-foreground">{item.count} events</p>
                           </div>
                         </div>
-                        <p className="font-bold text-[hsl(var(--care-teal))]">
-                          {item.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
-                        </p>
+                        <p className="font-bold text-care-teal">{item.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE</p>
                       </div>
                     );
                   })}
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <Award className="h-10 w-10 mx-auto text-muted-foreground/40 mb-2" />
-                  <p className="text-sm text-muted-foreground">No earnings data yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Start documenting to earn CARE tokens</p>
+                  <Award className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground">No earnings yet</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Active Reward Policies */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Percent className="h-5 w-5" />
-                  Active Reward Policies
-                </CardTitle>
-                <CardDescription>Current reward rates for documentation events (10% network fee applied)</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {policiesLoading ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
-              </div>
-            ) : policies && policies.length > 0 ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {policies.map((policy, index) => {
-                  const eventKey = policy.event_type as string;
-                  const IconComp = eventTypeIcons[eventKey] || FileText;
-                  return (
-                    <div
-                      key={policy.id}
-                      className="p-4 rounded-lg border border-border/40 bg-card border-l-4 border-l-[hsl(var(--care-teal))] card-interactive"
-                      style={{ animation: `scale-pop 0.35s ease-out ${index * 60}ms both` }}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-md bg-[hsl(var(--care-teal)/0.1)]">
-                          <IconComp className="h-3.5 w-3.5 text-[hsl(var(--care-teal))]" />
+        {/* Policies */}
+        {policies && policies.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Percent className="h-4 w-4" />
+                Reward Policies
+              </CardTitle>
+              <CardDescription>Current rates · 10% network fee</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {policiesLoading ? (
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                  {policies.map((policy) => {
+                    const eventKey = policy.event_type as string;
+                    const IconComp = eventTypeIcons[eventKey] || FileText;
+                    return (
+                      <div key={policy.id} className="p-3 rounded-lg border">
+                        <div className="flex items-center gap-2 mb-2">
+                          <IconComp className="h-3.5 w-3.5 text-primary" />
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {policy.event_type.replace(/_/g, ' ')}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {policy.event_type.replace(/_/g, ' ')}
-                        </Badge>
+                        <p className="text-xl font-bold text-care-teal">{policy.base_reward} CARE</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          P:{policy.provider_split}% · O:{policy.organization_split}% · Pt:{policy.patient_split}%
+                        </p>
                       </div>
-                      <p className="text-2xl font-bold text-[hsl(var(--care-teal))]">{policy.base_reward} CARE</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Provider: {policy.provider_split}% • Org: {policy.organization_split}% • Patient: {policy.patient_split}%
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

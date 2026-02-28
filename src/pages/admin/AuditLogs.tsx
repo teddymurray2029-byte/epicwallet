@@ -138,7 +138,7 @@ export default function AuditLogs() {
         </div>
 
         {/* Filters */}
-        <Card variant="glass">
+        <Card>
           <CardContent className="pt-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">

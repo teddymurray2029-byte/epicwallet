@@ -40,7 +40,7 @@ interface TutorialStepProps {
 
 function TutorialStep({ number, id, icon: Icon, title, children, linkTo, linkLabel }: TutorialStepProps) {
   return (
-    <Card id={id} variant="glass" className="scroll-mt-24 animate-fade-in-up">
+    <Card id={id} className="scroll-mt-24">
       <CardHeader className="flex flex-row items-start gap-4 space-y-0">
         <Badge className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[hsl(var(--care-teal))] to-[hsl(var(--care-green))] text-sm font-bold text-primary-foreground border-0">
           {number}
@@ -71,7 +71,7 @@ interface FaqItemProps {
 
 function FaqItem({ question, answer }: FaqItemProps) {
   return (
-    <Card variant="glass" className="animate-fade-in-up">
+    <Card>
       <CardHeader className="flex flex-row items-start gap-3 space-y-0 pb-2">
         <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(var(--care-teal))]" />
         <CardTitle className="text-base">{question}</CardTitle>
@@ -196,7 +196,7 @@ export default function Tutorial() {
         </section>
 
         {/* Bottom CTA */}
-        <Card variant="glow" className="text-center">
+        <Card className="text-center">
           <CardContent className="py-8 space-y-3">
             <ShieldCheck className="mx-auto h-8 w-8 text-[hsl(var(--care-teal))]" />
             <p className="font-semibold">Ready to get started?</p>

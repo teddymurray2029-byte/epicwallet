@@ -1,105 +1,84 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
 import { useRecentActivity } from '@/hooks/useRewardsData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Activity } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+
 export function RecentActivityFeed() {
   const { data: activities, isLoading, error } = useRecentActivity(8);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return <Badge className="bg-care-green text-primary-foreground gap-1"><span className="h-1.5 w-1.5 rounded-full bg-primary-foreground/80 inline-block" />Confirmed</Badge>;
+        return <Badge className="status-success text-xs">Confirmed</Badge>;
       case 'pending':
-        return <Badge variant="outline" className="border-care-warning text-care-warning gap-1"><span className="h-1.5 w-1.5 rounded-full bg-care-warning inline-block animate-pulse" />Pending</Badge>;
+        return <Badge variant="outline" className="border-care-warning text-care-warning text-xs">Pending</Badge>;
       case 'rejected':
-        return <Badge variant="destructive">Rejected</Badge>;
+        return <Badge variant="destructive" className="text-xs">Rejected</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary" className="text-xs">{status}</Badge>;
     }
-  };
-
-  const truncateHash = (hash: string) => {
-    if (!hash) return '—';
-    return `${hash.slice(0, 8)}...${hash.slice(-6)}`;
   };
 
   if (error) {
     return (
-      <Card className="border-destructive">
+      <Card>
         <CardContent className="py-6">
-          <p className="text-destructive text-center">Failed to load activity</p>
+          <p className="text-destructive text-center text-sm">Failed to load activity</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className={`card-shadow border-border/40 bg-gradient-to-br from-card via-card to-muted/30 card-hover-lift`}>
+    <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Recent Activity
-          </CardTitle>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Activity className="h-4 w-4" />
+          Recent Activity
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-24" />
+              <div key={i} className="flex items-center justify-between py-2.5">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-20" />
                 </div>
-                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-5 w-14" />
               </div>
             ))}
           </div>
         ) : activities && activities.length > 0 ? (
-          <div className="space-y-1">
-            {activities.map((activity, index) => (
+          <div className="space-y-0">
+            {activities.map((activity) => (
               <div
                 key={activity.id}
-                className={`flex items-center justify-between py-3 border-b border-border/30 last:border-0 activity-row rounded-lg px-2 -mx-2 ${
-                  index % 2 === 0 ? 'bg-muted/8' : ''
-                }`}
-                style={{ animation: `fade-in-up 0.4s ease-out ${index * 60}ms both` }}
+                className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0"
               >
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{activity.eventType}</span>
+                    <span className="text-sm font-medium">{activity.eventType}</span>
                     {getStatusBadge(activity.status)}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}</span>
-                    {activity.eventHash && (
-                      <code className="font-mono bg-muted/60 px-1.5 py-0.5 rounded-md border border-border/30">
-                        {truncateHash(activity.eventHash)}
-                      </code>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="font-semibold text-care-teal">
-                    +{activity.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  <span className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
                   </span>
-                  <span className="text-xs text-muted-foreground ml-1">CARE</span>
                 </div>
+                <span className="text-sm font-semibold text-care-teal">
+                  +{activity.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
+                </span>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-10">
-            <div className="mx-auto w-14 h-14 rounded-full bg-muted/40 flex items-center justify-center mb-3">
-              <Activity className="h-7 w-7 text-muted-foreground/30" />
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">No activity yet</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Start documenting to see your rewards here</p>
+          <div className="text-center py-8">
+            <Activity className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No activity yet</p>
           </div>
         )}
       </CardContent>
