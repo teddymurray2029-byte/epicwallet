@@ -186,8 +186,9 @@ Deno.serve(async (req) => {
         );
 
       if (upsertError) {
+        console.error('upsert error:', JSON.stringify(upsertError));
         return new Response(
-          JSON.stringify({ error: 'Failed to save credentials' }),
+          JSON.stringify({ error: 'Failed to save credentials', detail: upsertError.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
@@ -236,9 +237,9 @@ Deno.serve(async (req) => {
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
-    console.error('manage-ehr-credentials error');
+    console.error('manage-ehr-credentials error:', error?.message || error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', detail: error?.message }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } },
     );
   }
