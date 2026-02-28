@@ -117,14 +117,11 @@ Deno.serve(async (req) => {
           return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
       }
     } catch (stripeErr) {
-      const errMsg = String(stripeErr);
-      if (errMsg.includes('Issuing') || errMsg.includes('[403]') || errMsg.includes('[404]') || errMsg.includes('capability') || errMsg.includes('not set up')) {
-        return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);
-      }
-      throw stripeErr;
+      console.error('Stripe error, falling back to demo mode:', String(stripeErr));
+      return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);
     }
   } catch (err) {
-    console.error('Virtual card error');
+    console.error('Virtual card error:', String(err));
     return jsonResponse({ error: 'Internal server error' }, 500, getCorsHeaders(req));
   }
 });
