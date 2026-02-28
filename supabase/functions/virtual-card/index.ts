@@ -210,43 +210,80 @@ async function handleCreateCard(stripeKey: string, entity_id: string, wallet_add
     return jsonResponse({ error: 'Entity not found' }, 404, corsHeaders);
   }
 
-  const cardholder = await stripeRequest(stripeKey, 'issuing/cardholders', 'POST', {
-    type: 'individual',
-    name: (entity.display_name || `Provider ${redactWallet(wallet_address)}`).slice(0, 24),
-    email: `${wallet_address.toLowerCase().slice(0, 20)}@carecoin.app`,
-    status: 'active',
-    billing: {
-      address: { line1: '1 CareCoin Way', city: 'San Francisco', state: 'CA', postal_code: '94111', country: 'US' },
-    },
-    metadata: { entity_id, wallet_address: redactWallet(wallet_address) },
-  });
+  try {
+    // Check if we already have a cardholder stored
+    const { data: existing } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', `stripe_card_${entity_id}`)
+      .maybeSingle();
 
-  const card = await stripeRequest(stripeKey, 'issuing/cards', 'POST', {
-    cardholder: cardholder.id,
-    currency: 'usd',
-    type: 'virtual',
-    status: 'active',
-    spending_controls: { spending_limits: [{ amount: 500000, interval: 'monthly' }] },
-    metadata: { entity_id },
-  });
+    let cardholderId = existing?.value?.cardholder_id;
 
-  await supabase.from('system_settings').upsert({
-    key: `stripe_card_${entity_id}`,
-    value: { card_id: card.id, cardholder_id: cardholder.id, usd_balance: 0 },
-  }, { onConflict: 'key' });
+    if (!cardholderId) {
+      const cardholder = await stripeRequest(stripeKey, 'issuing/cardholders', 'POST', {
+        type: 'individual',
+        name: (entity.display_name || `Provider ${redactWallet(wallet_address)}`).slice(0, 24),
+        email: `${wallet_address.toLowerCase().slice(0, 20)}@carecoin.app`,
+        billing: {
+          address: { line1: '1 CareCoin Way', city: 'San Francisco', state: 'CA', postal_code: '94111', country: 'US' },
+        },
+        metadata: { entity_id, wallet_address: redactWallet(wallet_address) },
+      });
+      cardholderId = cardholder.id;
+    }
 
-  return jsonResponse({
-    card: {
-      id: card.id,
-      last4: card.last4,
-      exp_month: card.exp_month,
-      exp_year: card.exp_year,
-      brand: 'Visa',
+    // Check cardholder status/requirements before creating card
+    const holderCheck = await stripeRequest(stripeKey, `issuing/cardholders/${cardholderId}`, 'GET');
+    if (holderCheck.requirements?.disabled_reason) {
+      // Store cardholder for retry later
+      await supabase.from('system_settings').upsert({
+        key: `stripe_card_${entity_id}`,
+        value: { cardholder_id: cardholderId, usd_balance: 0 },
+      }, { onConflict: 'key' });
+
+      const pastDue = holderCheck.requirements?.past_due || [];
+      return jsonResponse({
+        error: `Cardholder has outstanding requirements: ${pastDue.join(', ') || holderCheck.requirements.disabled_reason}. Please complete cardholder verification in Stripe Dashboard.`,
+        requirements: holderCheck.requirements,
+      }, 400, corsHeaders);
+    }
+
+    const card = await stripeRequest(stripeKey, 'issuing/cards', 'POST', {
+      cardholder: cardholderId,
+      currency: 'usd',
+      type: 'virtual',
       status: 'active',
-      spending_limit: 5000,
-      usd_balance: 0,
-    },
-  }, 200, corsHeaders);
+      spending_controls: { spending_limits: [{ amount: 500000, interval: 'monthly' }] },
+      metadata: { entity_id },
+    });
+
+    await supabase.from('system_settings').upsert({
+      key: `stripe_card_${entity_id}`,
+      value: { card_id: card.id, cardholder_id: cardholderId, usd_balance: 0 },
+    }, { onConflict: 'key' });
+
+    return jsonResponse({
+      card: {
+        id: card.id,
+        last4: card.last4,
+        exp_month: card.exp_month,
+        exp_year: card.exp_year,
+        brand: 'Visa',
+        status: 'active',
+        spending_limit: 5000,
+        usd_balance: 0,
+      },
+    }, 200, corsHeaders);
+  } catch (err) {
+    const msg = String(err);
+    if (msg.includes('outstanding requirements')) {
+      return jsonResponse({
+        error: 'Cardholder verification incomplete. Please complete identity requirements in Stripe Dashboard before creating a card.',
+      }, 400, corsHeaders);
+    }
+    throw err;
+  }
 }
 
 async function handleConvert(stripeKey: string, entity_id: string, wallet_address: string, care_amount: number, supabase: any, corsHeaders: Record<string, string>) {
