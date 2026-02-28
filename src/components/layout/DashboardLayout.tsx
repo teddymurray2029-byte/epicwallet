@@ -1,13 +1,9 @@
 import React from 'react';
 import { ReactNode } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import {
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
-import { HipaaNotice } from './HipaaNotice';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -28,21 +24,18 @@ const routeLabels: Record<string, string> = {
   rewards: 'Rewards',
   activity: 'Activity',
   transactions: 'Transactions',
-  invoice: 'Generate Invoice',
-  epic: 'Epic Integration',
-  card: 'Virtual Card',
+  invoice: 'Invoice',
+  card: 'Card',
   organizations: 'Organizations',
-  invites: 'Invites',
-  deploy: 'Deploy Contract',
-  organization: 'Organization',
-  policies: 'Policies',
-  oracles: 'Oracle Keys',
-  monitoring: 'Monitoring',
-  settings: 'Settings',
-  pay: 'Pay Invoice',
+  deploy: 'Deploy',
+  pay: 'Pay',
   history: 'History',
   'audit-logs': 'Audit Logs',
-  ehr: 'EHR Integration',
+  ehr: 'EHR',
+  offramp: 'Cash Out',
+  leaderboard: 'Leaderboard',
+  analytics: 'Analytics',
+  tutorial: 'Tutorial',
 };
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -59,22 +52,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
-        
-        <div className="flex-1 flex flex-col relative overflow-hidden bg-mesh-animated">
-          {/* Decorative gradient orbs — subtle in dark mode */}
-          <div className="pointer-events-none absolute -top-48 -right-48 h-[600px] w-[600px] rounded-full bg-[radial-gradient(circle,hsl(var(--care-teal)/0.04)_0%,transparent_65%)] blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-60 -left-40 h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle,hsl(var(--care-green)/0.03)_0%,transparent_65%)] blur-3xl" />
 
+        <div className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="sticky top-0 z-40 bg-background/60 backdrop-blur-2xl backdrop-saturate-150 border-b border-border/50">
-            <div className="flex h-14 items-center justify-between px-4 md:px-6">
-              <div className="flex items-center gap-3 sm:gap-4">
+          <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/40">
+            <div className="flex h-12 items-center justify-between px-4 md:px-6">
+              <div className="flex items-center gap-3">
                 <SidebarTrigger />
-                {breadcrumbs.length > 0 && (
-                  <span className="sm:hidden text-sm font-medium text-foreground truncate max-w-[180px]">
-                    {breadcrumbs[breadcrumbs.length - 1].label}
-                  </span>
-                )}
                 {breadcrumbs.length > 0 && (
                   <Breadcrumb className="hidden sm:block">
                     <BreadcrumbList>
@@ -96,22 +80,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </Breadcrumb>
                 )}
               </div>
-
-              <div className="flex items-center gap-3" data-tutorial="connect-wallet">
+              <div data-tutorial="connect-wallet">
                 <ConnectWalletButton />
               </div>
             </div>
           </header>
 
           {/* Main content */}
-          <main className="flex-1 p-4 md:p-6 lg:p-8 relative" key={location.pathname}>
-            <div className="h-full animate-fade-in-up">
-              {children}
-            </div>
+          <main className="flex-1 p-4 md:p-6" key={location.pathname}>
+            {children}
           </main>
-
-          {/* HIPAA compliance footer */}
-          <HipaaNotice />
         </div>
       </div>
     </SidebarProvider>
