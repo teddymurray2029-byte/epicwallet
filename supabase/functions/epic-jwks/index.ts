@@ -4,7 +4,7 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Content-Type': 'application/json',
-  'Cache-Control': 'public, max-age=3600',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
 };
 
 Deno.serve(async (req) => {
@@ -20,6 +20,8 @@ Deno.serve(async (req) => {
 
     const organizationId = url.searchParams.get('org');
     const clientId = url.searchParams.get('client_id');
+    const ua = req.headers.get('user-agent')?.slice(0, 180) || 'unknown';
+    console.log(`epic-jwks request org=${organizationId || '[none]'} client_id=${clientId ? `${clientId.slice(0, 8)}…` : '[none]'} ua=${ua}`);
 
     // Epic may call this URL without preserving query params.
     // So we support:
