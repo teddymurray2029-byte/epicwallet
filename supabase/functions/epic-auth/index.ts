@@ -91,11 +91,12 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-async function createJwtAssertion(clientId: string, tokenUrl: string, privateKeyPem: string): Promise<string> {
+async function createJwtAssertion(clientId: string, tokenUrl: string, privateKeyPem: string, kid?: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const jti = crypto.randomUUID();
 
-  const header = { alg: 'RS384', typ: 'JWT' };
+  const header: Record<string, string> = { alg: 'RS384', typ: 'JWT' };
+  if (kid) header.kid = kid;
   const payload = {
     iss: clientId,
     sub: clientId,
@@ -154,6 +155,8 @@ Deno.serve(async (req) => {
     let epicClientId = Deno.env.get('EPIC_CLIENT_ID') || '';
     let epicClientSecret = Deno.env.get('EPIC_CLIENT_SECRET') || '';
 
+    let epicKid: string | undefined;
+
     if (entityId) {
       const { data: providerEntity } = await supabase
         .from('entities')
@@ -172,7 +175,9 @@ Deno.serve(async (req) => {
 
         if (creds) {
           epicClientId = creds.client_id;
-          epicClientSecret = await decrypt(creds.client_secret);
+          const rawSecret = creds.client_secret;
+          epicClientSecret = await decrypt(rawSecret);
+          console.log(`Epic creds loaded from DB for org ${orgId}. client_id=${epicClientId.slice(0,8)}…, secret starts with: ${epicClientSecret.slice(0,27)}`);
         }
       }
     }
@@ -212,8 +217,9 @@ Deno.serve(async (req) => {
       if (isPrivateKeyPem(epicClientSecret)) {
         // JWT assertion flow for Backend System apps
         console.log('Using JWT assertion flow for Epic Backend System');
+        console.log(`JWT params: iss/sub=${epicClientId}, aud=${epicTokenUrl}`);
         try {
-          const jwt = await createJwtAssertion(epicClientId, epicTokenUrl, epicClientSecret);
+          const jwt = await createJwtAssertion(epicClientId, epicTokenUrl, epicClientSecret, epicKid);
           tokenBody = new URLSearchParams({
             grant_type: 'client_credentials',
             client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
