@@ -65,6 +65,75 @@ async function auditLog(supabase: any, action: string, resourceType: string, det
   } catch { /* non-fatal */ }
 }
 
+// ─── JWT Assertion helpers for Epic Backend System apps ───
+
+function base64urlEncode(data: Uint8Array): string {
+  return btoa(String.fromCharCode(...data))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function textToBase64url(text: string): string {
+  return base64urlEncode(new TextEncoder().encode(text));
+}
+
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const b64 = pem
+    .replace(/-----BEGIN (RSA )?PRIVATE KEY-----/g, '')
+    .replace(/-----END (RSA )?PRIVATE KEY-----/g, '')
+    .replace(/\s/g, '');
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+async function createJwtAssertion(clientId: string, tokenUrl: string, privateKeyPem: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const jti = crypto.randomUUID();
+
+  const header = { alg: 'RS384', typ: 'JWT' };
+  const payload = {
+    iss: clientId,
+    sub: clientId,
+    aud: tokenUrl,
+    jti,
+    exp: now + 300, // 5 minutes
+    iat: now,
+    nbf: now,
+  };
+
+  const headerB64 = textToBase64url(JSON.stringify(header));
+  const payloadB64 = textToBase64url(JSON.stringify(payload));
+  const signingInput = `${headerB64}.${payloadB64}`;
+
+  const keyData = pemToArrayBuffer(privateKeyPem);
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    keyData,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-384' },
+    false,
+    ['sign'],
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    new TextEncoder().encode(signingInput),
+  );
+
+  const signatureB64 = base64urlEncode(new Uint8Array(signature));
+  return `${signingInput}.${signatureB64}`;
+}
+
+// Detect whether the secret is a PEM private key or a simple secret string
+function isPrivateKeyPem(secret: string): boolean {
+  return secret.includes('-----BEGIN') && secret.includes('PRIVATE KEY');
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -127,7 +196,7 @@ Deno.serve(async (req) => {
     const epicTokenUrl = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token';
     const epicFhirBase = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4';
 
-    // ─── Flow 1: Connect via Client Credentials (no redirect needed) ───
+    // ─── Flow 1: Connect via Client Credentials ───
     if (action === 'authorize') {
       if (!entityId) {
         return new Response(
@@ -138,12 +207,34 @@ Deno.serve(async (req) => {
 
       await auditLog(supabase, 'epic_client_credentials_initiated', 'ehr_integrations', { entity_id: entityId }, req);
 
-      // Use client_credentials grant — no redirect URI required
-      const tokenBody = new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: epicClientId,
-        client_secret: epicClientSecret,
-      });
+      let tokenBody: URLSearchParams;
+
+      if (isPrivateKeyPem(epicClientSecret)) {
+        // JWT assertion flow for Backend System apps
+        console.log('Using JWT assertion flow for Epic Backend System');
+        try {
+          const jwt = await createJwtAssertion(epicClientId, epicTokenUrl, epicClientSecret);
+          tokenBody = new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion: jwt,
+          });
+        } catch (jwtErr) {
+          console.error('Failed to create JWT assertion:', jwtErr);
+          return new Response(
+            JSON.stringify({ error: 'Failed to create JWT assertion. Check that the private key is valid RSA PEM format.' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+      } else {
+        // Simple client_secret flow (fallback)
+        console.log('Using client_secret flow for Epic');
+        tokenBody = new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: epicClientId,
+          client_secret: epicClientSecret,
+        });
+      }
 
       const tokenRes = await fetch(epicTokenUrl, {
         method: 'POST',
@@ -155,8 +246,15 @@ Deno.serve(async (req) => {
         const errText = await tokenRes.text();
         console.error('Epic token exchange failed:', tokenRes.status, errText);
         await auditLog(supabase, 'epic_token_exchange_failed', 'ehr_integrations', { entity_id: entityId, status: tokenRes.status }, req);
+
+        // Provide helpful error message
+        const isJwtMode = isPrivateKeyPem(epicClientSecret);
+        const hint = isJwtMode
+          ? 'Ensure your RSA private key matches the public key uploaded to Epic App Orchard.'
+          : 'Epic Backend System apps require a PEM private key, not a client secret. Update your credentials on the Organization Management page with the RSA private key from Epic App Orchard.';
+
         return new Response(
-          JSON.stringify({ error: 'Epic token exchange failed', detail: errText }),
+          JSON.stringify({ error: 'Epic token exchange failed', detail: errText, hint }),
           { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
@@ -166,7 +264,6 @@ Deno.serve(async (req) => {
       const expiresIn = tokenData.expires_in || 3600;
       const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-      // Encrypt token before storage
       const encryptedAccessToken = await encrypt(accessToken);
 
       // Set up FHIR Subscription for webhook notifications
@@ -195,7 +292,7 @@ Deno.serve(async (req) => {
         }
       } catch { /* non-fatal */ }
 
-      // Upsert the integration record
+      // Upsert integration record
       const { error: upsertError } = await supabase
         .from('ehr_integrations')
         .upsert(
@@ -215,7 +312,6 @@ Deno.serve(async (req) => {
         );
 
       if (upsertError) {
-        // Fallback: try update then insert
         const { data: existing } = await supabase
           .from('ehr_integrations')
           .select('id')
