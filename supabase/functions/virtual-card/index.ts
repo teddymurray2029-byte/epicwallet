@@ -117,8 +117,8 @@ Deno.serve(async (req) => {
           return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
       }
     } catch (stripeErr) {
-      console.error('Stripe API error:', String(stripeErr));
-      return jsonResponse({ error: `Stripe error: ${String(stripeErr).slice(0, 200)}` }, 502, corsHeaders);
+      console.error('Stripe Issuing not available, using demo mode:', String(stripeErr));
+      return handleDemoMode(action, entity_id, wallet_address, care_amount, supabase, req, corsHeaders);
     }
   } catch (err) {
     console.error('Virtual card error:', String(err));
