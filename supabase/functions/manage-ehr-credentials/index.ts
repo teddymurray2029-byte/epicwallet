@@ -23,8 +23,14 @@ function redactWallet(w: string | null | undefined): string {
 async function getEncryptionKey(): Promise<CryptoKey | null> {
   const hexKey = Deno.env.get('ENCRYPTION_KEY');
   if (!hexKey) return null;
-  const keyBytes = new Uint8Array(hexKey.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
-  return crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  try {
+    const keyBytes = new Uint8Array(hexKey.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
+    if (keyBytes.length !== 32) { console.warn('ENCRYPTION_KEY is not 32 bytes, skipping encryption'); return null; }
+    return await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  } catch (e) {
+    console.warn('Failed to import ENCRYPTION_KEY, skipping encryption:', e?.message);
+    return null;
+  }
 }
 
 async function encrypt(plaintext: string): Promise<string> {
