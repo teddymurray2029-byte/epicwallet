@@ -9,13 +9,12 @@ import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wallet, Shield, Coins, UserPlus, TrendingUp, Activity, Users, Loader2 } from 'lucide-react';
+import { Wallet, Coins, UserPlus, Users, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProviderSetupTutorial } from '@/components/tutorial/ProviderSetupTutorial';
-
 
 interface OrganizationOption {
   id: string;
@@ -59,17 +58,10 @@ export default function ProviderDashboard() {
   if (isConnecting) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div className="loading-card max-w-xs w-full animate-scale-pop">
-            <div className="relative flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[hsl(var(--care-teal))] via-[hsl(var(--care-blue))] to-[hsl(var(--care-green))] text-white shadow-[var(--shadow-glow-teal)]">
-              <svg viewBox="0 0 32 32" fill="none" className="h-7 w-7">
-                <text x="3" y="23" fontFamily="Inter, sans-serif" fontSize="16" fontWeight="700" fill="white">CC</text>
-              </svg>
-            </div>
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span className="text-sm font-medium text-muted-foreground">Connecting wallet...</span>
-            </div>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground">Connecting wallet…</span>
           </div>
         </div>
       </DashboardLayout>
@@ -86,139 +78,93 @@ export default function ProviderDashboard() {
 
     const success = await registerEntity('provider', undefined, organizationId);
     if (success) {
-      toast({ title: 'Registration Successful', description: 'You are now registered as a provider.' });
+      toast({ title: 'Registered', description: 'You are now a provider.' });
     } else {
-      toast({ title: 'Registration Failed', description: 'Could not register your wallet. Please try again.', variant: 'destructive' });
+      toast({ title: 'Failed', description: 'Could not register. Try again.', variant: 'destructive' });
     }
     setIsRegistering(false);
   };
 
-  const truncateAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-
-  // Show connect prompt if not connected
+  // Connect prompt
   if (!isConnected) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 sm:px-6 bg-mesh-animated rounded-2xl">
-          <Card className="max-w-md w-full shimmer-border bg-gradient-to-br from-background via-background to-primary/10 shadow-[var(--shadow-elevated)]">
-            <CardContent className="pt-8 pb-8 text-center space-y-6">
-              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 ring-1 ring-primary/30 shadow-[var(--shadow-glow-teal)] flex items-center justify-center" style={{ animation: 'float 3s ease-in-out infinite' }}>
-                <Wallet className="h-8 w-8 text-primary" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-gradient-hero">Connect Your Wallet</h2>
-                <p className="text-muted-foreground">
-                  Connect your wallet to access the CareWallet Provider Dashboard and view your healthcare documentation rewards.
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Card className="max-w-sm w-full">
+            <CardContent className="pt-6 pb-6 text-center space-y-4">
+              <Wallet className="h-10 w-10 text-primary mx-auto" />
+              <div>
+                <h2 className="text-xl font-semibold">Connect Wallet</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Connect your wallet to access the provider dashboard.
                 </p>
               </div>
-              <div className="flex flex-col gap-4">
-                <ConnectWalletButton />
-                <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center animate-fade-in-up" style={{ animationDelay: '300ms' }}>
-                  <Shield className="h-3 w-3 text-primary" />
-                  <span>Your wallet is your identity. No email or password needed.</span>
-                </div>
-              </div>
+              <ConnectWalletButton />
             </CardContent>
           </Card>
-
-          {/* Feature highlights */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 max-w-md w-full">
-            {[
-              { icon: Coins, label: 'Earn Rewards', desc: 'CARE tokens for documentation' },
-              { icon: Activity, label: 'Track Activity', desc: 'Real-time event monitoring' },
-              { icon: TrendingUp, label: 'On-Chain Tokens', desc: 'Transparent blockchain rewards' },
-            ].map((feat, i) => (
-              <div
-                key={feat.label}
-                className="flex flex-col items-center text-center p-4 rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm card-hover-lift"
-                style={{ animation: `fade-in-up 0.4s ease-out ${(i + 1) * 100}ms both` }}
-              >
-                <feat.icon className="h-6 w-6 text-primary mb-2" />
-                <p className="text-xs font-medium">{feat.label}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{feat.desc}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </DashboardLayout>
     );
   }
 
-  // Show registration prompt if connected but not registered
+  // Registration prompt
   if (!entityLoading && !entity) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 sm:px-6">
-          <Card className="max-w-md w-full shimmer-border bg-gradient-to-br from-background via-background to-[hsl(var(--care-warning)/0.1)] shadow-[var(--shadow-elevated)]">
-            <CardContent className="pt-8 pb-8 text-center space-y-6">
-              <div className="mx-auto w-16 h-16 rounded-full bg-[hsl(var(--care-warning)/0.1)] ring-1 ring-[hsl(var(--care-warning)/0.3)] shadow-[0_0_18px_hsl(var(--care-warning)/0.25)] flex items-center justify-center" style={{ animation: 'float 3s ease-in-out infinite' }}>
-                <Coins className="h-8 w-8 text-[hsl(var(--care-warning))]" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-gradient">Wallet Not Registered</h2>
-                <p className="text-muted-foreground">
-                  Your wallet is connected but not yet registered in the CareCoin network.
-                </p>
-              </div>
-              <div className="p-4 glass-card rounded-lg">
-                <p className="text-xs text-muted-foreground font-mono break-all">{address}</p>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Card className="max-w-sm w-full">
+            <CardContent className="pt-6 pb-6 space-y-4">
+              <div className="text-center">
+                <Coins className="h-10 w-10 text-primary mx-auto" />
+                <h2 className="text-xl font-semibold mt-3">Register as Provider</h2>
+                <p className="text-xs text-muted-foreground mt-1 font-mono break-all">{address}</p>
               </div>
 
-              {/* Organization selection with visual separation */}
-              <div className="space-y-4 text-left">
-                <div className="space-y-2 p-4 rounded-lg border border-border/40 bg-muted/20">
-                  <p className="text-sm font-medium flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    Join existing organization
-                  </p>
-                  <Select value={selectedOrganization} onValueChange={(value) => { setSelectedOrganization(value); setNewOrganizationName(''); }}>
+              {/* Organization selection */}
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                    Join organization
+                  </label>
+                  <Select value={selectedOrganization} onValueChange={(v) => { setSelectedOrganization(v); setNewOrganizationName(''); }}>
                     <SelectTrigger>
-                      <SelectValue placeholder={organizationsLoading ? 'Loading organizations...' : 'Select organization'} />
+                      <SelectValue placeholder={organizationsLoading ? 'Loading…' : 'Select'} />
                     </SelectTrigger>
                     <SelectContent>
                       {organizations.length === 0 ? (
-                        <SelectItem value="none" disabled>No organizations available</SelectItem>
+                        <SelectItem value="none" disabled>None available</SelectItem>
                       ) : (
                         organizations.map((org) => (
-                          <SelectItem key={org.id} value={org.id}>{org.display_name || 'Unnamed organization'}</SelectItem>
+                          <SelectItem key={org.id} value={org.id}>{org.display_name || 'Unnamed'}</SelectItem>
                         ))
                       )}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">or</span>
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[10px] text-muted-foreground uppercase">or</span>
+                  <div className="h-px flex-1 bg-border" />
                 </div>
 
-                <div className="space-y-2 p-4 rounded-lg border border-border/40 bg-muted/20">
-                  <p className="text-sm font-medium flex items-center gap-2">
-                    <UserPlus className="h-4 w-4 text-muted-foreground" />
-                    Create a new organization
-                  </p>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium flex items-center gap-1.5">
+                    <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                    Create new
+                  </label>
                   <Input
                     value={newOrganizationName}
-                    onChange={(event) => { setNewOrganizationName(event.target.value); setSelectedOrganization(''); }}
+                    onChange={(e) => { setNewOrganizationName(e.target.value); setSelectedOrganization(''); }}
                     placeholder="Organization name"
                   />
-                  <p className="text-xs text-muted-foreground">Creating a new organization assigns you as the owner.</p>
                 </div>
               </div>
 
-              <Button
-                onClick={handleRegister}
-                disabled={isRegistering || !canRegister}
-                variant="gradient"
-                className="w-full"
-              >
-                <UserPlus className="mr-2 h-4 w-4" />
-                {isRegistering ? 'Registering...' : 'Register as Provider'}
+              <Button onClick={handleRegister} disabled={isRegistering || !canRegister} variant="gradient" className="w-full">
+                {isRegistering ? 'Registering…' : 'Register'}
               </Button>
-              <p className="text-xs text-muted-foreground">
-                This registers your wallet for testing. Production registration requires admin approval.
-              </p>
             </CardContent>
           </Card>
         </div>
@@ -228,41 +174,28 @@ export default function ProviderDashboard() {
 
   return (
     <DashboardLayout>
-      
       <ProviderSetupTutorial />
       <div className="space-y-6">
-        {/* Welcome banner */}
-        <div className="animate-fade-in-up">
-          <h1 className="page-header inline-block text-3xl sm:text-4xl tracking-tight">
-            {entity?.display_name ? `Welcome back, ${entity.display_name}` : 'Provider Dashboard'}
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {entity?.display_name ? `Welcome, ${entity.display_name}` : 'Dashboard'}
           </h1>
-          <div className="mt-1.5 h-1 rounded-full bg-gradient-to-r from-[hsl(var(--care-teal))] to-[hsl(var(--care-green))] opacity-60 animate-[scale-in_0.6s_ease-out_0.3s_both] origin-left w-16" />
-          <p className="text-muted-foreground mt-3">
-            Track your healthcare documentation rewards and CARE token earnings
+          <p className="text-sm text-muted-foreground mt-1">
+            Track rewards and CARE token earnings
           </p>
         </div>
 
-        {/* Dashboard grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <div className="animate-fade-in-up animate-stagger-1">
-            <WalletStatusCard />
-          </div>
-          <div className="animate-fade-in-up animate-stagger-2">
-            <EhrConnectCard />
-          </div>
-          <div className="md:col-span-2 lg:col-span-1 animate-fade-in-up animate-stagger-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <WalletStatusCard />
+          <EhrConnectCard />
+          <div className="md:col-span-2 lg:col-span-1">
             <RewardsSummaryCard />
           </div>
         </div>
 
-        {/* Charts and Activity row */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="animate-fade-in-up animate-stagger-4">
-            <RewardsChart />
-          </div>
-          <div className="animate-fade-in-up animate-stagger-5">
-            <RecentActivityFeed />
-          </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <RewardsChart />
+          <RecentActivityFeed />
         </div>
       </div>
     </DashboardLayout>
