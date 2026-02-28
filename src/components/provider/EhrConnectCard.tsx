@@ -53,20 +53,22 @@ export function EhrConnectCard() {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${cfg.authFunction}?action=authorize&entity_id=${entity.id}`,
         { headers: { 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
       );
-      const respData = await res.json();
-      if (respData.configured === false) {
-        toast({ title: `${cfg.label} Not Configured`, description: 'Ask your organization admin to add credentials.', variant: 'destructive' });
+      const data = await res.json();
+      if (data.configured === false) {
+        toast({ title: `${cfg.label} Not Configured`, description: 'Ask your organization admin to add credentials on the Organization Management page.', variant: 'destructive' });
         setConnecting(null);
         return;
       }
-      if (respData.authorize_url) {
-        window.location.href = respData.authorize_url;
-      } else if (respData.success) {
+      if (data.authorize_url) {
+        window.location.href = data.authorize_url;
+      } else if (data.success) {
         toast({ title: 'Connected!', description: `${cfg.label} EHR is now connected.` });
         await fetchStatus();
         setConnecting(null);
       } else {
-        toast({ title: 'Error', description: respData.error || 'Failed to connect', variant: 'destructive' });
+        // Surface hint from backend if available
+        const errorMsg = data.hint || data.error || 'Failed to connect';
+        toast({ title: `${cfg.label} Connection Failed`, description: errorMsg, variant: 'destructive' });
         setConnecting(null);
       }
     } catch {
