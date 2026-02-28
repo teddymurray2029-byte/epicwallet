@@ -19,34 +19,63 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
 
     const organizationId = url.searchParams.get('org');
+    const clientId = url.searchParams.get('client_id');
 
-    if (!organizationId) {
-      return new Response(
-        JSON.stringify({ error: 'org parameter is required' }),
-        { status: 400, headers: corsHeaders },
-      );
+    // Epic may call this URL without preserving query params.
+    // So we support:
+    // 1) org=... (preferred)
+    // 2) client_id=...
+    // 3) no params => return all public Epic keys
+    if (organizationId) {
+      const { data, error } = await supabase
+        .from('ehr_credentials')
+        .select('public_key_jwks')
+        .eq('organization_id', organizationId)
+        .eq('ehr_type', 'epic')
+        .maybeSingle();
+
+      if (error || !data?.public_key_jwks) {
+        return new Response(JSON.stringify({ keys: [] }), { headers: corsHeaders });
+      }
+
+      return new Response(JSON.stringify(data.public_key_jwks), { headers: corsHeaders });
     }
 
-    const { data, error } = await supabase
+    if (clientId) {
+      const { data, error } = await supabase
+        .from('ehr_credentials')
+        .select('public_key_jwks')
+        .eq('client_id', clientId)
+        .eq('ehr_type', 'epic')
+        .maybeSingle();
+
+      if (error || !data?.public_key_jwks) {
+        return new Response(JSON.stringify({ keys: [] }), { headers: corsHeaders });
+      }
+
+      return new Response(JSON.stringify(data.public_key_jwks), { headers: corsHeaders });
+    }
+
+    const { data: rows, error } = await supabase
       .from('ehr_credentials')
       .select('public_key_jwks')
-      .eq('organization_id', organizationId)
       .eq('ehr_type', 'epic')
-      .maybeSingle();
+      .not('public_key_jwks', 'is', null);
 
-    if (error || !data?.public_key_jwks) {
-      return new Response(
-        JSON.stringify({ keys: [] }),
-        { headers: corsHeaders },
-      );
+    if (error || !rows?.length) {
+      return new Response(JSON.stringify({ keys: [] }), { headers: corsHeaders });
     }
 
-    // Return the JWKS directly — it should already be { keys: [...] }
-    const jwks = data.public_key_jwks;
-    return new Response(
-      JSON.stringify(jwks),
-      { headers: corsHeaders },
+    const keys = rows
+      .flatMap((row: any) => Array.isArray(row?.public_key_jwks?.keys) ? row.public_key_jwks.keys : [])
+      .filter((k: any) => k?.kty === 'RSA' && k?.n && k?.e);
+
+    // Deduplicate by kid + modulus
+    const deduped = keys.filter((k: any, idx: number, arr: any[]) =>
+      arr.findIndex((x: any) => x?.kid === k?.kid && x?.n === k?.n) === idx,
     );
+
+    return new Response(JSON.stringify({ keys: deduped }), { headers: corsHeaders });
   } catch (err) {
     console.error('epic-jwks error:', err?.message);
     return new Response(
