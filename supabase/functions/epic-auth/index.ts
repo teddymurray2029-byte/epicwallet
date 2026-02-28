@@ -226,6 +226,7 @@ Deno.serve(async (req) => {
           const jwt = await createJwtAssertion(epicClientId, epicTokenUrl, epicClientSecret, epicKid);
           tokenBody = new URLSearchParams({
             grant_type: 'client_credentials',
+            client_id: epicClientId,
             client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
             client_assertion: jwt,
           });
