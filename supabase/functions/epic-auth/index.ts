@@ -79,8 +79,6 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
 
     const action = url.searchParams.get('action');
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
     const entityId = url.searchParams.get('entity_id');
 
     // Resolve credentials
@@ -126,15 +124,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const redirectUri = `${supabaseUrl}/functions/v1/epic-auth`;
-    const epicAuthorizeUrl = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize';
     const epicTokenUrl = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token';
     const epicFhirBase = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4';
 
-    const origin = req.headers.get('origin') || req.headers.get('referer');
-    const frontendBase = origin ? new URL(origin).origin : supabaseUrl.replace('.supabase.co', '.lovable.app');
-
-    // ─── Flow 1: Initiate OAuth ───
+    // ─── Flow 1: Connect via Client Credentials (no redirect needed) ───
     if (action === 'authorize') {
       if (!entityId) {
         return new Response(
@@ -143,108 +136,13 @@ Deno.serve(async (req) => {
         );
       }
 
-      const stateToken = crypto.randomUUID();
+      await auditLog(supabase, 'epic_client_credentials_initiated', 'ehr_integrations', { entity_id: entityId }, req);
 
-      const { error: upsertError } = await supabase
-        .from('ehr_integrations')
-        .upsert(
-          {
-            entity_id: entityId,
-            integration_type: 'epic',
-            client_id: epicClientId,
-            auth_state: stateToken,
-            is_active: false,
-          },
-          { onConflict: 'entity_id,integration_type' },
-        );
-
-      if (upsertError) {
-        const { data: existing } = await supabase
-          .from('ehr_integrations')
-          .select('id')
-          .eq('entity_id', entityId)
-          .eq('integration_type', 'epic')
-          .maybeSingle();
-
-        if (existing) {
-          await supabase
-            .from('ehr_integrations')
-            .update({ auth_state: stateToken, client_id: epicClientId })
-            .eq('id', existing.id);
-        } else {
-          const { error: insertErr } = await supabase.from('ehr_integrations').insert({
-            entity_id: entityId,
-            integration_type: 'epic',
-            client_id: epicClientId,
-            auth_state: stateToken,
-            is_active: false,
-          });
-          if (insertErr) {
-            return new Response(
-              JSON.stringify({ error: 'Failed to initiate OAuth flow' }),
-              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-            );
-          }
-        }
-      }
-
-      await auditLog(supabase, 'epic_oauth_initiated', 'ehr_integrations', { entity_id: entityId }, req);
-
-      const authUrl = new URL(epicAuthorizeUrl);
-      authUrl.searchParams.set('response_type', 'code');
-      authUrl.searchParams.set('client_id', epicClientId);
-      authUrl.searchParams.set('redirect_uri', redirectUri);
-      authUrl.searchParams.set('state', stateToken);
-      authUrl.searchParams.set('scope', 'system/*.read');
-
-      return new Response(
-        JSON.stringify({ authorize_url: authUrl.toString() }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    // ─── Flow 2: OAuth Callback ───
-    if (code && state) {
-      const { data: integration, error: findErr } = await supabase
-        .from('ehr_integrations')
-        .select('*')
-        .eq('auth_state', state)
-        .eq('integration_type', 'epic')
-        .maybeSingle();
-
-      if (findErr || !integration) {
-        return Response.redirect(`${frontendBase}/provider/ehr?error=invalid_state`, 302);
-      }
-
-      // Re-resolve credentials for the callback entity
-      let callbackClientId = epicClientId;
-      let callbackClientSecret = epicClientSecret;
-      const { data: callbackEntity } = await supabase
-        .from('entities')
-        .select('organization_id')
-        .eq('id', integration.entity_id)
-        .maybeSingle();
-
-      const callbackOrgId = callbackEntity?.organization_id || integration.entity_id;
-      if (callbackOrgId) {
-        const { data: callbackCreds } = await supabase
-          .from('ehr_credentials')
-          .select('client_id, client_secret')
-          .eq('organization_id', callbackOrgId)
-          .eq('ehr_type', 'epic')
-          .maybeSingle();
-        if (callbackCreds) {
-          callbackClientId = callbackCreds.client_id;
-          callbackClientSecret = await decrypt(callbackCreds.client_secret);
-        }
-      }
-
+      // Use client_credentials grant — no redirect URI required
       const tokenBody = new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: redirectUri,
-        client_id: callbackClientId,
-        client_secret: callbackClientSecret,
+        grant_type: 'client_credentials',
+        client_id: epicClientId,
+        client_secret: epicClientSecret,
       });
 
       const tokenRes = await fetch(epicTokenUrl, {
@@ -254,20 +152,24 @@ Deno.serve(async (req) => {
       });
 
       if (!tokenRes.ok) {
-        await auditLog(supabase, 'epic_token_exchange_failed', 'ehr_integrations', { entity_id: integration.entity_id }, req);
-        return Response.redirect(`${frontendBase}/provider/ehr?error=token_exchange_failed`, 302);
+        const errText = await tokenRes.text();
+        console.error('Epic token exchange failed:', tokenRes.status, errText);
+        await auditLog(supabase, 'epic_token_exchange_failed', 'ehr_integrations', { entity_id: entityId, status: tokenRes.status }, req);
+        return new Response(
+          JSON.stringify({ error: 'Epic token exchange failed', detail: errText }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
       }
 
       const tokenData = await tokenRes.json();
       const accessToken = tokenData.access_token;
-      const refreshToken = tokenData.refresh_token || null;
       const expiresIn = tokenData.expires_in || 3600;
       const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-      // Encrypt tokens before storage
+      // Encrypt token before storage
       const encryptedAccessToken = await encrypt(accessToken);
-      const encryptedRefreshToken = refreshToken ? await encrypt(refreshToken) : null;
 
+      // Set up FHIR Subscription for webhook notifications
       const webhookUrl = `${supabaseUrl}/functions/v1/epic-webhook`;
       let subscriptionId: string | null = null;
 
@@ -293,28 +195,77 @@ Deno.serve(async (req) => {
         }
       } catch { /* non-fatal */ }
 
-      const { error: updateErr } = await supabase
+      // Upsert the integration record
+      const { error: upsertError } = await supabase
         .from('ehr_integrations')
-        .update({
-          access_token: encryptedAccessToken,
-          refresh_token: encryptedRefreshToken,
-          token_expires_at: tokenExpiresAt,
-          subscription_id: subscriptionId,
-          fhir_base_url: epicFhirBase,
-          auth_state: null,
-          is_active: true,
-        })
-        .eq('id', integration.id);
+        .upsert(
+          {
+            entity_id: entityId,
+            integration_type: 'epic',
+            client_id: epicClientId,
+            access_token: encryptedAccessToken,
+            refresh_token: null,
+            token_expires_at: tokenExpiresAt,
+            subscription_id: subscriptionId,
+            fhir_base_url: epicFhirBase,
+            auth_state: null,
+            is_active: true,
+          },
+          { onConflict: 'entity_id,integration_type' },
+        );
 
-      if (updateErr) {
-        return Response.redirect(`${frontendBase}/provider/ehr?error=storage_failed`, 302);
+      if (upsertError) {
+        // Fallback: try update then insert
+        const { data: existing } = await supabase
+          .from('ehr_integrations')
+          .select('id')
+          .eq('entity_id', entityId)
+          .eq('integration_type', 'epic')
+          .maybeSingle();
+
+        if (existing) {
+          await supabase
+            .from('ehr_integrations')
+            .update({
+              client_id: epicClientId,
+              access_token: encryptedAccessToken,
+              refresh_token: null,
+              token_expires_at: tokenExpiresAt,
+              subscription_id: subscriptionId,
+              fhir_base_url: epicFhirBase,
+              auth_state: null,
+              is_active: true,
+            })
+            .eq('id', existing.id);
+        } else {
+          const { error: insertErr } = await supabase.from('ehr_integrations').insert({
+            entity_id: entityId,
+            integration_type: 'epic',
+            client_id: epicClientId,
+            access_token: encryptedAccessToken,
+            token_expires_at: tokenExpiresAt,
+            subscription_id: subscriptionId,
+            fhir_base_url: epicFhirBase,
+            is_active: true,
+          });
+          if (insertErr) {
+            return new Response(
+              JSON.stringify({ error: 'Failed to store integration' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+        }
       }
 
-      await auditLog(supabase, 'epic_oauth_completed', 'ehr_integrations', { entity_id: integration.entity_id }, req);
-      return Response.redirect(`${frontendBase}/provider/ehr?connected=epic`, 302);
+      await auditLog(supabase, 'epic_connected', 'ehr_integrations', { entity_id: entityId }, req);
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Epic connected successfully' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
-    // ─── Flow 3: Disconnect ───
+    // ─── Flow 2: Disconnect ───
     if (action === 'disconnect') {
       if (!entityId) {
         return new Response(
@@ -349,7 +300,7 @@ Deno.serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
-    console.error('epic-auth error');
+    console.error('epic-auth error:', error?.message);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } },
