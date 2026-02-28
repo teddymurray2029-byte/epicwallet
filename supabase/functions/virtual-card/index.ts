@@ -16,6 +16,31 @@ function redactWallet(w: string | null | undefined): string {
   return w.length > 10 ? `${w.slice(0, 6)}…${w.slice(-4)}` : '[short]';
 }
 
+function getClientIp(req: Request): string {
+  const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const realIp = req.headers.get('x-real-ip')?.trim();
+  const cloudflareIp = req.headers.get('cf-connecting-ip')?.trim();
+  return forwarded || realIp || cloudflareIp || '127.0.0.1';
+}
+
+function buildCardholderProfile(displayName: string | null, wallet: string, req: Request) {
+  const fallbackName = `Provider ${redactWallet(wallet)}`;
+  const normalized = (displayName || fallbackName).replace(/\s+/g, ' ').trim();
+  const [firstRaw, ...rest] = normalized.split(' ').filter(Boolean);
+
+  const firstName = (firstRaw || 'Care').slice(0, 24);
+  const lastName = (rest.join(' ') || 'Provider').slice(0, 24);
+
+  return {
+    firstName,
+    lastName,
+    fullName: `${firstName} ${lastName}`.trim().slice(0, 24),
+    email: `${wallet.toLowerCase().replace(/^0x/, '').slice(0, 20)}@carecoin.app`,
+    acceptanceIp: getClientIp(req),
+    acceptanceDate: Math.floor(Date.now() / 1000),
+  };
+}
+
 async function auditLog(supabase: any, action: string, resourceType: string, details: Record<string, unknown> = {}, req?: Request, wallet?: string) {
   try {
     await supabase.from('audit_logs').insert({
@@ -100,7 +125,7 @@ Deno.serve(async (req) => {
         return await handleGetCard(stripeKey, entity_id, supabase, corsHeaders);
       case 'create':
         await auditLog(supabase, 'virtual_card_created', 'virtual_card', { entity_id }, req, wallet_address);
-        return await handleCreateCard(stripeKey, entity_id, wallet_address, supabase, corsHeaders);
+        return await handleCreateCard(stripeKey, entity_id, wallet_address, supabase, corsHeaders, req);
       case 'ephemeral-key':
         await auditLog(supabase, 'card_ephemeral_key_created', 'virtual_card', { entity_id }, req, wallet_address);
         return await handleEphemeralKey(stripeKey, entity_id, nonce, supabase, corsHeaders);
@@ -207,7 +232,14 @@ async function handleEphemeralKey(stripeKey: string, entity_id: string, nonce: s
   }, 200, corsHeaders);
 }
 
-async function handleCreateCard(stripeKey: string, entity_id: string, wallet_address: string, supabase: any, corsHeaders: Record<string, string>) {
+async function handleCreateCard(
+  stripeKey: string,
+  entity_id: string,
+  wallet_address: string,
+  supabase: any,
+  corsHeaders: Record<string, string>,
+  req: Request,
+) {
   const { data: entity } = await supabase
     .from('entities')
     .select('*')
@@ -219,6 +251,13 @@ async function handleCreateCard(stripeKey: string, entity_id: string, wallet_add
   }
 
   try {
+    const normalizedWallet = (wallet_address || entity.wallet_address || '').toLowerCase();
+    if (!normalizedWallet) {
+      return jsonResponse({ error: 'wallet_address is required' }, 400, corsHeaders);
+    }
+
+    const profile = buildCardholderProfile(entity.display_name, normalizedWallet, req);
+
     // Check if we already have a cardholder stored
     const { data: existing } = await supabase
       .from('system_settings')
@@ -231,18 +270,53 @@ async function handleCreateCard(stripeKey: string, entity_id: string, wallet_add
     if (!cardholderId) {
       const cardholder = await stripeRequest(stripeKey, 'issuing/cardholders', 'POST', {
         type: 'individual',
-        name: (entity.display_name || `Provider ${redactWallet(wallet_address)}`).slice(0, 24),
-        email: `${wallet_address.toLowerCase().slice(0, 20)}@carecoin.app`,
+        name: profile.fullName,
+        email: profile.email,
+        individual: {
+          first_name: profile.firstName,
+          last_name: profile.lastName,
+          card_issuing: {
+            user_terms_acceptance: {
+              date: profile.acceptanceDate,
+              ip: profile.acceptanceIp,
+            },
+          },
+        },
         billing: {
           address: { line1: '1 CareCoin Way', city: 'San Francisco', state: 'CA', postal_code: '94111', country: 'US' },
         },
-        metadata: { entity_id, wallet_address: redactWallet(wallet_address) },
+        metadata: { entity_id, wallet_address: redactWallet(normalizedWallet) },
       });
       cardholderId = cardholder.id;
     }
 
     // Check cardholder status/requirements before creating card
-    const holderCheck = await stripeRequest(stripeKey, `issuing/cardholders/${cardholderId}`, 'GET');
+    let holderCheck = await stripeRequest(stripeKey, `issuing/cardholders/${cardholderId}`, 'GET');
+
+    const pastDue: string[] = holderCheck.requirements?.past_due || [];
+    const autoFixableRequirements = new Set([
+      'individual.first_name',
+      'individual.last_name',
+      'individual.card_issuing.user_terms_acceptance.ip',
+      'individual.card_issuing.user_terms_acceptance.date',
+    ]);
+
+    if (pastDue.some((field) => autoFixableRequirements.has(field))) {
+      await stripeRequest(stripeKey, `issuing/cardholders/${cardholderId}`, 'POST', {
+        individual: {
+          first_name: profile.firstName,
+          last_name: profile.lastName,
+          card_issuing: {
+            user_terms_acceptance: {
+              date: profile.acceptanceDate,
+              ip: profile.acceptanceIp,
+            },
+          },
+        },
+      });
+      holderCheck = await stripeRequest(stripeKey, `issuing/cardholders/${cardholderId}`, 'GET');
+    }
+
     if (holderCheck.requirements?.disabled_reason) {
       // Store cardholder for retry later
       await supabase.from('system_settings').upsert({
@@ -250,9 +324,9 @@ async function handleCreateCard(stripeKey: string, entity_id: string, wallet_add
         value: { cardholder_id: cardholderId, usd_balance: 0 },
       }, { onConflict: 'key' });
 
-      const pastDue = holderCheck.requirements?.past_due || [];
+      const remainingPastDue = holderCheck.requirements?.past_due || [];
       return jsonResponse({
-        error: `Cardholder has outstanding requirements: ${pastDue.join(', ') || holderCheck.requirements.disabled_reason}. Please complete cardholder verification in Stripe Dashboard.`,
+        error: `Cardholder has outstanding requirements: ${remainingPastDue.join(', ') || holderCheck.requirements.disabled_reason}. Please complete cardholder verification in Stripe Dashboard.`,
         requirements: holderCheck.requirements,
       }, 400, corsHeaders);
     }
