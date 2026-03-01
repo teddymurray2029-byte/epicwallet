@@ -374,9 +374,6 @@ contract CareCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
     function remainingSupply() external view returns (uint256) { return MAX_SUPPLY - totalSupply(); }
     function isMinter(address account) external view returns (bool) { return hasRole(MINTER_ROLE, account); }
 
-    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl) returns (bool) {
-        return super.supportsInterface(interfaceId);
-    }
 
     function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Pausable) {
         super._update(from, to, value);
