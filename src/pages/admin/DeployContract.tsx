@@ -201,9 +201,15 @@ export default function DeployContract() {
       toast.info('Please confirm the transaction in your wallet...');
       const deployData = encodeDeployData({ abi: CARE_COIN_ABI, bytecode: CARE_COIN_BYTECODE, args: [TREASURY_ADDRESS, supplyWei] });
 
+      const txParams = {
+        from: deployAddress.startsWith('0x') ? deployAddress : `0x${deployAddress}`,
+        data: deployData,
+        value: '0x0',
+      };
+
       const hash = transport
-        ? await transport.request({ method: 'eth_sendTransaction', params: [{ from: deployAddress, data: deployData }] }) as Hash
-        : await walletClient!.request({ method: 'eth_sendTransaction', params: [{ from: deployAddress as `0x${string}`, data: deployData }] }) as Hash;
+        ? await transport.request({ method: 'eth_sendTransaction', params: [txParams] }) as Hash
+        : await walletClient!.request({ method: 'eth_sendTransaction', params: [txParams as any] }) as Hash;
 
       setTxHash(hash);
       toast.info('Transaction submitted! Waiting for confirmation...');
