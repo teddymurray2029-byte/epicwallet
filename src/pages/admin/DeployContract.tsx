@@ -215,10 +215,9 @@ export default function DeployContract() {
       (info) => info.chainId !== null && supportedChainIds.has(info.chainId)
     ) as Array<{ transport: Eip1193Provider; chainId: number }>;
 
-    const activeTransports = (supportedTransportInfos.length > 0
+    const activeTransports: Eip1193Provider[] = supportedTransportInfos.length > 0
       ? supportedTransportInfos.map((info) => info.transport)
-      : transports
-    );
+      : [...transports];
 
     const primaryTransport = activeTransports[0];
     const primaryTransportChainId = transportInfos.find((info) => info.transport === primaryTransport)?.chainId ?? null;
@@ -230,14 +229,81 @@ export default function DeployContract() {
 
 
     if (transports.length > 0 && supportedTransportInfos.length === 0) {
-      const detectedChainId = transportInfos.find((info) => info.chainId !== null)?.chainId;
-      const message = detectedChainId
-        ? `Wallet is on chain ${detectedChainId}. Switch to Polygon Mainnet or Amoy Testnet and retry.`
-        : 'Wallet network could not be detected. Switch to Polygon Mainnet or Amoy Testnet and retry.';
-      setError(message);
-      setStep('error');
-      toast.error(message);
-      return;
+      // Attempt automatic chain switch to the selected network
+      const targetChain = isAmoy ? polygonAmoy : polygon;
+      const targetChainHex = `0x${targetChain.id.toString(16)}`;
+      let switched = false;
+
+      for (const transport of transports) {
+        try {
+          await transport.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: targetChainHex }],
+          } as any);
+          switched = true;
+          break;
+        } catch (switchError: any) {
+          // 4902 = chain not added — try adding it
+          if (switchError?.code === 4902) {
+            try {
+              await transport.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: targetChainHex,
+                  chainName: targetChain.name,
+                  nativeCurrency: targetChain.nativeCurrency,
+                  rpcUrls: [targetChain.rpcUrls.default.http[0]],
+                  blockExplorerUrls: [targetChain.blockExplorers?.default?.url],
+                }],
+              } as any);
+              switched = true;
+              break;
+            } catch {
+              // ignore, try next transport
+            }
+          }
+          // User rejected or other error — continue
+        }
+      }
+
+      if (!switched) {
+        const detectedChainId = transportInfos.find((info) => info.chainId !== null)?.chainId;
+        const message = detectedChainId
+          ? `Wallet is on chain ${detectedChainId}. Please switch to ${targetChain.name} in your wallet and retry.`
+          : `Could not detect wallet network. Please switch to ${targetChain.name} and retry.`;
+        setError(message);
+        setStep('error');
+        toast.error(message);
+        return;
+      }
+
+      // Re-resolve after switch
+      toast.success(`Switched wallet to ${targetChain.name}`);
+      // Small delay for wallet state to settle
+      await new Promise((r) => setTimeout(r, 1000));
+
+      // Retry chain detection after switch
+      const recheckInfos = await Promise.all(
+        transports.map(async (transport) => {
+          try {
+            const chainHex = await transport.request({ method: 'eth_chainId' }) as string;
+            const parsedChainId = typeof chainHex === 'string' ? Number.parseInt(chainHex, 16) : Number.NaN;
+            return { transport, chainId: Number.isFinite(parsedChainId) ? parsedChainId : null };
+          } catch {
+            return { transport, chainId: null };
+          }
+        })
+      );
+
+      const recheckSupported = recheckInfos.filter(
+        (info) => info.chainId !== null && supportedChainIds.has(info.chainId)
+      ) as Array<{ transport: Eip1193Provider; chainId: number }>;
+
+      if (recheckSupported.length > 0) {
+        supportedTransportInfos.push(...recheckSupported);
+        activeTransports.length = 0;
+        activeTransports.push(...recheckSupported.map((i) => i.transport));
+      }
     }
 
     if (!deployAddress && activeTransports.length > 0) {
