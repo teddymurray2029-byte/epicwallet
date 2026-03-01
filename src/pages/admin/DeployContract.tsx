@@ -30,7 +30,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
-import { CARE_COIN_BYTECODE, CARE_COIN_ABI, TREASURY_ADDRESS, DEFAULT_INITIAL_SUPPLY } from '@/lib/careCoinContract';
+import { TREASURY_ADDRESS, DEFAULT_INITIAL_SUPPLY } from '@/lib/careCoinContract';
+import { CARE_COIN_SOURCE } from '@/lib/careCoinSource';
+import { compileCareCoin, type CompilationResult } from '@/lib/compileSolidity';
 
 type DeploymentStep = 'idle' | 'confirming' | 'deploying' | 'success' | 'error';
 
@@ -85,6 +87,31 @@ export default function DeployContract() {
   const [error, setError] = useState<string | null>(null);
   const [initialSupply, setInitialSupply] = useState<string>('0');
   const [txHash, setTxHash] = useState<Hash | undefined>(undefined);
+  const [compiled, setCompiled] = useState<CompilationResult | null>(null);
+  const [isCompiling, setIsCompiling] = useState(true);
+  const [compileError, setCompileError] = useState<string | null>(null);
+
+  // Compile on mount
+  useEffect(() => {
+    let cancelled = false;
+    setIsCompiling(true);
+    setCompileError(null);
+    compileCareCoin(CARE_COIN_SOURCE)
+      .then((result) => {
+        if (!cancelled) {
+          setCompiled(result);
+          setIsCompiling(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Compilation error:', err);
+          setCompileError(err?.message || 'Compilation failed');
+          setIsCompiling(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const { data: receipt, isLoading: isWaitingReceipt, isSuccess: isConfirmed, isError: isReceiptError, error: receiptError } = useWaitForTransactionReceipt({ hash: txHash });
 
@@ -354,7 +381,8 @@ export default function DeployContract() {
     try {
       const supplyWei = initialSupply ? parseEther(initialSupply) : DEFAULT_INITIAL_SUPPLY;
       toast.info('Please confirm the transaction in your wallet...');
-      const deployData = encodeDeployData({ abi: CARE_COIN_ABI, bytecode: CARE_COIN_BYTECODE, args: [TREASURY_ADDRESS, supplyWei] });
+      if (!compiled) throw new Error('Contract not compiled yet. Please wait for compilation to finish.');
+      const deployData = encodeDeployData({ abi: compiled.abi, bytecode: compiled.bytecode, args: [TREASURY_ADDRESS, supplyWei] });
 
       const normalizedDeployAddress = (() => {
         const trimmed = deployAddress!.trim();
@@ -423,8 +451,8 @@ export default function DeployContract() {
       if (!hash && walletClient) {
         try {
           hash = await walletClient.deployContract({
-            abi: CARE_COIN_ABI as any,
-            bytecode: CARE_COIN_BYTECODE as `0x${string}`,
+            abi: compiled!.abi as any,
+            bytecode: compiled!.bytecode,
             args: [TREASURY_ADDRESS, supplyWei],
             account: getAddress(normalizedDeployAddress),
             chain: walletClient.chain ?? resolvedDeployChain,
@@ -559,9 +587,22 @@ export default function DeployContract() {
                   <li>• Burnable tokens</li>
                 </ul>
               </div>
-              <Button onClick={handleDeploy} variant="gradient" className="w-full" size="lg">
+              {isCompiling && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Compiling contract in browser…
+                </div>
+              )}
+              {compileError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Compilation Error</AlertTitle>
+                  <AlertDescription className="text-xs break-all">{compileError}</AlertDescription>
+                </Alert>
+              )}
+              <Button onClick={handleDeploy} variant="gradient" className="w-full" size="lg" disabled={isCompiling || !!compileError}>
                 <Rocket className="h-4 w-4 mr-2" />
-                Deploy CareWallet
+                {isCompiling ? 'Compiling…' : 'Deploy CareWallet'}
               </Button>
             </CardContent>
           </Card>
@@ -612,7 +653,7 @@ export default function DeployContract() {
                   <ExternalLink className="h-4 w-4 mr-2" />View on Explorer
                 </Button>
                 <Button variant="outline" className="flex-1" onClick={() => window.open(`${explorerUrl}/address/${deployedAddress}#code`, '_blank')}>Verify Contract</Button>
-                <Button variant="outline" className="flex-1" onClick={() => copyToClipboard(JSON.stringify(CARE_COIN_ABI, null, 2), 'ABI')}>
+                <Button variant="outline" className="flex-1" onClick={() => copyToClipboard(JSON.stringify(compiled?.abi ?? [], null, 2), 'ABI')}>
                   <Copy className="h-4 w-4 mr-2" />Copy ABI
                 </Button>
               </div>
