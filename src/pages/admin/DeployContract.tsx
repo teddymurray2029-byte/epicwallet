@@ -121,10 +121,20 @@ export default function DeployContract() {
   };
 
   useEffect(() => {
-    if (isConfirmed && receipt?.contractAddress) {
-      setDeployedAddress(receipt.contractAddress);
-      setStep('success');
-      toast.success('CareWallet contract deployed successfully!');
+    if (isConfirmed && receipt) {
+      if (receipt.contractAddress) {
+        setDeployedAddress(receipt.contractAddress);
+        setStep('success');
+        toast.success('CareWallet contract deployed successfully!');
+      } else if (receipt.status === 'reverted') {
+        setError('Transaction reverted on-chain. The contract deployment failed — check your parameters and try again.');
+        setStep('error');
+        toast.error('Transaction reverted on-chain.');
+      } else {
+        setError('Transaction confirmed but no contract address was returned. It may have been a non-deploy transaction.');
+        setStep('error');
+        toast.error('No contract address in receipt.');
+      }
     }
   }, [isConfirmed, receipt]);
 
