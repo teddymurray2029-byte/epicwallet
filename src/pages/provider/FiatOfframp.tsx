@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import AchDetailsForm from '@/components/provider/AchDetailsForm';
 import {
   Banknote,
   CreditCard,
@@ -211,7 +212,7 @@ export default function FiatOfframp() {
         </Card>
 
         {/* Off-Ramp Options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Virtual Card */}
           <Card
             className="cursor-pointer border-2 border-transparent hover:border-primary transition-all"
@@ -315,6 +316,13 @@ export default function FiatOfframp() {
               </div>
             </CardContent>
           </Card>
+
+          {/* ACH Direct Deposit */}
+          <AchDetailsForm
+            entity={entity}
+            onSuccess={checkBankStatus}
+            isConnected={bankStatus?.payouts_enabled}
+          />
         </div>
 
         {/* Daily Limit Info */}
