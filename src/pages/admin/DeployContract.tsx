@@ -226,20 +226,8 @@ export default function DeployContract() {
       return;
     }
 
-    if (primaryTransport && chainId) {
-      try {
-        const walletChainHex = await primaryTransport.request({ method: 'eth_chainId' }) as string;
-        if (typeof walletChainHex === 'string') {
-          const walletChainId = Number.parseInt(walletChainHex, 16);
-          if (Number.isFinite(walletChainId) && walletChainId !== chainId) {
-            toast.error('Wallet network is out of sync. Switch network in wallet and try again.');
-            return;
-          }
-        }
-      } catch {
-        // non-blocking: some providers may not expose chainId reliably
-      }
-    }
+    // Skip strict chain-sync check — mobile wallets often report chain with a delay.
+    // The wallet itself will reject transactions on the wrong chain.
 
     setError(null);
     setStep('confirming');
