@@ -113,7 +113,51 @@ export default function DeployContract() {
     return () => { cancelled = true; };
   }, []);
 
-  const { data: receipt, isLoading: isWaitingReceipt, isSuccess: isConfirmed, isError: isReceiptError, error: receiptError } = useWaitForTransactionReceipt({ hash: txHash });
+  const [deployChainId, setDeployChainId] = useState<number | undefined>(undefined);
+
+  const { data: receipt, isLoading: isWaitingReceipt, isSuccess: isConfirmed, isError: isReceiptError, error: receiptError } = useWaitForTransactionReceipt({ hash: txHash, chainId: deployChainId });
+
+  // Manual polling fallback — if wagmi hook stalls for 30s, poll the RPC directly
+  useEffect(() => {
+    if (!txHash || !deployChainId || step !== 'deploying') return;
+    const rpcUrl = deployChainId === polygonAmoy.id
+      ? 'https://rpc.ankr.com/polygon_amoy'
+      : 'https://polygon-rpc.com';
+    let cancelled = false;
+    const poll = async () => {
+      for (let i = 0; i < 60 && !cancelled; i++) {
+        await new Promise(r => setTimeout(r, 5000));
+        if (cancelled) return;
+        try {
+          const res = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [txHash] }),
+          });
+          const json = await res.json();
+          if (json?.result?.blockNumber) {
+            const contractAddr = json.result.contractAddress;
+            const status = json.result.status;
+            if (status === '0x0') {
+              setError('Transaction reverted on-chain.');
+              setStep('error');
+            } else if (contractAddr && contractAddr !== '0x0000000000000000000000000000000000000000') {
+              setDeployedAddress(contractAddr);
+              setStep('success');
+              toast.success('CareWallet contract deployed successfully!');
+            } else {
+              setError('Transaction confirmed but no contract address returned.');
+              setStep('error');
+            }
+            return;
+          }
+        } catch { /* retry */ }
+      }
+    };
+    // Start fallback polling after 15s delay to give wagmi a chance first
+    const timeout = setTimeout(poll, 15000);
+    return () => { cancelled = true; clearTimeout(timeout); };
+  }, [txHash, deployChainId, step]);
 
   const isAmoy = chainId === polygonAmoy.id;
   const isPolygon = chainId === polygon.id;
@@ -478,6 +522,7 @@ export default function DeployContract() {
         throw lastError ?? new Error('Wallet did not return a transaction hash.');
       }
 
+      setDeployChainId(chainId);
       setTxHash(hash);
       toast.info('Transaction submitted! Waiting for confirmation...');
     } catch (err: unknown) {
@@ -494,7 +539,7 @@ export default function DeployContract() {
     }
   };
 
-  const handleReset = () => { setStep('idle'); setError(null); setDeployedAddress(null); setTxHash(undefined); };
+  const handleReset = () => { setStep('idle'); setError(null); setDeployedAddress(null); setTxHash(undefined); setDeployChainId(undefined); };
   const copyToClipboard = (text: string, label: string) => { navigator.clipboard.writeText(text); toast.success(`${label} copied to clipboard`); };
 
   return (
