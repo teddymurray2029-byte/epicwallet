@@ -224,7 +224,7 @@ async function handleEphemeralKey(stripeKey: string, entity_id: string, nonce: s
   const ephemeralKey = await stripeRequest(stripeKey, 'ephemeral_keys', 'POST', {
     issuing_card: cardId,
     nonce: nonce,
-  }, { 'Stripe-Version': '2025-08-27.basil' });
+  }, { 'Stripe-Version': '2025-09-30.clover' });
 
   return jsonResponse({
     ephemeralKeySecret: ephemeralKey.secret,
