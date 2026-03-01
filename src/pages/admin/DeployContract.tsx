@@ -34,6 +34,23 @@ import { CARE_COIN_BYTECODE, CARE_COIN_ABI, TREASURY_ADDRESS, DEFAULT_INITIAL_SU
 
 type DeploymentStep = 'idle' | 'confirming' | 'deploying' | 'success' | 'error';
 
+type RpcLikeError = {
+  shortMessage?: string;
+  message?: string;
+  code?: number;
+  cause?: {
+    shortMessage?: string;
+    message?: string;
+  };
+};
+
+const getRpcErrorMessage = (err: unknown) => {
+  const error = err as RpcLikeError;
+  return error?.shortMessage || error?.cause?.shortMessage || error?.cause?.message || error?.message || '';
+};
+
+const isInvalidParamsRpcError = (err: unknown) => /invalid params/i.test(getRpcErrorMessage(err));
+
 const steps = [
   { label: 'Configure', key: 'idle' },
   { label: 'Confirm', key: 'confirming' },
@@ -160,25 +177,37 @@ export default function DeployContract() {
     const connectorProvider = typeof (connector as any)?.getProvider === 'function'
       ? await (connector as any).getProvider().catch(() => undefined) as Eip1193Provider | undefined
       : undefined;
-    const transport = injectedProvider ?? connectorProvider;
+
+    const providerCandidates = [connectorProvider, injectedProvider].filter(
+      (provider): provider is Eip1193Provider => Boolean(provider)
+    );
+    const transports = providerCandidates.filter((provider, index) => providerCandidates.indexOf(provider) === index);
+    const primaryTransport = transports[0];
 
     let deployAddress = address ?? walletClient?.account?.address;
 
-    if (!deployAddress && transport) {
-      try {
-        const existingAccounts = await transport.request({ method: 'eth_accounts' }) as string[];
-        if (existingAccounts?.length > 0) {
-          deployAddress = existingAccounts[0];
+    if (!deployAddress && transports.length > 0) {
+      for (const provider of transports) {
+        try {
+          const existingAccounts = await provider.request({ method: 'eth_accounts' }) as string[];
+          if (existingAccounts?.length > 0) {
+            deployAddress = existingAccounts[0];
+            break;
+          }
+        } catch {
+          // try next provider
         }
+      }
 
-        if (!deployAddress) {
-          const requestedAccounts = await transport.request({ method: 'eth_requestAccounts' }) as string[];
+      if (!deployAddress && primaryTransport) {
+        try {
+          const requestedAccounts = await primaryTransport.request({ method: 'eth_requestAccounts' }) as string[];
           if (requestedAccounts?.length > 0) {
             deployAddress = requestedAccounts[0];
           }
+        } catch {
+          // ignore and show unified error below
         }
-      } catch {
-        // ignore and show unified error below
       }
     }
 
@@ -187,12 +216,31 @@ export default function DeployContract() {
       return;
     }
 
-    if (!transport && !walletClient) {
+    if (!primaryTransport && !walletClient) {
       toast.error('No wallet transport found. Reconnect your wallet and try again.');
       return;
     }
 
-    if (!isCorrectNetwork) { toast.error('Please switch to Polygon Mainnet or Amoy Testnet first'); return; }
+    if (!isCorrectNetwork) {
+      toast.error('Please switch to Polygon Mainnet or Amoy Testnet first');
+      return;
+    }
+
+    if (primaryTransport && chainId) {
+      try {
+        const walletChainHex = await primaryTransport.request({ method: 'eth_chainId' }) as string;
+        if (typeof walletChainHex === 'string') {
+          const walletChainId = Number.parseInt(walletChainHex, 16);
+          if (Number.isFinite(walletChainId) && walletChainId !== chainId) {
+            toast.error('Wallet network is out of sync. Switch network in wallet and try again.');
+            return;
+          }
+        }
+      } catch {
+        // non-blocking: some providers may not expose chainId reliably
+      }
+    }
+
     setError(null);
     setStep('confirming');
 
@@ -214,48 +262,81 @@ export default function DeployContract() {
       const txBaseParams = {
         from: getAddress(normalizedDeployAddress),
         data: deployData,
-        value: '0x0',
+        value: '0x0' as const,
       };
 
-      let txParams: typeof txBaseParams & { gas?: string } = { ...txBaseParams };
-
-      if (transport) {
-        try {
-          const gasEstimate = await transport.request({ method: 'eth_estimateGas', params: [txBaseParams] });
-          if (typeof gasEstimate === 'string') {
-            txParams = { ...txBaseParams, gas: gasEstimate };
-          }
-        } catch (gasEstimateError) {
-          console.warn('Gas estimation failed, proceeding without explicit gas:', gasEstimateError);
-        }
-      }
-
       let hash: Hash | undefined;
+      let lastError: unknown;
 
-      if (transport) {
+      if (walletClient) {
         try {
-          hash = await transport.request({ method: 'eth_sendTransaction', params: [txParams] }) as Hash;
-        } catch (transportError: any) {
-          const transportMessage = transportError?.shortMessage || transportError?.message || '';
-          if (/invalid params/i.test(transportMessage) && walletClient) {
-            hash = await walletClient.request({ method: 'eth_sendTransaction', params: [txParams as any] }) as Hash;
-          } else {
-            throw transportError;
+          hash = await walletClient.deployContract({
+            abi: CARE_COIN_ABI as any,
+            bytecode: CARE_COIN_BYTECODE as `0x${string}`,
+            args: [TREASURY_ADDRESS, supplyWei],
+            account: getAddress(normalizedDeployAddress),
+            chain: walletClient.chain ?? (isAmoy ? polygonAmoy : polygon),
+          });
+        } catch (walletClientError) {
+          lastError = walletClientError;
+          if (!isInvalidParamsRpcError(walletClientError)) {
+            throw walletClientError;
           }
+          console.warn('walletClient.deployContract invalid params, trying raw provider fallback:', walletClientError);
         }
-      } else if (walletClient) {
-        hash = await walletClient.request({ method: 'eth_sendTransaction', params: [txParams as any] }) as Hash;
       }
 
       if (!hash) {
-        throw new Error('Wallet did not return a transaction hash.');
+        for (const transport of transports) {
+          try {
+            hash = await transport.request({ method: 'eth_sendTransaction', params: [txBaseParams] }) as Hash;
+            break;
+          } catch (transportError) {
+            lastError = transportError;
+            const errorCode = (transportError as RpcLikeError)?.code;
+
+            if (errorCode === 4001) {
+              throw transportError;
+            }
+
+            if (!isInvalidParamsRpcError(transportError)) {
+              continue;
+            }
+
+            try {
+              const gasEstimate = await transport.request({ method: 'eth_estimateGas', params: [txBaseParams] });
+              if (typeof gasEstimate === 'string') {
+                hash = await transport.request({ method: 'eth_sendTransaction', params: [{ ...txBaseParams, gas: gasEstimate }] }) as Hash;
+                break;
+              }
+            } catch (gasRetryError) {
+              lastError = gasRetryError;
+              console.warn('Gas retry failed on provider:', gasRetryError);
+            }
+          }
+        }
+      }
+
+      if (!hash && walletClient) {
+        try {
+          hash = await walletClient.request({ method: 'eth_sendTransaction', params: [txBaseParams as any] }) as Hash;
+        } catch (walletClientRequestError) {
+          lastError = walletClientRequestError;
+        }
+      }
+
+      if (!hash) {
+        throw lastError ?? new Error('Wallet did not return a transaction hash.');
       }
 
       setTxHash(hash);
       toast.info('Transaction submitted! Waiting for confirmation...');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Deploy error:', err);
-      const errorMessage = err?.shortMessage || err?.cause?.shortMessage || err?.cause?.message || err?.message || 'Deployment failed';
+      const rawErrorMessage = getRpcErrorMessage(err);
+      const errorMessage = isInvalidParamsRpcError(err)
+        ? 'Wallet rejected deployment parameters. Re-open wallet, switch network once, and retry.'
+        : rawErrorMessage || 'Deployment failed';
       setError(errorMessage);
       setStep('error');
       toast.error('Deployment failed: ' + errorMessage);
