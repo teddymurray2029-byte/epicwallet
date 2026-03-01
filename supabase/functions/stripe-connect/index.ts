@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
   const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
   try {
-    const { action, entity_id, wallet_address, care_amount } = await req.json();
+    const { action, entity_id, wallet_address, care_amount, routing_number, account_number, account_holder_name, account_type } = await req.json();
 
     // Verify wallet ownership
     if (entity_id && wallet_address) {
@@ -215,6 +215,87 @@ Deno.serve(async (req) => {
           });
           throw stripeErr;
         }
+      }
+
+      case "save-ach": {
+        const body = { routing_number, account_number, account_holder_name, account_type };
+
+        // Server-side validation
+        if (!/^\d{9}$/.test(body.routing_number || ""))
+          return json({ error: "Routing number must be exactly 9 digits" }, 400);
+        if (!/^\d{4,17}$/.test(body.account_number || ""))
+          return json({ error: "Account number must be 4-17 digits" }, 400);
+        if (!body.account_holder_name || body.account_holder_name.trim().length === 0 || body.account_holder_name.length > 100)
+          return json({ error: "Account holder name is required (max 100 chars)" }, 400);
+        if (!["checking", "savings"].includes(body.account_type))
+          return json({ error: "Account type must be checking or savings" }, 400);
+
+        // Check if entity already has a connect account
+        const { data: existing } = await supabase
+          .from("stripe_connect_accounts")
+          .select("stripe_account_id")
+          .eq("entity_id", entity_id)
+          .single();
+
+        let stripeAccountId: string;
+
+        if (existing) {
+          // Update existing account's external account
+          stripeAccountId = existing.stripe_account_id;
+          await stripe.accounts.createExternalAccount(stripeAccountId, {
+            external_account: {
+              object: "bank_account",
+              country: "US",
+              currency: "usd",
+              routing_number: body.routing_number,
+              account_number: body.account_number,
+              account_holder_name: body.account_holder_name.trim(),
+              account_holder_type: "individual",
+            } as any,
+          });
+        } else {
+          // Create a Custom connect account with bank details
+          const account = await stripe.accounts.create({
+            type: "custom",
+            country: "US",
+            capabilities: { transfers: { requested: true } },
+            business_type: "individual",
+            individual: { first_name: body.account_holder_name.trim().split(" ")[0], last_name: body.account_holder_name.trim().split(" ").slice(1).join(" ") || "." },
+            tos_acceptance: { date: Math.floor(Date.now() / 1000), ip: req.headers.get("x-forwarded-for") || "0.0.0.0" },
+            external_account: {
+              object: "bank_account",
+              country: "US",
+              currency: "usd",
+              routing_number: body.routing_number,
+              account_number: body.account_number,
+              account_holder_name: body.account_holder_name.trim(),
+              account_holder_type: "individual",
+            } as any,
+            metadata: { entity_id, wallet_address },
+          });
+          stripeAccountId = account.id;
+        }
+
+        await supabase.from("stripe_connect_accounts").upsert(
+          {
+            entity_id,
+            stripe_account_id: stripeAccountId,
+            onboarding_complete: true,
+            payouts_enabled: true,
+          },
+          { onConflict: "entity_id" },
+        );
+
+        await supabase.from("audit_logs").insert({
+          action: "ach_bank_linked",
+          actor_entity_id: entity_id,
+          actor_wallet: wallet_address,
+          resource_type: "stripe_connect_account",
+          resource_id: stripeAccountId,
+          details: { account_type: body.account_type, routing_last4: body.routing_number.slice(-4) },
+        });
+
+        return json({ success: true, account_id: stripeAccountId });
       }
 
       case "history": {
