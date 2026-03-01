@@ -166,9 +166,12 @@ export default function VirtualCard() {
         body: { action: 'ephemeral-key', entity_id: entity.id, wallet_address: address, nonce: nonceResult.nonce },
       });
 
-      if (response.data?.error) throw new Error(response.data.error);
+      if (response.error || !response.data) throw new Error(response.data?.error || 'Failed to get ephemeral key');
+      if (response.data.error) throw new Error(response.data.error);
 
-      const { ephemeralKeySecret, cardId } = response.data;
+      const ephemeralKeySecret = response.data.ephemeralKeySecret;
+      const cardId = response.data.cardId;
+      if (!ephemeralKeySecret) throw new Error('Ephemeral key secret is missing');
 
       // 3. Create Stripe Elements and mount
       const elements = stripe.elements();
