@@ -41,6 +41,7 @@ type RpcLikeError = {
   cause?: {
     shortMessage?: string;
     message?: string;
+    code?: number;
   };
 };
 
@@ -49,7 +50,21 @@ const getRpcErrorMessage = (err: unknown) => {
   return error?.shortMessage || error?.cause?.shortMessage || error?.cause?.message || error?.message || '';
 };
 
+const getRpcErrorCode = (err: unknown) => {
+  const error = err as RpcLikeError;
+  return error?.code ?? error?.cause?.code;
+};
+
 const isInvalidParamsRpcError = (err: unknown) => /invalid params/i.test(getRpcErrorMessage(err));
+const isUserRejectedRpcError = (err: unknown) => {
+  const message = getRpcErrorMessage(err);
+  const code = getRpcErrorCode(err);
+  return code === 4001 || /rejected|denied|cancelled|canceled/i.test(message);
+};
+const isEvmSimulationRpcError = (err: unknown) => {
+  const message = getRpcErrorMessage(err);
+  return /invalid\s*jump|invalid\s*opcode|execution reverted|vm exception|evm error/i.test(message);
+};
 
 const steps = [
   { label: 'Configure', key: 'idle' },
@@ -253,10 +268,55 @@ export default function DeployContract() {
         value: '0x0' as const,
       };
 
+      const fallbackGas = '0x989680' as const; // 10,000,000
+
       let hash: Hash | undefined;
       let lastError: unknown;
 
-      if (walletClient) {
+      // 1) Prefer raw wallet provider path first to avoid preflight simulation quirks.
+      for (const transport of transports) {
+        let estimatedGas: string | undefined;
+
+        try {
+          const gasEstimate = await transport.request({ method: 'eth_estimateGas', params: [txBaseParams] });
+          if (typeof gasEstimate === 'string') {
+            estimatedGas = gasEstimate;
+          }
+        } catch (estimateError) {
+          lastError = estimateError;
+        }
+
+        const txParams = estimatedGas ? { ...txBaseParams, gas: estimatedGas } : txBaseParams;
+
+        try {
+          hash = await transport.request({ method: 'eth_sendTransaction', params: [txParams] }) as Hash;
+          break;
+        } catch (transportError) {
+          lastError = transportError;
+
+          if (isUserRejectedRpcError(transportError)) {
+            throw transportError;
+          }
+
+          const shouldRetryWithGas = !estimatedGas || isInvalidParamsRpcError(transportError) || isEvmSimulationRpcError(transportError);
+          if (!shouldRetryWithGas) {
+            continue;
+          }
+
+          try {
+            hash = await transport.request({
+              method: 'eth_sendTransaction',
+              params: [{ ...txBaseParams, gas: estimatedGas ?? fallbackGas }],
+            }) as Hash;
+            break;
+          } catch (gasRetryError) {
+            lastError = gasRetryError;
+          }
+        }
+      }
+
+      // 2) viem deploy helper as fallback.
+      if (!hash && walletClient) {
         try {
           hash = await walletClient.deployContract({
             abi: CARE_COIN_ABI as any,
@@ -267,47 +327,16 @@ export default function DeployContract() {
           });
         } catch (walletClientError) {
           lastError = walletClientError;
-          if (!isInvalidParamsRpcError(walletClientError)) {
+          if (isUserRejectedRpcError(walletClientError)) {
             throw walletClientError;
           }
-          console.warn('walletClient.deployContract invalid params, trying raw provider fallback:', walletClientError);
         }
       }
 
-      if (!hash) {
-        for (const transport of transports) {
-          try {
-            hash = await transport.request({ method: 'eth_sendTransaction', params: [txBaseParams] }) as Hash;
-            break;
-          } catch (transportError) {
-            lastError = transportError;
-            const errorCode = (transportError as RpcLikeError)?.code;
-
-            if (errorCode === 4001) {
-              throw transportError;
-            }
-
-            if (!isInvalidParamsRpcError(transportError)) {
-              continue;
-            }
-
-            try {
-              const gasEstimate = await transport.request({ method: 'eth_estimateGas', params: [txBaseParams] });
-              if (typeof gasEstimate === 'string') {
-                hash = await transport.request({ method: 'eth_sendTransaction', params: [{ ...txBaseParams, gas: gasEstimate }] }) as Hash;
-                break;
-              }
-            } catch (gasRetryError) {
-              lastError = gasRetryError;
-              console.warn('Gas retry failed on provider:', gasRetryError);
-            }
-          }
-        }
-      }
-
+      // 3) Last-resort direct request via wallet client.
       if (!hash && walletClient) {
         try {
-          hash = await walletClient.request({ method: 'eth_sendTransaction', params: [txBaseParams as any] }) as Hash;
+          hash = await walletClient.request({ method: 'eth_sendTransaction', params: [{ ...txBaseParams, gas: fallbackGas } as any] }) as Hash;
         } catch (walletClientRequestError) {
           lastError = walletClientRequestError;
         }
@@ -324,7 +353,9 @@ export default function DeployContract() {
       const rawErrorMessage = getRpcErrorMessage(err);
       const errorMessage = isInvalidParamsRpcError(err)
         ? 'Wallet rejected deployment parameters. Re-open wallet, switch network once, and retry.'
-        : rawErrorMessage || 'Deployment failed';
+        : isEvmSimulationRpcError(err)
+          ? 'Wallet RPC failed to simulate deployment (InvalidJump/VM error). The app now retries raw send; if this persists, switch networks once and retry.'
+          : rawErrorMessage || 'Deployment failed';
       setError(errorMessage);
       setStep('error');
       toast.error('Deployment failed: ' + errorMessage);
