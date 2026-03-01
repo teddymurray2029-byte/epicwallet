@@ -197,12 +197,51 @@ export default function DeployContract() {
       (provider): provider is Eip1193Provider => Boolean(provider)
     );
     const transports = providerCandidates.filter((provider, index) => providerCandidates.indexOf(provider) === index);
-    const primaryTransport = transports[0];
+    const supportedChainIds = new Set<number>([polygon.id, polygonAmoy.id]);
+
+    const transportInfos = await Promise.all(
+      transports.map(async (transport) => {
+        try {
+          const chainHex = await transport.request({ method: 'eth_chainId' }) as string;
+          const parsedChainId = typeof chainHex === 'string' ? Number.parseInt(chainHex, 16) : Number.NaN;
+          return { transport, chainId: Number.isFinite(parsedChainId) ? parsedChainId : null };
+        } catch {
+          return { transport, chainId: null };
+        }
+      })
+    );
+
+    const supportedTransportInfos = transportInfos.filter(
+      (info) => info.chainId !== null && supportedChainIds.has(info.chainId)
+    ) as Array<{ transport: Eip1193Provider; chainId: number }>;
+
+    const activeTransports = (supportedTransportInfos.length > 0
+      ? supportedTransportInfos.map((info) => info.transport)
+      : transports
+    );
+
+    const primaryTransport = activeTransports[0];
+    const primaryTransportChainId = transportInfos.find((info) => info.transport === primaryTransport)?.chainId ?? null;
+    const resolvedChainId = (primaryTransportChainId && supportedChainIds.has(primaryTransportChainId))
+      ? primaryTransportChainId
+      : (isCorrectNetwork ? chainId : null);
 
     let deployAddress = address ?? walletClient?.account?.address;
 
-    if (!deployAddress && transports.length > 0) {
-      for (const provider of transports) {
+
+    if (transports.length > 0 && supportedTransportInfos.length === 0) {
+      const detectedChainId = transportInfos.find((info) => info.chainId !== null)?.chainId;
+      const message = detectedChainId
+        ? `Wallet is on chain ${detectedChainId}. Switch to Polygon Mainnet or Amoy Testnet and retry.`
+        : 'Wallet network could not be detected. Switch to Polygon Mainnet or Amoy Testnet and retry.';
+      setError(message);
+      setStep('error');
+      toast.error(message);
+      return;
+    }
+
+    if (!deployAddress && activeTransports.length > 0) {
+      for (const provider of activeTransports) {
         try {
           const existingAccounts = await provider.request({ method: 'eth_accounts' }) as string[];
           if (existingAccounts?.length > 0) {
@@ -236,13 +275,12 @@ export default function DeployContract() {
       return;
     }
 
-    if (!isCorrectNetwork) {
+    if (!resolvedChainId) {
       toast.error('Please switch to Polygon Mainnet or Amoy Testnet first');
       return;
     }
 
-    // Skip strict chain-sync check — mobile wallets often report chain with a delay.
-    // The wallet itself will reject transactions on the wrong chain.
+    const resolvedDeployChain = resolvedChainId === polygon.id ? polygon : polygonAmoy;
 
     setError(null);
     setStep('confirming');
@@ -274,7 +312,7 @@ export default function DeployContract() {
       let lastError: unknown;
 
       // 1) Prefer raw wallet provider path first to avoid preflight simulation quirks.
-      for (const transport of transports) {
+      for (const transport of activeTransports) {
         let estimatedGas: string | undefined;
 
         try {
@@ -323,7 +361,7 @@ export default function DeployContract() {
             bytecode: CARE_COIN_BYTECODE as `0x${string}`,
             args: [TREASURY_ADDRESS, supplyWei],
             account: getAddress(normalizedDeployAddress),
-            chain: walletClient.chain ?? (isAmoy ? polygonAmoy : polygon),
+            chain: walletClient.chain ?? resolvedDeployChain,
           });
         } catch (walletClientError) {
           lastError = walletClientError;
