@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useChainId, useWaitForTransactionReceipt, useWalletClient, useAccount, useSwitchChain } from 'wagmi';
 import { polygonAmoy, polygon } from 'wagmi/chains';
-import { parseEther, type Hash, encodeDeployData } from 'viem';
+import { parseEther, type Hash, encodeDeployData, getAddress, isAddress } from 'viem';
 import { useWallet } from '@/contexts/WalletContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -201,21 +201,61 @@ export default function DeployContract() {
       toast.info('Please confirm the transaction in your wallet...');
       const deployData = encodeDeployData({ abi: CARE_COIN_ABI, bytecode: CARE_COIN_BYTECODE, args: [TREASURY_ADDRESS, supplyWei] });
 
-      const txParams = {
-        from: deployAddress.startsWith('0x') ? deployAddress : `0x${deployAddress}`,
+      const normalizedDeployAddress = (() => {
+        const trimmed = deployAddress!.trim();
+        const withPrefix = trimmed.toLowerCase().startsWith('0x') ? `0x${trimmed.slice(2)}` : `0x${trimmed}`;
+        return withPrefix as `0x${string}`;
+      })();
+
+      if (!isAddress(normalizedDeployAddress)) {
+        throw new Error('Wallet returned an invalid deployer address.');
+      }
+
+      const txBaseParams = {
+        from: getAddress(normalizedDeployAddress),
         data: deployData,
         value: '0x0',
       };
 
-      const hash = transport
-        ? await transport.request({ method: 'eth_sendTransaction', params: [txParams] }) as Hash
-        : await walletClient!.request({ method: 'eth_sendTransaction', params: [txParams as any] }) as Hash;
+      let txParams: typeof txBaseParams & { gas?: string } = { ...txBaseParams };
+
+      if (transport) {
+        try {
+          const gasEstimate = await transport.request({ method: 'eth_estimateGas', params: [txBaseParams] });
+          if (typeof gasEstimate === 'string') {
+            txParams = { ...txBaseParams, gas: gasEstimate };
+          }
+        } catch (gasEstimateError) {
+          console.warn('Gas estimation failed, proceeding without explicit gas:', gasEstimateError);
+        }
+      }
+
+      let hash: Hash | undefined;
+
+      if (transport) {
+        try {
+          hash = await transport.request({ method: 'eth_sendTransaction', params: [txParams] }) as Hash;
+        } catch (transportError: any) {
+          const transportMessage = transportError?.shortMessage || transportError?.message || '';
+          if (/invalid params/i.test(transportMessage) && walletClient) {
+            hash = await walletClient.request({ method: 'eth_sendTransaction', params: [txParams as any] }) as Hash;
+          } else {
+            throw transportError;
+          }
+        }
+      } else if (walletClient) {
+        hash = await walletClient.request({ method: 'eth_sendTransaction', params: [txParams as any] }) as Hash;
+      }
+
+      if (!hash) {
+        throw new Error('Wallet did not return a transaction hash.');
+      }
 
       setTxHash(hash);
       toast.info('Transaction submitted! Waiting for confirmation...');
     } catch (err: any) {
       console.error('Deploy error:', err);
-      const errorMessage = err?.shortMessage || err?.message || 'Deployment failed';
+      const errorMessage = err?.shortMessage || err?.cause?.shortMessage || err?.cause?.message || err?.message || 'Deployment failed';
       setError(errorMessage);
       setStep('error');
       toast.error('Deployment failed: ' + errorMessage);
