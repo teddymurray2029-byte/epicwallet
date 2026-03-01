@@ -54,7 +54,7 @@ export default function DeployContract() {
   const [initialSupply, setInitialSupply] = useState<string>('0');
   const [txHash, setTxHash] = useState<Hash | undefined>(undefined);
 
-  const { data: receipt, isLoading: isWaitingReceipt, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+  const { data: receipt, isLoading: isWaitingReceipt, isSuccess: isConfirmed, isError: isReceiptError, error: receiptError } = useWaitForTransactionReceipt({ hash: txHash });
 
   const isAmoy = chainId === polygonAmoy.id;
   const isPolygon = chainId === polygon.id;
@@ -131,6 +131,15 @@ export default function DeployContract() {
   useEffect(() => {
     if (txHash && isWaitingReceipt) { setStep('deploying'); }
   }, [txHash, isWaitingReceipt]);
+
+  useEffect(() => {
+    if (isReceiptError && txHash) {
+      const msg = receiptError?.message || 'Transaction failed or was dropped';
+      setError(msg);
+      setStep('error');
+      toast.error('Transaction failed: ' + msg);
+    }
+  }, [isReceiptError, receiptError, txHash]);
 
   const handleDeploy = async () => {
     type Eip1193Provider = {
