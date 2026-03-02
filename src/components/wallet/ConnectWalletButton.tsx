@@ -18,11 +18,15 @@ export function ConnectWalletButton() {
   const { disconnect } = useDisconnect();
   const { entity, earnedBalance, earnedBalanceLoading } = useWallet();
   const [copied, setCopied] = useState(false);
+  const hasInjectedWallet = typeof window !== 'undefined' && Boolean((window as Window & { ethereum?: unknown }).ethereum);
   const hasMetaMask = typeof window !== 'undefined' && Boolean((window as Window & { ethereum?: { isMetaMask?: boolean } }).ethereum?.isMetaMask);
-  const preferredConnector = useMemo(
-    () => connectors.find((connector) => connector.id === 'injected' || connector.name === 'Injected') ?? connectors[0],
-    [connectors],
-  );
+  const preferredConnector = useMemo(() => {
+    if (hasInjectedWallet) {
+      return connectors.find((c) => c.id === 'injected' || c.name === 'Injected') ?? connectors[0];
+    }
+    // No browser wallet — prefer WalletConnect
+    return connectors.find((c) => c.name === 'WalletConnect') ?? connectors[0];
+  }, [connectors, hasInjectedWallet]);
   const menuConnectors = useMemo(() => {
     const injectedConnector = connectors.find((connector) => connector.id === 'injected' || connector.name === 'Injected');
     const rest = connectors.filter((connector) => connector !== injectedConnector);
@@ -113,7 +117,7 @@ export function ConnectWalletButton() {
         disabled={isPending || !preferredConnector}
       >
         {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
-        {hasMetaMask ? 'Connect MetaMask' : 'Connect Wallet'}
+        {hasMetaMask ? 'Connect MetaMask' : hasInjectedWallet ? 'Connect Wallet' : 'Connect Wallet'}
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
