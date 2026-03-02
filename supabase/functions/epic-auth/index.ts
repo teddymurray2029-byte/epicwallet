@@ -150,6 +150,29 @@ Deno.serve(async (req) => {
 
     const action = url.searchParams.get('action');
     const entityId = url.searchParams.get('entity_id');
+    const walletAddress = url.searchParams.get('wallet_address');
+
+    // ─── Wallet ownership validation ───
+    if (entityId && walletAddress) {
+      const { data: ownerEntity } = await supabase
+        .from('entities')
+        .select('wallet_address')
+        .eq('id', entityId)
+        .maybeSingle();
+
+      if (!ownerEntity || ownerEntity.wallet_address.toLowerCase() !== walletAddress.toLowerCase()) {
+        await auditLog(supabase, 'epic_auth_unauthorized', 'ehr_integrations', { entity_id: entityId, wallet: redactWallet(walletAddress) }, req, walletAddress);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: wallet does not own this entity' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    } else if (entityId && (action === 'authorize' || action === 'disconnect')) {
+      return new Response(
+        JSON.stringify({ error: 'wallet_address is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     // Resolve credentials
     let epicClientId = Deno.env.get('EPIC_CLIENT_ID') || '';
