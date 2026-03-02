@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useWallet } from '@/contexts/WalletContext';
@@ -11,9 +11,6 @@ import {
   CreditCard,
   Building2,
   ArrowRight,
-  Coins,
-  DollarSign,
-  ArrowRightLeft,
   Wallet,
   Loader2,
   CheckCircle2,
@@ -24,7 +21,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export default function FiatOfframp() {
   const { isConnected, entity, earnedBalance, onChainBalance, totalBalance } = useWallet();
-  const [convertAmount, setConvertAmount] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const usdRate = 0.01;
@@ -116,11 +112,6 @@ export default function FiatOfframp() {
     );
   }
 
-  const amount = parseFloat(convertAmount) || 0;
-  const usdGross = amount * usdRate;
-  const fee = usdGross * 0.01;
-  const usdNet = usdGross - fee;
-
   const wAmt = parseFloat(withdrawAmount) || 0;
   const wGross = wAmt * usdRate;
   const wFee = wGross * 0.01;
@@ -129,86 +120,29 @@ export default function FiatOfframp() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Cash Out</h1>
-          <p className="text-muted-foreground">Convert your CARE tokens to USD</p>
-        </div>
-
-        {/* Balance Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { label: 'Earned Balance', value: earnedBalance, icon: Coins, color: 'text-primary' },
-            { label: 'On-Chain Balance', value: onChainBalance, icon: Wallet, color: 'text-primary' },
-            { label: 'Total Available', value: totalBalance, icon: DollarSign, color: 'text-primary' },
-          ].map((item) => (
-            <Card key={item.label}>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <item.icon className={`h-5 w-5 ${item.color}`} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">{item.label}</p>
-                    <p className={`text-xl font-bold ${item.color}`}>
-                      {item.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} CARE
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Conversion Calculator */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ArrowRightLeft className="h-5 w-5" />
-              Conversion Calculator
-            </CardTitle>
-            <CardDescription>1 CARE = ${usdRate} USD · 1% network fee</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Amount (CARE)</label>
-              <div className="relative mt-1">
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={convertAmount}
-                  onChange={(e) => setConvertAmount(e.target.value)}
-                  min="0"
-                  step="1"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs"
-                  onClick={() => setConvertAmount(String(totalBalance))}
-                >
-                  MAX
-                </Button>
-              </div>
+        {/* Compact header with balance + rate */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Cash Out</h1>
+            <p className="text-muted-foreground">Convert CARE tokens to USD · 1 CARE = ${usdRate} · 1% fee</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Earned</p>
+              <p className="text-lg font-bold text-primary">{earnedBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} CARE</p>
             </div>
-
-            {amount > 0 && (
-              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Gross USD</span>
-                  <span>${usdGross.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Network fee (1%)</span>
-                  <span>-${fee.toFixed(4)}</span>
-                </div>
-                <div className="border-t border-border pt-2 flex justify-between text-sm font-semibold">
-                  <span>You receive</span>
-                  <span className="text-primary">${usdNet.toFixed(2)} USD</span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <div className="h-8 w-px bg-border" />
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">On-Chain</p>
+              <p className="text-lg font-bold text-primary">{onChainBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} CARE</p>
+            </div>
+            <div className="h-8 w-px bg-border" />
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-lg font-bold text-primary">{totalBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} CARE</p>
+            </div>
+          </div>
+        </div>
 
         {/* Off-Ramp Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

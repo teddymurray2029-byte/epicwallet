@@ -47,7 +47,7 @@ const providerNavItems = [
   { title: 'Transactions', url: '/provider/transactions', icon: Receipt },
   { title: 'Invoice', url: '/provider/invoice', icon: QrCode },
   { title: 'EHR', url: '/provider/ehr', icon: Link2 },
-  { title: 'Card', url: '/provider/card', icon: CreditCard },
+  { title: 'Leaderboard', url: '/provider/leaderboard', icon: Trophy },
   { title: 'Cash Out', url: '/provider/offramp', icon: Banknote },
 ];
 

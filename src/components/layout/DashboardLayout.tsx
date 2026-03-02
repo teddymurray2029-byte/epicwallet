@@ -12,6 +12,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import { HipaaNotice } from './HipaaNotice';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -90,6 +91,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <main className="flex-1 p-4 md:p-6" key={location.pathname}>
             {children}
           </main>
+
+          <HipaaNotice />
         </div>
       </div>
     </SidebarProvider>

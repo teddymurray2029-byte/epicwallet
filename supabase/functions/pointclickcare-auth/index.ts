@@ -82,6 +82,29 @@ Deno.serve(async (req) => {
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
     const entityId = url.searchParams.get('entity_id');
+    const walletAddress = url.searchParams.get('wallet_address');
+
+    // ─── Wallet ownership validation ───
+    if (entityId && walletAddress) {
+      const { data: ownerEntity } = await supabase
+        .from('entities')
+        .select('wallet_address')
+        .eq('id', entityId)
+        .maybeSingle();
+
+      if (!ownerEntity || ownerEntity.wallet_address.toLowerCase() !== walletAddress.toLowerCase()) {
+        await auditLog(supabase, 'pcc_auth_unauthorized', 'ehr_integrations', { entity_id: entityId, wallet: redactWallet(walletAddress) }, req, walletAddress);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: wallet does not own this entity' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    } else if (entityId && (action === 'authorize' || action === 'disconnect')) {
+      return new Response(
+        JSON.stringify({ error: 'wallet_address is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     let pccClientId = Deno.env.get('PCC_CLIENT_ID') || '';
     let pccClientSecret = Deno.env.get('PCC_CLIENT_SECRET') || '';

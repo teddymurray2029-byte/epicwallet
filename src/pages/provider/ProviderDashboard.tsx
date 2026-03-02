@@ -9,7 +9,8 @@ import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletButton } from '@/components/wallet/ConnectWalletButton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wallet, Coins, UserPlus, Users, Loader2 } from 'lucide-react';
+import { Wallet, Coins, UserPlus, Users, Loader2, Banknote, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,8 @@ interface OrganizationOption {
 }
 
 export default function ProviderDashboard() {
-  const { isConnected, isConnecting, address, entity, entityLoading, registerEntity, createOrganization } = useWallet();
+  const { isConnected, isConnecting, address, entity, entityLoading, registerEntity, createOrganization, earnedBalance, totalBalance } = useWallet();
+  const navigate = useNavigate();
   const [isRegistering, setIsRegistering] = useState(false);
   const [organizations, setOrganizations] = useState<OrganizationOption[]>([]);
   const [organizationsLoading, setOrganizationsLoading] = useState(false);
@@ -176,13 +178,28 @@ export default function ProviderDashboard() {
     <DashboardLayout>
       <ProviderSetupTutorial />
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {entity?.display_name ? `Welcome, ${entity.display_name}` : 'Dashboard'}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Track rewards and CARE token earnings
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {entity?.display_name ? `Welcome, ${entity.display_name}` : 'Dashboard'}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Track rewards and CARE token earnings
+            </p>
+          </div>
+          <div className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-2.5 shadow-sm">
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Total Balance</p>
+              <p className="text-lg font-bold text-primary">
+                {totalBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-xs font-normal text-muted-foreground">CARE</span>
+              </p>
+            </div>
+            <Button size="sm" variant="gradient" className="gap-1.5" onClick={() => navigate('/provider/offramp')}>
+              <Banknote className="h-4 w-4" />
+              Cash Out
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
