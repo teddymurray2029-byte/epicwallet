@@ -1,0 +1,1 @@
+INSERT INTO system_settings (key, value) VALUES ('care_usd_rate', '{"rate": 0.01}') ON CONFLICT (key) DO NOTHING;

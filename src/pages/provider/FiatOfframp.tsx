@@ -18,20 +18,20 @@ import {
   Clock,
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useUniswapSwap } from '@/hooks/useUniswapSwap';
+import { useCareRedemption } from '@/hooks/useCareRedemption';
 
 export default function FiatOfframp() {
   const { isConnected, entity, earnedBalance, onChainBalance, totalBalance } = useWallet();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { quote, quoteLoading, getQuote } = useUniswapSwap();
+  const { rate, getRate } = useCareRedemption();
 
-  // Fetch a quote for 1 CARE to show live rate
+  // Fetch rate for 1 CARE on mount
   useEffect(() => {
-    getQuote(1);
-  }, [getQuote]);
+    getRate(1);
+  }, [getRate]);
 
-  const liveRate = quote?.pool_exists ? quote.price_per_care : null;
+  const liveRate = rate?.rate ?? 0.01;
 
   // Bank transfer state
   const [bankStatus, setBankStatus] = useState<{
@@ -47,7 +47,6 @@ export default function FiatOfframp() {
     if (entity?.id) checkBankStatus();
   }, [entity?.id]);
 
-  // Check onboarding return
   useEffect(() => {
     if (searchParams.get('onboarding') === 'complete' && entity?.id) {
       checkBankStatus();
@@ -121,8 +120,7 @@ export default function FiatOfframp() {
   }
 
   const wAmt = parseFloat(withdrawAmount) || 0;
-  const effectiveRate = liveRate ?? 0.01;
-  const wGross = wAmt * effectiveRate;
+  const wGross = wAmt * liveRate;
   const wFee = wGross * 0.01;
   const wNet = wGross - wFee;
 
@@ -134,8 +132,7 @@ export default function FiatOfframp() {
           <div>
             <h1 className="text-2xl font-bold">Cash Out</h1>
             <p className="text-muted-foreground">
-              Convert CARE tokens to USD · {liveRate !== null ? `1 CARE ≈ $${liveRate.toFixed(4)}` : 'Rate loading...'} · 1% fee
-              {liveRate !== null && <span className="text-[10px] ml-1">(Uniswap V3)</span>}
+              Convert CARE tokens to USD · 1 CARE = ${liveRate.toFixed(4)} · 1% fee
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -159,10 +156,7 @@ export default function FiatOfframp() {
         {/* Off-Ramp Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Virtual Card */}
-          <Card
-            className="cursor-pointer border-2 border-transparent hover:border-primary transition-all"
-            onClick={() => navigate('/provider/card')}
-          >
+          <Card className="cursor-pointer border-2 border-transparent hover:border-primary transition-all" onClick={() => navigate('/provider/card')}>
             <CardContent className="pt-6 pb-6">
               <div className="flex items-start gap-4">
                 <div className="p-3 rounded-xl bg-primary/10">
@@ -171,7 +165,7 @@ export default function FiatOfframp() {
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">Load Virtual Card</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Convert CARE to USD and load onto your virtual Visa card. Spend anywhere Visa is accepted.
+                    Burn CARE to load USD onto your virtual Visa card. Spend anywhere Visa is accepted.
                   </p>
                   <div className="flex items-center gap-1 mt-3 text-sm font-medium text-primary">
                     Go to Virtual Card <ArrowRight className="h-4 w-4" />
@@ -202,23 +196,12 @@ export default function FiatOfframp() {
                   </p>
 
                   {!bankStatus?.connected ? (
-                    <Button
-                      size="sm"
-                      className="mt-3"
-                      onClick={handleConnectBank}
-                      disabled={bankLoading}
-                    >
+                    <Button size="sm" className="mt-3" onClick={handleConnectBank} disabled={bankLoading}>
                       {bankLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ExternalLink className="h-4 w-4 mr-2" />}
                       Connect Bank Account
                     </Button>
                   ) : !bankStatus.payouts_enabled ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3"
-                      onClick={handleConnectBank}
-                      disabled={bankLoading}
-                    >
+                    <Button variant="outline" size="sm" className="mt-3" onClick={handleConnectBank} disabled={bankLoading}>
                       {bankLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Clock className="h-4 w-4 mr-2" />}
                       Complete Onboarding
                     </Button>
@@ -234,19 +217,11 @@ export default function FiatOfframp() {
                             min="0"
                             step="1"
                           />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs"
-                            onClick={() => setWithdrawAmount(String(totalBalance))}
-                          >
+                          <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs" onClick={() => setWithdrawAmount(String(totalBalance))}>
                             MAX
                           </Button>
                         </div>
-                        <Button
-                          onClick={handleWithdraw}
-                          disabled={withdrawing || wAmt <= 0}
-                        >
+                        <Button onClick={handleWithdraw} disabled={withdrawing || wAmt <= 0}>
                           {withdrawing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Withdraw'}
                         </Button>
                       </div>
@@ -261,7 +236,6 @@ export default function FiatOfframp() {
               </div>
             </CardContent>
           </Card>
-
         </div>
 
         {/* Daily Limit Info */}
