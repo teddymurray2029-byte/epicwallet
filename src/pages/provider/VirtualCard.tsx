@@ -8,7 +8,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { loadStripe } from '@stripe/stripe-js';
-import { useUniswapSwap } from '@/hooks/useUniswapSwap';
+import { useCareRedemption } from '@/hooks/useCareRedemption';
 import {
   CreditCard,
   ArrowRightLeft,
@@ -38,8 +38,6 @@ interface VirtualCardData {
   usd_balance: number;
 }
 
-// Stripe Elements handles card detail display securely
-
 export default function VirtualCard() {
   const { isConnected, entity, earnedBalance, onChainBalance, address } = useWallet();
   const [card, setCard] = useState<VirtualCardData | null>(null);
@@ -53,21 +51,19 @@ export default function VirtualCard() {
   const expiryRef = useRef<HTMLDivElement>(null);
   const elementsRef = useRef<any>(null);
   const [convertAmount, setConvertAmount] = useState('');
-  const { quote, quoteLoading, getQuote, executeSwap, swapStep, resetSwap } = useUniswapSwap();
+  const { rate, rateLoading, getRate, executeRedemption, step, resetStep } = useCareRedemption();
 
-  // Debounced quote fetching
+  // Debounced rate fetching
   const quoteTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const handleAmountChange = useCallback((value: string) => {
     setConvertAmount(value);
     if (quoteTimeoutRef.current) clearTimeout(quoteTimeoutRef.current);
     const amt = parseFloat(value);
     if (amt > 0) {
-      quoteTimeoutRef.current = setTimeout(() => getQuote(amt), 500);
+      quoteTimeoutRef.current = setTimeout(() => getRate(amt), 500);
     }
-  }, [getQuote]);
+  }, [getRate]);
 
-  // Simulated card data for UI demonstration
-  // In production, this would come from Stripe Issuing API via edge function
   useEffect(() => {
     if (entity?.id) {
       loadCard();
@@ -80,7 +76,6 @@ export default function VirtualCard() {
       const response = await supabase.functions.invoke('virtual-card', {
         body: { action: 'get', entity_id: entity?.id, wallet_address: address },
       });
-
       if (response.data?.card) {
         setCard(response.data.card);
       }
@@ -98,7 +93,6 @@ export default function VirtualCard() {
       const response = await supabase.functions.invoke('virtual-card', {
         body: { action: 'create', entity_id: entity.id, wallet_address: address },
       });
-
       if (response.data?.card) {
         setCard(response.data.card);
         toast.success('Virtual Visa card created!');
@@ -122,18 +116,14 @@ export default function VirtualCard() {
       toast.error('Insufficient CARE balance');
       return;
     }
-    if (!quote?.pool_exists) {
-      toast.error('No CARE/USDC liquidity pool available');
-      return;
-    }
 
     setConverting(true);
     try {
-      // Execute on-chain swap via Uniswap
-      const result = await executeSwap(amount, address as `0x${string}`);
-      if (!result) throw new Error('Swap returned no result');
+      // Execute on-chain burn
+      const result = await executeRedemption(amount);
+      if (!result) throw new Error('Burn returned no result');
 
-      // Verify swap on backend and credit card
+      // Verify burn on backend and credit card
       const response = await supabase.functions.invoke('virtual-card', {
         body: {
           action: 'convert',
@@ -145,16 +135,16 @@ export default function VirtualCard() {
       });
 
       if (response.data?.success) {
-        toast.success(`Swapped ${amount} CARE → ${result.usdcReceived.toFixed(2)} USDC → $${response.data.usd_loaded.toFixed(2)} USD loaded`);
+        toast.success(`Burned ${amount} CARE → $${response.data.usd_loaded.toFixed(2)} USD loaded to card`);
         setConvertAmount('');
-        resetSwap();
+        resetStep();
         loadCard();
       } else {
         toast.error(response.data?.error || 'Failed to credit card');
       }
     } catch (err: any) {
       toast.error(err.message || 'Conversion failed');
-      resetSwap();
+      resetStep();
     } finally {
       setConverting(false);
     }
@@ -163,12 +153,8 @@ export default function VirtualCard() {
   const handleReveal = async () => {
     if (!entity?.id || !card) return;
 
-    // Toggle off
     if (showDetails) {
-      // Unmount elements
-      if (elementsRef.current) {
-        elementsRef.current = null;
-      }
+      if (elementsRef.current) elementsRef.current = null;
       if (numberRef.current) numberRef.current.innerHTML = '';
       if (cvcRef.current) cvcRef.current.innerHTML = '';
       if (expiryRef.current) expiryRef.current.innerHTML = '';
@@ -181,11 +167,9 @@ export default function VirtualCard() {
       const stripe = await stripePromise;
       if (!stripe) throw new Error('Stripe not loaded');
 
-      // 1. Create nonce
       const nonceResult = await stripe.createEphemeralKeyNonce({ issuingCard: card.id });
       if (nonceResult.error) throw new Error(nonceResult.error.message);
 
-      // 2. Get ephemeral key from backend
       const response = await supabase.functions.invoke('virtual-card', {
         body: { action: 'ephemeral-key', entity_id: entity.id, wallet_address: address, nonce: nonceResult.nonce },
       });
@@ -197,31 +181,19 @@ export default function VirtualCard() {
       const cardId = response.data.cardId;
       if (!ephemeralKeySecret) throw new Error('Ephemeral key secret is missing');
 
-      // 3. Create Stripe Elements and mount
       const elements = stripe.elements();
       elementsRef.current = elements;
 
       const style = { base: { color: '#ffffff', fontSize: '16px', fontFamily: 'monospace' } };
 
       const numberEl = elements.create('issuingCardNumberDisplay', {
-        issuingCard: cardId,
-        nonce: nonceResult.nonce,
-        ephemeralKeySecret,
-        style,
+        issuingCard: cardId, nonce: nonceResult.nonce, ephemeralKeySecret, style,
       });
-
       const cvcEl = elements.create('issuingCardCvcDisplay', {
-        issuingCard: cardId,
-        nonce: nonceResult.nonce,
-        ephemeralKeySecret,
-        style,
+        issuingCard: cardId, nonce: nonceResult.nonce, ephemeralKeySecret, style,
       });
-
       const expiryEl = elements.create('issuingCardExpiryDisplay', {
-        issuingCard: cardId,
-        nonce: nonceResult.nonce,
-        ephemeralKeySecret,
-        style,
+        issuingCard: cardId, nonce: nonceResult.nonce, ephemeralKeySecret, style,
       });
 
       if (numberRef.current) numberEl.mount(numberRef.current);
@@ -244,7 +216,6 @@ export default function VirtualCard() {
       const response = await supabase.functions.invoke('virtual-card', {
         body: { action: newStatus === 'frozen' ? 'freeze' : 'unfreeze', entity_id: entity?.id, card_id: card.id },
       });
-
       if (response.data?.success) {
         setCard({ ...card, status: newStatus });
         toast.success(newStatus === 'frozen' ? 'Card frozen' : 'Card unfrozen');
@@ -274,6 +245,12 @@ export default function VirtualCard() {
       </DashboardLayout>
     );
   }
+
+  const amt = parseFloat(convertAmount) || 0;
+  const currentRate = rate?.rate ?? 0.01;
+  const grossUsd = amt * currentRate;
+  const fee = grossUsd * 0.01;
+  const netUsd = grossUsd - fee;
 
   return (
     <DashboardLayout>
@@ -354,38 +331,14 @@ export default function VirtualCard() {
 
                 {/* Card Actions */}
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleReveal}
-                    disabled={revealing}
-                    className="flex-1"
-                  >
-                    {revealing ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : showDetails ? (
-                      <EyeOff className="h-4 w-4 mr-2" />
-                    ) : (
-                      <Eye className="h-4 w-4 mr-2" />
-                    )}
+                  <Button variant="outline" size="sm" onClick={handleReveal} disabled={revealing} className="flex-1">
+                    {revealing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : showDetails ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
                     {showDetails ? 'Hide' : 'Show'} Details
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      toast.info('Card number is displayed securely via Stripe — use your browser to copy it.');
-                    }}
-                    className="flex-1"
-                  >
+                  <Button variant="outline" size="sm" onClick={() => toast.info('Card number is displayed securely via Stripe — use your browser to copy it.')} className="flex-1">
                     <Copy className="h-4 w-4 mr-2" /> Copy Number
                   </Button>
-                  <Button
-                    variant={card.status === 'frozen' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={handleFreeze}
-                    className="flex-1"
-                  >
+                  <Button variant={card.status === 'frozen' ? 'default' : 'outline'} size="sm" onClick={handleFreeze} className="flex-1">
                     <Snowflake className="h-4 w-4 mr-2" />
                     {card.status === 'frozen' ? 'Unfreeze' : 'Freeze'}
                   </Button>
@@ -400,11 +353,7 @@ export default function VirtualCard() {
                     Create a virtual Visa to spend CARE tokens at any point of sale.
                   </p>
                   <Button onClick={handleCreateCard} disabled={creating} variant="gradient">
-                    {creating ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>
-                    ) : (
-                      <><CreditCard className="h-4 w-4 mr-2" /> Create Virtual Card</>
-                    )}
+                    {creating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</> : <><CreditCard className="h-4 w-4 mr-2" /> Create Virtual Card</>}
                   </Button>
                 </CardContent>
               </Card>
@@ -420,7 +369,7 @@ export default function VirtualCard() {
                   Convert CARE → USD
                 </CardTitle>
                 <CardDescription>
-                  CARE → USDC (stablecoin bridge) → USD loaded to your card
+                  Burn CARE tokens to load USD onto your card at a fixed rate
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -429,13 +378,6 @@ export default function VirtualCard() {
                   <div className="text-center">
                     <Coins className="h-5 w-5 mx-auto text-[hsl(var(--care-teal))]" />
                     <p className="text-xs font-medium mt-1">CARE</p>
-                  </div>
-                  <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                  <div className="text-center">
-                    <div className="h-5 w-5 mx-auto rounded-full bg-[hsl(var(--care-blue))] flex items-center justify-center">
-                      <span className="text-[8px] font-bold text-primary-foreground">$</span>
-                    </div>
-                    <p className="text-xs font-medium mt-1">USDC</p>
                   </div>
                   <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
                   <div className="text-center">
@@ -456,12 +398,7 @@ export default function VirtualCard() {
                         min="0"
                         step="1"
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs"
-                        onClick={() => handleAmountChange(String(onChainBalance))}
-                      >
+                      <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs" onClick={() => handleAmountChange(String(onChainBalance))}>
                         MAX
                       </Button>
                     </div>
@@ -470,66 +407,47 @@ export default function VirtualCard() {
                     </p>
                   </div>
 
-                  {convertAmount && parseFloat(convertAmount) > 0 && (
+                  {amt > 0 && (
                     <div className="bg-muted/50 rounded-lg p-3 space-y-1.5">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">CARE Amount</span>
-                        <span>{parseFloat(convertAmount).toLocaleString()} CARE</span>
+                        <span>{amt.toLocaleString()} CARE</span>
                       </div>
-                      {quoteLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Loader2 className="h-3 w-3 animate-spin" /> Fetching live price...
-                        </div>
-                      ) : quote?.pool_exists === false ? (
-                        <div className="text-sm text-amber-600">
-                          ⚠ No CARE/USDC liquidity pool found. Create one on Uniswap first.
-                        </div>
-                      ) : quote ? (
-                        <>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">USDC (Uniswap swap)</span>
-                            <span>{quote.usdc_amount.toFixed(2)} USDC</span>
-                          </div>
-                          {quote.price_impact > 0.5 && (
-                            <div className="flex justify-between text-sm text-amber-600">
-                              <span>Price Impact</span>
-                              <span>{quote.price_impact.toFixed(2)}%</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Network fee (1%)</span>
-                            <span>-{(quote.usdc_amount * 0.01).toFixed(4)} USDC</span>
-                          </div>
-                          <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold">
-                            <span>You receive</span>
-                            <span className="text-[hsl(var(--care-green))]">
-                              ${(quote.usdc_amount * 0.99).toFixed(2)} USD
-                            </span>
-                          </div>
-                        </>
-                      ) : null}
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Rate</span>
+                        <span>1 CARE = ${currentRate.toFixed(4)} USD</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Network fee (1%)</span>
+                        <span>-${fee.toFixed(4)}</span>
+                      </div>
+                      <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold">
+                        <span>You receive</span>
+                        <span className="text-[hsl(var(--care-green))]">
+                          ${netUsd.toFixed(2)} USD
+                        </span>
+                      </div>
                     </div>
                   )}
 
-                  {swapStep !== 'idle' && swapStep !== 'done' && (
+                  {step !== 'idle' && step !== 'done' && step !== 'error' && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      {swapStep === 'approving' && 'Approve CARE spend in wallet...'}
-                      {swapStep === 'swapping' && 'Confirm swap in wallet...'}
-                      {swapStep === 'confirming' && 'Waiting for confirmation...'}
+                      {step === 'burning' && 'Confirm burn in wallet...'}
+                      {step === 'confirming' && 'Waiting for on-chain confirmation...'}
                     </div>
                   )}
 
                   <Button
                     onClick={handleConvert}
-                    disabled={converting || !convertAmount || parseFloat(convertAmount) <= 0 || !card || !quote?.pool_exists}
+                    disabled={converting || amt <= 0 || !card}
                     className="w-full"
                     variant="gradient"
                   >
                     {converting ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {swapStep === 'approving' ? 'Approving...' : swapStep === 'swapping' ? 'Swapping...' : 'Confirming...'}</>
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {step === 'burning' ? 'Burning...' : 'Confirming...'}</>
                     ) : (
-                      <><ArrowRightLeft className="h-4 w-4 mr-2" /> Swap & Load Card</>
+                      <><ArrowRightLeft className="h-4 w-4 mr-2" /> Burn & Load Card</>
                     )}
                   </Button>
 
@@ -547,17 +465,14 @@ export default function VirtualCard() {
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">Exchange Rate</p>
+                    <p className="text-sm font-medium">Redemption Rate</p>
                     <p className="text-xs text-muted-foreground">
-                      {quote?.pool_exists
-                        ? `1 CARE = ${quote.price_per_care.toFixed(6)} USDC (live)`
-                        : 'No pool — rate unavailable'}
+                      1 CARE = ${currentRate.toFixed(4)} USD (platform rate)
                     </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Powered by Uniswap V3</p>
                   </div>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                    const amt = parseFloat(convertAmount);
-                    if (amt > 0) getQuote(amt);
+                    const a = parseFloat(convertAmount);
+                    if (a > 0) getRate(a);
                   }}>
                     <RefreshCw className="h-4 w-4" />
                   </Button>
@@ -579,16 +494,16 @@ export default function VirtualCard() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
                 { icon: Coins, title: 'Earn CARE', desc: 'Complete clinical documentation to earn CARE tokens' },
-                { icon: ArrowRightLeft, title: 'Convert', desc: 'Bridge CARE → USDC stablecoin → USD at market rate' },
+                { icon: ArrowRightLeft, title: 'Burn & Convert', desc: 'Burn CARE tokens to redeem at the platform rate for USD' },
                 { icon: CreditCard, title: 'Load Card', desc: 'USD is loaded onto your virtual Visa instantly' },
                 { icon: DollarSign, title: 'Spend', desc: 'Use at any point of sale that accepts Visa' },
-              ].map((step, i) => (
+              ].map((s, i) => (
                 <div key={i} className="text-center p-4">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                    <step.icon className="h-5 w-5 text-primary" />
+                    <s.icon className="h-5 w-5 text-primary" />
                   </div>
-                  <p className="font-medium text-sm">{step.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{step.desc}</p>
+                  <p className="font-medium text-sm">{s.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{s.desc}</p>
                 </div>
               ))}
             </div>

@@ -378,26 +378,33 @@ async function handleConvert(stripeKey: string, entity_id: string, wallet_addres
     return jsonResponse({ error: `Daily limit exceeded. Remaining: ${limit.remaining.toLocaleString()} CARE` }, 400, corsHeaders);
   }
 
-  let usdAmount: number;
-  let feeAmount: number;
+  // Fetch platform rate from system_settings
+  let platformRate = 0.01;
+  try {
+    const { data: rateData } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'care_usd_rate')
+      .maybeSingle();
+    if (rateData?.value?.rate && typeof rateData.value.rate === 'number') {
+      platformRate = rateData.value.rate;
+    }
+  } catch { /* use default */ }
+
+  let verifiedCareAmount = care_amount;
 
   if (tx_hash) {
-    // Verify on-chain swap transaction
-    const verified = await verifySwapTx(tx_hash);
+    // Verify on-chain burn transaction
+    const verified = await verifyBurnTx(tx_hash);
     if (!verified) {
-      return jsonResponse({ error: 'Could not verify swap transaction on-chain' }, 400, corsHeaders);
+      return jsonResponse({ error: 'Could not verify burn transaction on-chain' }, 400, corsHeaders);
     }
-    // Use verified USDC amount from on-chain tx
-    const fee = 0.01;
-    feeAmount = verified.usdcAmount * fee;
-    usdAmount = verified.usdcAmount - feeAmount;
-  } else {
-    // Fallback: simulated rate (for backward compat)
-    const usdRate = 0.01;
-    const fee = 0.01;
-    feeAmount = care_amount * usdRate * fee;
-    usdAmount = care_amount * usdRate * (1 - fee);
+    verifiedCareAmount = verified.careAmountBurned;
   }
+
+  const grossUsd = verifiedCareAmount * platformRate;
+  const feeAmount = grossUsd * 0.01;
+  const usdAmount = grossUsd - feeAmount;
 
   const { data: settings } = await supabase
     .from('system_settings')
@@ -416,11 +423,11 @@ async function handleConvert(stripeKey: string, entity_id: string, wallet_addres
     value: { ...settings.value, usd_balance: newBalance },
   }, { onConflict: 'key' });
 
-  await insertCardTransaction(supabase, entity_id, settings.value.card_id, care_amount, usdAmount, feeAmount);
+  await insertCardTransaction(supabase, entity_id, settings.value.card_id, verifiedCareAmount, usdAmount, feeAmount);
 
   return jsonResponse({
     success: true,
-    care_amount,
+    care_amount: verifiedCareAmount,
     usd_loaded: usdAmount,
     fee: feeAmount,
     new_balance: newBalance,
@@ -429,10 +436,11 @@ async function handleConvert(stripeKey: string, entity_id: string, wallet_addres
 }
 
 const POLYGON_RPC = 'https://polygon-bor-rpc.publicnode.com';
-const USDC_ADDRESS = '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359';
+const CARE_TOKEN_ADDRESS = '0xac9f5c0ae3964bec937179a295bd45d977cf5655';
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const ZERO_ADDRESS_TOPIC = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-async function verifySwapTx(txHash: string): Promise<{ usdcAmount: number } | null> {
+async function verifyBurnTx(txHash: string): Promise<{ careAmountBurned: number } | null> {
   try {
     const res = await fetch(POLYGON_RPC, {
       method: 'POST',
@@ -447,19 +455,21 @@ async function verifySwapTx(txHash: string): Promise<{ usdcAmount: number } | nu
     const receipt = json.result;
     if (!receipt || receipt.status !== '0x1') return null;
 
-    // Find USDC Transfer event
-    const usdcLog = receipt.logs?.find((log: any) =>
-      log.address?.toLowerCase() === USDC_ADDRESS &&
-      log.topics?.[0] === TRANSFER_TOPIC
+    // Find Transfer event from CARE token to zero address (burn)
+    const burnLog = receipt.logs?.find((log: any) =>
+      log.address?.toLowerCase() === CARE_TOKEN_ADDRESS &&
+      log.topics?.[0] === TRANSFER_TOPIC &&
+      log.topics?.[2] === ZERO_ADDRESS_TOPIC
     );
-    if (!usdcLog?.data) return null;
+    if (!burnLog?.data) return null;
 
-    const usdcAmount = Number(BigInt(usdcLog.data)) / 1e6;
-    if (usdcAmount <= 0) return null;
+    // CARE has 18 decimals
+    const careAmountBurned = Number(BigInt(burnLog.data)) / 1e18;
+    if (careAmountBurned <= 0) return null;
 
-    return { usdcAmount };
+    return { careAmountBurned };
   } catch (err) {
-    console.error('Verify swap tx error:', err);
+    console.error('Verify burn tx error:', err);
     return null;
   }
 }

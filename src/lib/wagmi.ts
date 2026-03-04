@@ -24,22 +24,18 @@ export const config = createConfig({
     [polygon.id]: http('https://polygon-bor-rpc.publicnode.com'),
     [polygonAmoy.id]: http('https://rpc.ankr.com/polygon_amoy'),
   },
-  // Enable storage for connection persistence and auto-reconnect
   storage: createStorage({ storage: typeof window !== 'undefined' ? window.localStorage : undefined }),
-  // Sync with the connected chain from wallet - this ensures wagmi tracks the wallet's actual chain
   syncConnectedChain: true,
 });
 
 // Contract addresses (placeholders for deployment)
 export const CONTRACT_ADDRESSES = {
-  // Polygon Mainnet
   [polygon.id]: {
     careCoin: '0xac9f5c0ae3964bec937179a295bd45d977cf5655',
     rewardEngine: '0x0000000000000000000000000000000000000000',
     registry: '0x0000000000000000000000000000000000000000',
     treasury: '0x0000000000000000000000000000000000000000',
   },
-  // Polygon Amoy Testnet
   [polygonAmoy.id]: {
     careCoin: '0x0000000000000000000000000000000000000000',
     rewardEngine: '0x0000000000000000000000000000000000000000',
@@ -48,19 +44,7 @@ export const CONTRACT_ADDRESSES = {
   },
 } as const;
 
-// Uniswap V3 contract addresses
-export const UNISWAP_ADDRESSES = {
-  [polygon.id]: {
-    swapRouter: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-    quoterV2: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
-  },
-  [polygonAmoy.id]: {
-    swapRouter: '0x0000000000000000000000000000000000000000',
-    quoterV2: '0x0000000000000000000000000000000000000000',
-  },
-} as const;
-
-// CareCoin ERC-20 ABI (minimal for balance/transfer)
+// CareCoin ERC-20 ABI (includes burn from ERC20Burnable)
 export const CARE_COIN_ABI = [
   {
     name: 'balanceOf',
@@ -113,6 +97,13 @@ export const CARE_COIN_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'uint8' }],
   },
+  {
+    name: 'burn',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    outputs: [],
+  },
 ] as const;
 
 // Reward Engine ABI (placeholder)
@@ -163,31 +154,5 @@ export const REGISTRY_ABI = [
       { name: 'entityIdHash', type: 'bytes32' },
       { name: 'isVerified', type: 'bool' },
     ],
-  },
-] as const;
-
-// Uniswap V3 SwapRouter ABI (exactInputSingle only)
-export const SWAP_ROUTER_ABI = [
-  {
-    name: 'exactInputSingle',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [
-      {
-        name: 'params',
-        type: 'tuple',
-        components: [
-          { name: 'tokenIn', type: 'address' },
-          { name: 'tokenOut', type: 'address' },
-          { name: 'fee', type: 'uint24' },
-          { name: 'recipient', type: 'address' },
-          { name: 'deadline', type: 'uint256' },
-          { name: 'amountIn', type: 'uint256' },
-          { name: 'amountOutMinimum', type: 'uint256' },
-          { name: 'sqrtPriceLimitX96', type: 'uint160' },
-        ],
-      },
-    ],
-    outputs: [{ name: 'amountOut', type: 'uint256' }],
   },
 ] as const;
