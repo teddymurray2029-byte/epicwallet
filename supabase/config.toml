@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.stripe-connect]
 verify_jwt = false
+
+[functions.care-price]
+verify_jwt = false

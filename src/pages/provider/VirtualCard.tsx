@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { loadStripe } from '@stripe/stripe-js';
+import { useUniswapSwap } from '@/hooks/useUniswapSwap';
 import {
   CreditCard,
   ArrowRightLeft,
@@ -52,7 +53,18 @@ export default function VirtualCard() {
   const expiryRef = useRef<HTMLDivElement>(null);
   const elementsRef = useRef<any>(null);
   const [convertAmount, setConvertAmount] = useState('');
-  const [usdRate] = useState(0.01); // 1 CARE = $0.01 placeholder rate
+  const { quote, quoteLoading, getQuote, executeSwap, swapStep, resetSwap } = useUniswapSwap();
+
+  // Debounced quote fetching
+  const quoteTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const handleAmountChange = useCallback((value: string) => {
+    setConvertAmount(value);
+    if (quoteTimeoutRef.current) clearTimeout(quoteTimeoutRef.current);
+    const amt = parseFloat(value);
+    if (amt > 0) {
+      quoteTimeoutRef.current = setTimeout(() => getQuote(amt), 500);
+    }
+  }, [getQuote]);
 
   // Simulated card data for UI demonstration
   // In production, this would come from Stripe Issuing API via edge function
@@ -110,27 +122,39 @@ export default function VirtualCard() {
       toast.error('Insufficient CARE balance');
       return;
     }
+    if (!quote?.pool_exists) {
+      toast.error('No CARE/USDC liquidity pool available');
+      return;
+    }
+
     setConverting(true);
     try {
+      // Execute on-chain swap via Uniswap
+      const result = await executeSwap(amount, address as `0x${string}`);
+      if (!result) throw new Error('Swap returned no result');
+
+      // Verify swap on backend and credit card
       const response = await supabase.functions.invoke('virtual-card', {
         body: {
           action: 'convert',
           entity_id: entity?.id,
           wallet_address: address,
           care_amount: amount,
+          tx_hash: result.txHash,
         },
       });
 
       if (response.data?.success) {
-        const usdAmount = (amount * usdRate).toFixed(2);
-        toast.success(`Converted ${amount} CARE → ${usdAmount} USDC → $${usdAmount} USD`);
+        toast.success(`Swapped ${amount} CARE → ${result.usdcReceived.toFixed(2)} USDC → $${response.data.usd_loaded.toFixed(2)} USD loaded`);
         setConvertAmount('');
-        loadCard(); // Refresh balance
+        resetSwap();
+        loadCard();
       } else {
-        toast.error(response.data?.error || 'Conversion failed');
+        toast.error(response.data?.error || 'Failed to credit card');
       }
-    } catch (err) {
-      toast.error('Conversion failed');
+    } catch (err: any) {
+      toast.error(err.message || 'Conversion failed');
+      resetSwap();
     } finally {
       setConverting(false);
     }
@@ -428,7 +452,7 @@ export default function VirtualCard() {
                         type="number"
                         placeholder="0.00"
                         value={convertAmount}
-                        onChange={(e) => setConvertAmount(e.target.value)}
+                        onChange={(e) => handleAmountChange(e.target.value)}
                         min="0"
                         step="1"
                       />
@@ -436,7 +460,7 @@ export default function VirtualCard() {
                         variant="ghost"
                         size="sm"
                         className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs"
-                        onClick={() => setConvertAmount(String(onChainBalance))}
+                        onClick={() => handleAmountChange(String(onChainBalance))}
                       >
                         MAX
                       </Button>
@@ -452,33 +476,60 @@ export default function VirtualCard() {
                         <span className="text-muted-foreground">CARE Amount</span>
                         <span>{parseFloat(convertAmount).toLocaleString()} CARE</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">USDC (bridge)</span>
-                        <span>{(parseFloat(convertAmount) * usdRate).toFixed(2)} USDC</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Network fee (1%)</span>
-                        <span>-{(parseFloat(convertAmount) * usdRate * 0.01).toFixed(4)} USDC</span>
-                      </div>
-                      <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold">
-                        <span>You receive</span>
-                        <span className="text-[hsl(var(--care-green))]">
-                          ${(parseFloat(convertAmount) * usdRate * 0.99).toFixed(2)} USD
-                        </span>
-                      </div>
+                      {quoteLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Fetching live price...
+                        </div>
+                      ) : quote?.pool_exists === false ? (
+                        <div className="text-sm text-amber-600">
+                          ⚠ No CARE/USDC liquidity pool found. Create one on Uniswap first.
+                        </div>
+                      ) : quote ? (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">USDC (Uniswap swap)</span>
+                            <span>{quote.usdc_amount.toFixed(2)} USDC</span>
+                          </div>
+                          {quote.price_impact > 0.5 && (
+                            <div className="flex justify-between text-sm text-amber-600">
+                              <span>Price Impact</span>
+                              <span>{quote.price_impact.toFixed(2)}%</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Network fee (1%)</span>
+                            <span>-{(quote.usdc_amount * 0.01).toFixed(4)} USDC</span>
+                          </div>
+                          <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold">
+                            <span>You receive</span>
+                            <span className="text-[hsl(var(--care-green))]">
+                              ${(quote.usdc_amount * 0.99).toFixed(2)} USD
+                            </span>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {swapStep !== 'idle' && swapStep !== 'done' && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {swapStep === 'approving' && 'Approve CARE spend in wallet...'}
+                      {swapStep === 'swapping' && 'Confirm swap in wallet...'}
+                      {swapStep === 'confirming' && 'Waiting for confirmation...'}
                     </div>
                   )}
 
                   <Button
                     onClick={handleConvert}
-                    disabled={converting || !convertAmount || parseFloat(convertAmount) <= 0 || !card}
+                    disabled={converting || !convertAmount || parseFloat(convertAmount) <= 0 || !card || !quote?.pool_exists}
                     className="w-full"
                     variant="gradient"
                   >
                     {converting ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Converting...</>
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {swapStep === 'approving' ? 'Approving...' : swapStep === 'swapping' ? 'Swapping...' : 'Confirming...'}</>
                     ) : (
-                      <><ArrowRightLeft className="h-4 w-4 mr-2" /> Convert & Load Card</>
+                      <><ArrowRightLeft className="h-4 w-4 mr-2" /> Swap & Load Card</>
                     )}
                   </Button>
 
@@ -497,9 +548,17 @@ export default function VirtualCard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">Exchange Rate</p>
-                    <p className="text-xs text-muted-foreground">1 CARE = {usdRate} USDC = ${usdRate} USD</p>
+                    <p className="text-xs text-muted-foreground">
+                      {quote?.pool_exists
+                        ? `1 CARE = ${quote.price_per_care.toFixed(6)} USDC (live)`
+                        : 'No pool — rate unavailable'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Powered by Uniswap V3</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                    const amt = parseFloat(convertAmount);
+                    if (amt > 0) getQuote(amt);
+                  }}>
                     <RefreshCw className="h-4 w-4" />
                   </Button>
                 </div>
