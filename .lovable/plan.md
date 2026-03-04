@@ -1,120 +1,86 @@
 
 
-# Boost Rewards to Exceed Traditional Salaries, Fix Security, Enhance Layout, and Streamline UX
+# Automate CARE→USD via Uniswap API + Stripe Virtual Card Funding
 
-## 1. Dramatically Increase Reward Values
+## Overview
 
-**Goal:** A busy provider doing 80-100 documentation events/day should earn $400-$800+/day in CARE rewards -- well above a typical nurse ($35-50/hr = $280-400/day) or therapist ($30-45/hr = $240-360/day), and competitive with physician compensation.
+Replace the hardcoded `$0.01` conversion rate with real Uniswap swaps on Polygon. When a provider converts CARE to load their virtual card, the system will:
 
-**New reward economy** (1 CARE = $0.01 USD, provider gets 60% split):
+1. **Quote** the swap price from Uniswap on-chain
+2. **Execute** the swap (CARE→USDC) as an on-chain transaction signed by the provider's wallet
+3. **Detect** the USDC received and update the Stripe virtual card balance accordingly
 
-| Event Type | Current CARE | New CARE | Provider Gets (60%) | USD/Event | Events/Day Estimate | Daily USD |
-|---|---|---|---|---|---|---|
-| Discharge Summary | 15 | 1,500 | 900 | $9.00 | 5-10 | $45-90 |
-| Preventive Care | 12 | 1,200 | 720 | $7.20 | 5-10 | $36-72 |
-| Encounter Note | 10 | 1,000 | 600 | $6.00 | 20-40 | $120-240 |
-| Coding Finalized | 10 | 800 | 480 | $4.80 | 10-20 | $48-96 |
-| Medication Reconciliation | 8 | 750 | 450 | $4.50 | 10-15 | $45-68 |
-| Orders Verified | 7 | 600 | 360 | $3.60 | 10-20 | $36-72 |
-| Follow-Up Completed | 5 | 500 | 300 | $3.00 | 5-10 | $15-30 |
-| Problem List Update | 5 | 400 | 240 | $2.40 | 10-15 | $24-36 |
-| Intake Completed | 3 | 300 | 60 | $0.60 | 5-10 | $3-6 |
-| Consent Signed | 2 | 200 | 40 | $0.40 | 5-10 | $2-4 |
+## Prerequisites
 
-**Estimated daily total for an active provider:** $374 - $714/day, with high performers exceeding $800.
+A CARE/USDC liquidity pool **must exist on Uniswap V3 on Polygon** before any of this works. Without a pool, there is nothing for the API to swap against. If no pool exists yet, the system will show a clear message explaining this.
 
-**Daily event limit stays at 100** per event type to prevent gaming.
+## Architecture
 
-**Implementation:** SQL UPDATE on the `reward_policies` table for all 10 event types.
-
----
-
-## 2. Fix 5 Security Findings
-
-### A. Add wallet ownership validation to `epic-auth`
-Add a `wallet_address` query parameter. Before processing `authorize` or `disconnect`, verify `entity_id` belongs to the claimed wallet by checking the `entities` table. Reject with 403 if mismatch.
-
-### B. Add wallet ownership validation to `pointclickcare-auth`
-Same pattern -- require `wallet_address` param, verify ownership before processing actions.
-
-### C. Mark `security_definer_funcs` as acknowledged
-The `has_role()` and `get_entity_by_wallet()` functions are correctly implemented with fixed `search_path`. Mark this finding as ignored with justification.
-
-### D. Mark `entities_unrestricted_public_read` as acknowledged
-Entities table must be publicly readable for wallet-based auth. INSERT/UPDATE are already locked down. Mark as ignored with justification.
-
-### E. Mark `ehr_integrations_weak_rls` as acknowledged
-Already fixed with deny-all RLS + safe view. Mark as ignored with justification.
-
----
-
-## 3. Enhanced Layout
-
-### Dashboard Layout footer
-Add the existing `HipaaNotice` component to the `DashboardLayout` footer so it appears on every page.
-
-### Sidebar improvements
-- Add "Leaderboard" nav item with Trophy icon (page exists at `/provider/leaderboard` but isn't in nav)
-- Remove separate "Card" nav item (accessible from Cash Out page already)
-
-### Provider Dashboard header
-Add a prominent balance + quick "Cash Out" CTA button directly in the dashboard header area so providers always see their earnings.
-
----
-
-## 4. Streamline the Experience
-
-### Simplify off-ramp page
-- Merge the balance overview cards and conversion calculator into a single compact header section
-- Auto-check bank status on load (already done) with clearer loading state
-- Show the conversion math inline with the withdraw input instead of a separate calculator card
-
-### Cleaner navigation
-- Remove redundant "Card" sidebar entry (virtual card is accessible from Cash Out page)
-- Fewer clicks to get to the money
-
----
-
-## Technical Details
-
-### Database Update (via insert tool, not migration)
-```sql
-UPDATE reward_policies SET base_reward = 1000 WHERE event_type = 'encounter_note';
-UPDATE reward_policies SET base_reward = 750 WHERE event_type = 'medication_reconciliation';
-UPDATE reward_policies SET base_reward = 1500 WHERE event_type = 'discharge_summary';
-UPDATE reward_policies SET base_reward = 400 WHERE event_type = 'problem_list_update';
-UPDATE reward_policies SET base_reward = 600 WHERE event_type = 'orders_verified';
-UPDATE reward_policies SET base_reward = 1200 WHERE event_type = 'preventive_care';
-UPDATE reward_policies SET base_reward = 800 WHERE event_type = 'coding_finalized';
-UPDATE reward_policies SET base_reward = 300 WHERE event_type = 'intake_completed';
-UPDATE reward_policies SET base_reward = 200 WHERE event_type = 'consent_signed';
-UPDATE reward_policies SET base_reward = 500 WHERE event_type = 'follow_up_completed';
+```text
+Provider Wallet (has CARE tokens)
+        │
+        ▼
+[1] Frontend fetches quote from care-price edge function
+        │
+        ▼
+[2] Provider approves CARE spend → SwapRouter on-chain
+        │
+        ▼
+[3] Provider executes swap tx (CARE → USDC) via wagmi
+        │
+        ▼
+[4] Frontend sends USDC to platform treasury wallet
+        │
+        ▼
+[5] Edge function verifies on-chain tx, credits USD to Stripe card
 ```
 
-### Edge Function Changes
-- **`supabase/functions/epic-auth/index.ts`**: Add `wallet_address` param extraction, verify entity ownership before `authorize` and `disconnect` actions
-- **`supabase/functions/pointclickcare-auth/index.ts`**: Same wallet ownership verification
+## Changes
 
-### Frontend Changes
-- **`src/components/layout/AppSidebar.tsx`**: Add Leaderboard to provider nav, remove Card item
-- **`src/components/layout/DashboardLayout.tsx`**: Add HipaaNotice footer
-- **`src/pages/provider/FiatOfframp.tsx`**: Streamline -- merge balance + calculator into compact header, simplify layout
-- **`src/pages/provider/ProviderDashboard.tsx`**: Add balance bar with Cash Out CTA
+### 1. New edge function: `supabase/functions/care-price/index.ts`
+- Calls the Uniswap V3 Quoter V2 contract on Polygon via RPC to get a real-time CARE→USDC quote
+- Accepts `care_amount` parameter, returns `usdc_amount`, `price_per_care`, and `price_impact`
+- Uses the Polygon public RPC (no API key needed)
+- Contract addresses: Quoter V2 (`0x61fFE014bA17989E743c5F6cB21bF9697530B21e`), CARE, USDC
 
-### Security Finding Updates
-- Ignore `security_definer_funcs` (correctly implemented)
-- Ignore `entities_unrestricted_public_read` (architectural requirement)
-- Ignore `ehr_integrations_weak_rls` (already fixed)
-- Update `edge_functions_no_jwt_validation` after adding wallet validation
-- `client_role_check` stays as-is (hard architectural limitation)
+### 2. New hook: `src/hooks/useUniswapSwap.ts`
+- `getQuote(careAmount)`: calls the `care-price` edge function for live pricing
+- `executeSwap(careAmount)`: orchestrates the two on-chain transactions via wagmi:
+  1. `approve()` — approve Uniswap SwapRouter to spend CARE tokens
+  2. `exactInputSingle()` — execute the swap on SwapRouter (`0xE592427A0AEce92De3Edee1F18E0157C05861564`)
+- Returns USDC received amount for the next step
 
-### Files Modified
-1. `supabase/functions/epic-auth/index.ts`
-2. `supabase/functions/pointclickcare-auth/index.ts`
-3. `src/components/layout/AppSidebar.tsx`
-4. `src/components/layout/DashboardLayout.tsx`
-5. `src/pages/provider/FiatOfframp.tsx`
-6. `src/pages/provider/ProviderDashboard.tsx`
-7. Database: reward_policies table (data update)
-8. Security findings: 3 acknowledged, 1 updated
+### 3. Update `src/lib/wagmi.ts`
+- Add Uniswap contract addresses (SwapRouter, Quoter V2) to `CONTRACT_ADDRESSES`
+- Add SwapRouter ABI (just `exactInputSingle`) and ERC-20 `approve` (already present)
+
+### 4. Update `src/pages/provider/VirtualCard.tsx`
+- Replace `const [usdRate] = useState(0.01)` with live quote from `useUniswapSwap`
+- Show real-time USDC estimate as user types conversion amount
+- Conversion flow becomes:
+  1. Fetch quote → display estimated USDC output + price impact
+  2. User clicks "Convert" → approve tx → swap tx (both signed in wallet)
+  3. After swap confirms, call `virtual-card` edge function to credit the USD balance
+- Show "Powered by Uniswap" badge and the live rate
+
+### 5. Update `supabase/functions/virtual-card/index.ts`
+- Update `handleConvert` to accept a `tx_hash` parameter (the Uniswap swap transaction)
+- Verify the swap happened on-chain by reading the tx receipt via RPC
+- Extract the actual USDC amount received from the swap event logs
+- Credit the verified USD amount to the card balance (not a calculated amount)
+- This prevents manipulation — the backend only credits what was actually swapped
+
+### 6. Update `src/pages/provider/FiatOfframp.tsx`
+- Replace hardcoded `usdRate = 0.01` with live Uniswap price
+- Show the real market rate on the balance overview
+
+## Security Considerations
+- The backend **verifies the swap tx on-chain** before crediting USD — providers cannot fake amounts
+- Slippage protection: default 1% slippage tolerance, configurable by provider
+- If no Uniswap pool exists, the UI shows an informational message instead of failing silently
+
+## What this does NOT require
+- No API keys (Uniswap is permissionless, quotes use public RPC)
+- No Uniswap account or registration
+- No backend wallet or signing — the provider signs everything in their own wallet
 
