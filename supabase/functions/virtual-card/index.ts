@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, entity_id, wallet_address, care_amount, card_id, nonce } = await req.json();
+    const { action, entity_id, wallet_address, care_amount, card_id, nonce, tx_hash } = await req.json();
 
     if (!entity_id || typeof entity_id !== 'string') {
       return jsonResponse({ error: 'entity_id is required' }, 400, corsHeaders);
@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
         return await handleEphemeralKey(stripeKey, entity_id, nonce, supabase, corsHeaders);
       case 'convert':
         await auditLog(supabase, 'care_to_usd_conversion', 'virtual_card', { entity_id, care_amount }, req, wallet_address);
-        return await handleConvert(stripeKey, entity_id, wallet_address, care_amount, supabase, corsHeaders);
+        return await handleConvert(stripeKey, entity_id, wallet_address, care_amount, supabase, corsHeaders, tx_hash);
       case 'freeze':
         await auditLog(supabase, 'card_frozen', 'virtual_card', { card_id }, req, wallet_address);
         return await handleFreezeCard(stripeKey, card_id, true, corsHeaders);
@@ -368,7 +368,7 @@ async function handleCreateCard(
   }
 }
 
-async function handleConvert(stripeKey: string, entity_id: string, wallet_address: string, care_amount: number, supabase: any, corsHeaders: Record<string, string>) {
+async function handleConvert(stripeKey: string, entity_id: string, wallet_address: string, care_amount: number, supabase: any, corsHeaders: Record<string, string>, tx_hash?: string) {
   if (!care_amount || care_amount <= 0) {
     return jsonResponse({ error: 'Invalid amount' }, 400, corsHeaders);
   }
@@ -378,10 +378,26 @@ async function handleConvert(stripeKey: string, entity_id: string, wallet_addres
     return jsonResponse({ error: `Daily limit exceeded. Remaining: ${limit.remaining.toLocaleString()} CARE` }, 400, corsHeaders);
   }
 
-  const usdRate = 0.01;
-  const fee = 0.01;
-  const feeAmount = care_amount * usdRate * fee;
-  const usdAmount = care_amount * usdRate * (1 - fee);
+  let usdAmount: number;
+  let feeAmount: number;
+
+  if (tx_hash) {
+    // Verify on-chain swap transaction
+    const verified = await verifySwapTx(tx_hash);
+    if (!verified) {
+      return jsonResponse({ error: 'Could not verify swap transaction on-chain' }, 400, corsHeaders);
+    }
+    // Use verified USDC amount from on-chain tx
+    const fee = 0.01;
+    feeAmount = verified.usdcAmount * fee;
+    usdAmount = verified.usdcAmount - feeAmount;
+  } else {
+    // Fallback: simulated rate (for backward compat)
+    const usdRate = 0.01;
+    const fee = 0.01;
+    feeAmount = care_amount * usdRate * fee;
+    usdAmount = care_amount * usdRate * (1 - fee);
+  }
 
   const { data: settings } = await supabase
     .from('system_settings')
@@ -405,10 +421,47 @@ async function handleConvert(stripeKey: string, entity_id: string, wallet_addres
   return jsonResponse({
     success: true,
     care_amount,
-    usdc_amount: care_amount * usdRate,
     usd_loaded: usdAmount,
+    fee: feeAmount,
     new_balance: newBalance,
+    verified_on_chain: !!tx_hash,
   }, 200, corsHeaders);
+}
+
+const POLYGON_RPC = 'https://polygon-bor-rpc.publicnode.com';
+const USDC_ADDRESS = '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359';
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+async function verifySwapTx(txHash: string): Promise<{ usdcAmount: number } | null> {
+  try {
+    const res = await fetch(POLYGON_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1,
+        method: 'eth_getTransactionReceipt',
+        params: [txHash],
+      }),
+    });
+    const json = await res.json();
+    const receipt = json.result;
+    if (!receipt || receipt.status !== '0x1') return null;
+
+    // Find USDC Transfer event
+    const usdcLog = receipt.logs?.find((log: any) =>
+      log.address?.toLowerCase() === USDC_ADDRESS &&
+      log.topics?.[0] === TRANSFER_TOPIC
+    );
+    if (!usdcLog?.data) return null;
+
+    const usdcAmount = Number(BigInt(usdcLog.data)) / 1e6;
+    if (usdcAmount <= 0) return null;
+
+    return { usdcAmount };
+  } catch (err) {
+    console.error('Verify swap tx error:', err);
+    return null;
+  }
 }
 
 async function handleFreezeCard(stripeKey: string, card_id: string, freeze: boolean, corsHeaders: Record<string, string>) {

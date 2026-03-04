@@ -18,12 +18,20 @@ import {
   Clock,
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUniswapSwap } from '@/hooks/useUniswapSwap';
 
 export default function FiatOfframp() {
   const { isConnected, entity, earnedBalance, onChainBalance, totalBalance } = useWallet();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const usdRate = 0.01;
+  const { quote, quoteLoading, getQuote } = useUniswapSwap();
+
+  // Fetch a quote for 1 CARE to show live rate
+  useEffect(() => {
+    getQuote(1);
+  }, [getQuote]);
+
+  const liveRate = quote?.pool_exists ? quote.price_per_care : null;
 
   // Bank transfer state
   const [bankStatus, setBankStatus] = useState<{
@@ -113,7 +121,8 @@ export default function FiatOfframp() {
   }
 
   const wAmt = parseFloat(withdrawAmount) || 0;
-  const wGross = wAmt * usdRate;
+  const effectiveRate = liveRate ?? 0.01;
+  const wGross = wAmt * effectiveRate;
   const wFee = wGross * 0.01;
   const wNet = wGross - wFee;
 
@@ -124,7 +133,10 @@ export default function FiatOfframp() {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Cash Out</h1>
-            <p className="text-muted-foreground">Convert CARE tokens to USD · 1 CARE = ${usdRate} · 1% fee</p>
+            <p className="text-muted-foreground">
+              Convert CARE tokens to USD · {liveRate !== null ? `1 CARE ≈ $${liveRate.toFixed(4)}` : 'Rate loading...'} · 1% fee
+              {liveRate !== null && <span className="text-[10px] ml-1">(Uniswap V3)</span>}
+            </p>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
